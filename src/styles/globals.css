@@ -84,3 +84,22 @@ body {
   background-color: var(--color-background);
   color: var(--color-on-surface);
 }
+
+/* Tiptap editor placeholder */
+.tiptap p.is-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-outline-variant);
+  opacity: 0.4;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* Hide scrollbar for metadata chips row */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

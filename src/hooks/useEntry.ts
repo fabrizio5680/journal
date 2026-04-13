@@ -1,0 +1,98 @@
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore'
+import { onAuthStateChanged } from 'firebase/auth'
+
+import { auth, db } from '@/lib/firebase'
+import type { Entry } from '@/types'
+
+export interface UseEntryReturn {
+  entry: Entry | null
+  isLoading: boolean
+  isDirty: boolean
+  markDirty: () => void
+  save: (data: Partial<Entry>) => Promise<void>
+  wordCount: number
+}
+
+export function useEntry(date: string): UseEntryReturn {
+  // undefined = auth not yet resolved; null = not signed in; string = signed in
+  const [uid, setUid] = useState<string | null | undefined>(undefined)
+  const [entry, setEntry] = useState<Entry | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
+  // Track which "uid/date" key has been loaded so we can derive isLoading without
+  // calling setState synchronously inside an effect body.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+
+  // Use a ref so the snapshot callback always reads the latest isDirty value
+  // without causing the effect to re-subscribe.
+  const isDirtyRef = useRef(false)
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid ?? null)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!uid) return
+
+    const entryRef = doc(db, 'users', uid, 'entries', date)
+    const currentKey = `${uid}/${date}`
+
+    const unsub = onSnapshot(entryRef, (snap) => {
+      // Mark this key as loaded (in callback — not synchronous in effect body)
+      setLoadedKey(currentKey)
+      if (snap.exists()) {
+        // Ignore remote updates while the user is typing
+        if (!isDirtyRef.current) {
+          setEntry(snap.data() as Entry)
+        }
+      } else {
+        if (!isDirtyRef.current) setEntry(null)
+      }
+    })
+
+    return unsub
+  }, [uid, date])
+
+  const queryKey = uid != null ? `${uid}/${date}` : null
+  const isLoading = uid === undefined || (queryKey !== null && loadedKey !== queryKey)
+
+  const markDirty = useCallback(() => {
+    setIsDirty(true)
+    isDirtyRef.current = true
+  }, [])
+
+  const save = useCallback(
+    async (data: Partial<Entry>) => {
+      if (!uid) return
+
+      const entryRef = doc(db, 'users', uid, 'entries', date)
+      const isNew = entry === null
+
+      await setDoc(
+        entryRef,
+        {
+          ...data,
+          date,
+          updatedAt: serverTimestamp(),
+          ...(isNew ? { createdAt: serverTimestamp() } : {}),
+        },
+        { merge: true },
+      )
+
+      setIsDirty(false)
+      isDirtyRef.current = false
+    },
+    [uid, date, entry],
+  )
+
+  return {
+    entry,
+    isLoading,
+    isDirty,
+    markDirty,
+    save,
+    wordCount: entry?.wordCount ?? 0,
+  }
+}

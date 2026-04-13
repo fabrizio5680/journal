@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged, type User } from 'firebase/auth'
 
 import { auth } from '@/lib/firebase'
+import { SaveStatusProvider } from '@/context/SaveStatusContext'
 import AppShell from '@/components/layout/AppShell'
 import LoginPage from '@/components/auth/LoginPage'
 import TodayPage from '@/pages/TodayPage'
@@ -36,7 +37,9 @@ export default function App() {
       <Route
         element={
           <RequireAuth>
-            <AppShell />
+            <SaveStatusProvider>
+              <AppShell />
+            </SaveStatusProvider>
           </RequireAuth>
         }
       >
