@@ -17,10 +17,18 @@ export const auth = getAuth(app)
 export const db = getFirestore(app)
 
 if (import.meta.env.VITE_USE_EMULATOR === 'true') {
-  const { connectAuthEmulator } = await import('firebase/auth')
+  const { connectAuthEmulator, signInWithEmailAndPassword } = await import('firebase/auth')
   const { connectFirestoreEmulator } = await import('firebase/firestore')
   connectAuthEmulator(auth, 'http://localhost:9099')
   connectFirestoreEmulator(db, 'localhost', 8080)
+  // Expose a test sign-in helper so Playwright E2E tests can authenticate
+  ;(
+    window as typeof window & {
+      __signInForTest: (email: string, password: string) => Promise<void>
+    }
+  ).__signInForTest = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password)
+  }
 } else {
   enableIndexedDbPersistence(db).catch((err: { code: string }) => {
     if (err.code === 'failed-precondition') {

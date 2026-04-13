@@ -61,6 +61,7 @@ restoreEntry: () => Promise<void>
 Query: `users/{userId}/entries where deleted == true, orderBy deletedAt DESC`
 
 For each entry, show `EntryListCard` variant with:
+
 - Red `deleted` badge showing days remaining: `Math.max(0, 30 - daysSince(deletedAt))` days left
 - Two action buttons instead of arrow:
   - Restore: `bg-primary-container text-primary rounded-full px-4 py-1.5 text-xs font-semibold`
@@ -82,6 +83,7 @@ also triggers Algolia extension to remove from index).
 ## Firestore TTL Policy (Manual Console Step)
 
 In Firebase console → Firestore → Indexes → TTL policies:
+
 - Collection group: `entries`
 - Timestamp field: `deletedAt`
 

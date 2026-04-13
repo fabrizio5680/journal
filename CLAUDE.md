@@ -83,20 +83,20 @@ const MOODS = [
 
 All color tokens are defined in `src/styles/globals.css` and available as Tailwind utilities.
 
-| Token | Value |
-| --- | --- |
-| `bg-background` | #faf9f7 |
+| Token                         | Value   |
+| ----------------------------- | ------- |
+| `bg-background`               | #faf9f7 |
 | `bg-surface-container-lowest` | #ffffff |
-| `bg-surface-container-low` | #f4f4f1 |
-| `bg-surface-container` | #edeeec |
-| `text-on-surface` | #303331 |
-| `text-on-surface-variant` | #5d605e |
-| `bg-primary` | #526448 |
-| `text-on-primary` | #ecffdd |
-| `bg-primary-container` | #d4e9c5 |
-| `bg-secondary-container` | #eae1d4 |
+| `bg-surface-container-low`    | #f4f4f1 |
+| `bg-surface-container`        | #edeeec |
+| `text-on-surface`             | #303331 |
+| `text-on-surface-variant`     | #5d605e |
+| `bg-primary`                  | #526448 |
+| `text-on-primary`             | #ecffdd |
+| `bg-primary-container`        | #d4e9c5 |
+| `bg-secondary-container`      | #eae1d4 |
 | `text-on-secondary-container` | #565147 |
-| `text-outline-variant` | #b0b2b0 |
+| `text-outline-variant`        | #b0b2b0 |
 
 **Card:** `bg-surface-container-lowest rounded-[2rem] border border-transparent hover:border-outline-variant/10 hover:shadow-[0_4px_40px_rgba(48,51,49,0.06)] transition-all duration-500`
 
@@ -173,17 +173,17 @@ VITE_BIBLE_API_KEY=
 
 ## Phase Index
 
-| Phase | Focus |
-| --- | --- |
-| [Phase 1](phases/phase-1.md) | Foundation — scaffold, Tailwind, Firebase, auth, ESLint, Prettier, testing, CI/CD |
-| [Phase 2](phases/phase-2.md) | App Shell — layout, sidebar, top bar, bottom nav, right panel, useStreak |
-| [Phase 3](phases/phase-3.md) | Core Editor — Tiptap, auto-save, FloatingActionBar, TodayPage |
-| [Phase 4](phases/phase-4.md) | Mood + Tags — MoodPicker, TagInput, tagVocabulary |
-| [Phase 5](phases/phase-5.md) | History — MiniCalendar, EntryListCard, HistoryPage, EntryPage |
-| [Phase 6](phases/phase-6.md) | Dictation — useDictation, BubbleMenu wire-up |
-| [Phase 7](phases/phase-7.md) | Focus Mode — useFocusMode, hide chrome |
-| [Phase 8](phases/phase-8.md) | Search — Algolia extension, getSearchKey, SearchModal |
-| [Phase 9](phases/phase-9.md) | Soft Delete + Trash — delete flow, TrashPage, TTL |
-| [Phase 10](phases/phase-10.md) | Insights — useInsights, MoodSparkline, TopTags |
-| [Phase 11](phases/phase-11.md) | Settings + Notifications — SettingsPage, FCM, sendDailyReminders |
-| [Phase 12](phases/phase-12.md) | PWA + Polish — service worker, skeletons, empty states, grain, mobile QA |
+| Phase                          | Focus                                                                             |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| [Phase 1](phases/phase-1.md)   | Foundation — scaffold, Tailwind, Firebase, auth, ESLint, Prettier, testing, CI/CD |
+| [Phase 2](phases/phase-2.md)   | App Shell — layout, sidebar, top bar, bottom nav, right panel, useStreak          |
+| [Phase 3](phases/phase-3.md)   | Core Editor — Tiptap, auto-save, FloatingActionBar, TodayPage                     |
+| [Phase 4](phases/phase-4.md)   | Mood + Tags — MoodPicker, TagInput, tagVocabulary                                 |
+| [Phase 5](phases/phase-5.md)   | History — MiniCalendar, EntryListCard, HistoryPage, EntryPage                     |
+| [Phase 6](phases/phase-6.md)   | Dictation — useDictation, BubbleMenu wire-up                                      |
+| [Phase 7](phases/phase-7.md)   | Focus Mode — useFocusMode, hide chrome                                            |
+| [Phase 8](phases/phase-8.md)   | Search — Algolia extension, getSearchKey, SearchModal                             |
+| [Phase 9](phases/phase-9.md)   | Soft Delete + Trash — delete flow, TrashPage, TTL                                 |
+| [Phase 10](phases/phase-10.md) | Insights — useInsights, MoodSparkline, TopTags                                    |
+| [Phase 11](phases/phase-11.md) | Settings + Notifications — SettingsPage, FCM, sendDailyReminders                  |
+| [Phase 12](phases/phase-12.md) | PWA + Polish — service worker, skeletons, empty states, grain, mobile QA          |

@@ -59,6 +59,7 @@ Simplest approach for MVP: render inline as a row that expands when "Add mood" i
 **Props:** `{ tags: string[], vocabulary: string[], onChange: (tags: string[]) => void }`
 
 **Behaviour:**
+
 - Shows current tags as removable `Chip` components (with `×` remove button)
 - Text input filters `vocabulary` for autocomplete suggestions as user types
 - Pressing Enter or clicking a suggestion adds the tag

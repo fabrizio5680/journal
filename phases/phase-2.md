@@ -49,6 +49,7 @@ Mobile (<md):
 `w-64 fixed left-0 top-0 h-screen bg-surface-container-low flex flex-col px-4 py-8 hidden md:flex`
 
 **Top section:**
+
 - Logo mark: `w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center` + `edit_note` icon
 - Brand: "Reflect" `text-xl font-black` + "The Quiet Sanctuary" `text-xs text-on-surface-variant`
 
@@ -62,6 +63,7 @@ Inactive: text-on-surface-variant hover:bg-surface-bright rounded-xl px-4 py-3 t
 Items: Journal (`edit_note`), History (`calendar_month`), Insights (`bar_chart`), Settings (`settings`)
 
 **Bottom section** (mt-auto):
+
 - "New Entry" button: `bg-primary hover:bg-primary-dim text-on-primary font-bold py-3 px-4 rounded-full w-full`
 - User avatar (`photoURL`, `w-8 h-8 rounded-full`) + displayName + streak badge: `🔥 {current} day streak` in `text-xs text-on-surface-variant`
 
@@ -98,6 +100,7 @@ Label: `text-[10px] mt-1` below icon
 **DailyScripture card** (see component below)
 
 **Sync status** (`flex items-center gap-2 text-xs text-on-surface-variant mt-auto`):
+
 - Online: `cloud_done` icon + "Synced to Cloud"
 - Offline: `cloud_off` icon + "Offline — changes will sync" (watch `navigator.onLine` + `online`/`offline` events)
 
@@ -129,12 +132,16 @@ select by `Math.floor(dayOfYear / 7) % verses.length`.
 ```ts
 const FALLBACK_VERSES = [
   { reference: 'Psalm 46:10', text: 'Be still, and know that I am God.' },
-  { reference: 'Philippians 4:13', text: 'I can do everything through Christ, who gives me strength.' },
+  {
+    reference: 'Philippians 4:13',
+    text: 'I can do everything through Christ, who gives me strength.',
+  },
   // ...8 more
 ]
 ```
 
 **UI** (`bg-surface-container-low rounded-[2rem] p-6`):
+
 - `format_quote` Material Symbol icon `text-primary text-2xl`
 - Verse text: `text-sm leading-relaxed font-light text-on-surface italic`
 - Reference: `text-[10px] uppercase tracking-widest font-bold text-primary mt-3`

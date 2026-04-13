@@ -53,14 +53,14 @@ function useEntryDates(userId: string, year: number, month: number): Set<string>
 
 Date cell states:
 
-| State | Classes |
-| --- | --- |
-| Today | `bg-primary-container text-primary font-bold rounded-full` |
-| Has entry | `font-medium text-on-surface` + `w-1 h-1 bg-primary rounded-full mx-auto mt-0.5` dot below number |
-| Selected | `bg-primary text-on-primary rounded-full` |
-| Hover | `hover:bg-primary-container/20 rounded-full transition-colors` |
-| Out of month | `text-on-surface-variant opacity-30` |
-| Today + has entry | `bg-primary-container text-primary rounded-full` + dot |
+| State             | Classes                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| Today             | `bg-primary-container text-primary font-bold rounded-full`                                        |
+| Has entry         | `font-medium text-on-surface` + `w-1 h-1 bg-primary rounded-full mx-auto mt-0.5` dot below number |
+| Selected          | `bg-primary text-on-primary rounded-full`                                                         |
+| Hover             | `hover:bg-primary-container/20 rounded-full transition-colors`                                    |
+| Out of month      | `text-on-surface-variant opacity-30`                                                              |
+| Today + has entry | `bg-primary-container text-primary rounded-full` + dot                                            |
 
 Each cell: `w-9 h-9 flex flex-col items-center justify-center cursor-pointer text-sm`
 

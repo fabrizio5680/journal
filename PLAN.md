@@ -2,34 +2,35 @@
 
 ## Agreed Spec
 
-| Decision | Choice |
-|---|---|
-| App name | "The Quiet Sanctuary" / brand mark "Reflect" |
-| Framework | React + Vite + TypeScript |
-| Styling | Tailwind CSS (custom config — no shadcn/ui, design system is bespoke) |
-| Auth | Google Sign-In only (no email/password) |
-| Database | Firestore — `users/{uid}/entries/{YYYY-MM-DD}` |
-| Rich text editor | Tiptap (JSON serialization) |
-| Mood | 5-emoji scale → numeric 1–5, optional |
-| Tags | Hybrid autocomplete; stored on entry + user tag vocabulary |
-| Search | Algolia, faceted (tag + mood + date range), secured API keys |
-| Algolia record | Truncated plain-text excerpt (≤8KB) + all metadata |
-| Dictation | Web Speech API, real-time append; toolbar button (desktop) + FAB (mobile) |
-| Date navigation | Mini-calendar (desktop sidebar) + date picker (mobile top bar), entry dots |
-| Insights | Streak counter, mood sparkline, top tags |
-| Hosting | Firebase Hosting (project: `journal-manna`) |
-| PWA | Yes — installable, offline read + write via Firestore persistence + service worker |
-| Past entries | Always editable |
-| Delete | Soft delete, 30-day recovery window |
-| Backend | Two Cloud Functions: `getSearchKey` (Algolia secured key) + `sendDailyReminders` (FCM push, Cloud Scheduler) |
-| Sharing | None — strictly private |
-| Focus mode | Distraction-free toggle that hides all chrome except writing area |
+| Decision         | Choice                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------ |
+| App name         | "The Quiet Sanctuary" / brand mark "Reflect"                                                                 |
+| Framework        | React + Vite + TypeScript                                                                                    |
+| Styling          | Tailwind CSS (custom config — no shadcn/ui, design system is bespoke)                                        |
+| Auth             | Google Sign-In only (no email/password)                                                                      |
+| Database         | Firestore — `users/{uid}/entries/{YYYY-MM-DD}`                                                               |
+| Rich text editor | Tiptap (JSON serialization)                                                                                  |
+| Mood             | 5-emoji scale → numeric 1–5, optional                                                                        |
+| Tags             | Hybrid autocomplete; stored on entry + user tag vocabulary                                                   |
+| Search           | Algolia, faceted (tag + mood + date range), secured API keys                                                 |
+| Algolia record   | Truncated plain-text excerpt (≤8KB) + all metadata                                                           |
+| Dictation        | Web Speech API, real-time append; toolbar button (desktop) + FAB (mobile)                                    |
+| Date navigation  | Mini-calendar (desktop sidebar) + date picker (mobile top bar), entry dots                                   |
+| Insights         | Streak counter, mood sparkline, top tags                                                                     |
+| Hosting          | Firebase Hosting (project: `journal-manna`)                                                                  |
+| PWA              | Yes — installable, offline read + write via Firestore persistence + service worker                           |
+| Past entries     | Always editable                                                                                              |
+| Delete           | Soft delete, 30-day recovery window                                                                          |
+| Backend          | Two Cloud Functions: `getSearchKey` (Algolia secured key) + `sendDailyReminders` (FCM push, Cloud Scheduler) |
+| Sharing          | None — strictly private                                                                                      |
+| Focus mode       | Distraction-free toggle that hides all chrome except writing area                                            |
 
 ---
 
 ## Design System
 
 ### Fonts
+
 - **Primary**: Manrope (weights: 200, 300, 400, 500, 600, 700, 800)
 - **Icons**: Material Symbols Outlined (`font-variation-settings: 'FILL' 0, 'wght' 300–400`)
 - Load both from Google Fonts
@@ -112,23 +113,25 @@ borderRadius: {
 
 ### Typography Scale
 
-| Role | Class | Usage |
-|---|---|---|
-| App brand | `text-xl font-black` | Sidebar logo |
-| Page headline | `text-[3.5rem] font-bold tracking-tight` | History page header |
-| Entry date | `text-2xl font-bold tracking-tighter` | Top bar |
-| Card title | `text-2xl font-bold tracking-tight` | Entry cards |
-| Body | `text-xl leading-relaxed font-light` | Writing area |
-| Label | `text-[10px] uppercase tracking-widest font-bold` | Dates, metadata labels |
-| Chip | `text-xs font-medium` or `text-xs font-semibold` | Tags, mood chips |
+| Role          | Class                                             | Usage                  |
+| ------------- | ------------------------------------------------- | ---------------------- |
+| App brand     | `text-xl font-black`                              | Sidebar logo           |
+| Page headline | `text-[3.5rem] font-bold tracking-tight`          | History page header    |
+| Entry date    | `text-2xl font-bold tracking-tighter`             | Top bar                |
+| Card title    | `text-2xl font-bold tracking-tight`               | Entry cards            |
+| Body          | `text-xl leading-relaxed font-light`              | Writing area           |
+| Label         | `text-[10px] uppercase tracking-widest font-bold` | Dates, metadata labels |
+| Chip          | `text-xs font-medium` or `text-xs font-semibold`  | Tags, mood chips       |
 
 ### Writing Area Style
+
 - `bg-transparent border-none resize-none focus:ring-0`
 - `text-xl leading-[1.8] font-light text-on-surface`
 - `placeholder:text-outline-variant/40`
 - Selection: `selection:bg-primary-container selection:text-on-primary-container`
 
 ### Card Style
+
 - Background: `bg-surface-container-lowest`
 - Border radius: `rounded-[2rem]`
 - Border: `border border-transparent hover:border-outline-variant/10`
@@ -136,6 +139,7 @@ borderRadius: {
 - Transition: `transition-all duration-500`
 
 ### Chip / Tag Style
+
 - Background: `bg-secondary-container text-on-secondary-container`
 - Padding: `px-3 py-1.5` or `px-4 py-1.5`
 - Border radius: `rounded-xl` (8px)
@@ -144,24 +148,25 @@ borderRadius: {
 
 ### Button Styles
 
-| Type | Classes |
-|---|---|
-| Primary pill | `bg-primary hover:bg-primary-dim text-on-primary font-bold py-4 px-6 rounded-full shadow-sm` |
-| Primary gradient FAB | `bg-gradient-to-r from-primary to-primary-dim text-on-primary rounded-full shadow-[0_10px_40px_rgba(82,100,72,0.2)]` |
-| Ghost/icon | `p-2 hover:bg-surface-container rounded-full transition-colors` |
-| Google OAuth | `bg-surface-container border border-outline-variant/20 hover:bg-surface-container-high rounded-full py-4 px-6 font-semibold` |
-| Secondary FAB | `bg-surface-container-lowest text-primary rounded-full shadow-[0_10px_40px_rgba(48,51,49,0.12)]` |
+| Type                 | Classes                                                                                                                      |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Primary pill         | `bg-primary hover:bg-primary-dim text-on-primary font-bold py-4 px-6 rounded-full shadow-sm`                                 |
+| Primary gradient FAB | `bg-gradient-to-r from-primary to-primary-dim text-on-primary rounded-full shadow-[0_10px_40px_rgba(82,100,72,0.2)]`         |
+| Ghost/icon           | `p-2 hover:bg-surface-container rounded-full transition-colors`                                                              |
+| Google OAuth         | `bg-surface-container border border-outline-variant/20 hover:bg-surface-container-high rounded-full py-4 px-6 font-semibold` |
+| Secondary FAB        | `bg-surface-container-lowest text-primary rounded-full shadow-[0_10px_40px_rgba(48,51,49,0.12)]`                             |
 
 ### Nav Item States
 
-| State | Classes |
-|---|---|
-| Active | `bg-surface-container-lowest text-primary font-bold shadow-sm scale-[0.98] rounded-xl` |
-| Inactive | `text-on-surface-variant hover:bg-surface-bright rounded-xl transition-colors duration-300` |
-| Active mobile bottom | `bg-primary-container text-primary rounded-full p-3 scale-95` |
-| Inactive mobile bottom | `text-on-surface-variant p-3 hover:text-primary` |
+| State                  | Classes                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| Active                 | `bg-surface-container-lowest text-primary font-bold shadow-sm scale-[0.98] rounded-xl`      |
+| Inactive               | `text-on-surface-variant hover:bg-surface-bright rounded-xl transition-colors duration-300` |
+| Active mobile bottom   | `bg-primary-container text-primary rounded-full p-3 scale-95`                               |
+| Inactive mobile bottom | `text-on-surface-variant p-3 hover:text-primary`                                            |
 
 ### Bottom Nav Bar (Mobile)
+
 ```
 bg-surface/70 backdrop-blur-xl rounded-t-3xl
 shadow-[0_-4px_40px_rgba(48,51,49,0.06)]
@@ -170,6 +175,7 @@ px-6 pb-8 pt-4
 ```
 
 ### Floating Action Bar (Editor)
+
 - Centered on mobile: `fixed bottom-12 left-1/2 -translate-x-1/2`
 - Right-anchored on desktop: `md:translate-x-0 md:left-auto md:right-12`
 - Contains: Dictate button (round, `surface-container-lowest`) + Save button (pill, primary gradient)
@@ -183,12 +189,14 @@ px-6 pb-8 pt-4
 **Layout:** Asymmetric split — 40–45% left form / 55–60% right atmospheric image (hidden on mobile)
 
 **Left panel** (`bg-surface-container-lowest z-10`):
+
 - Top: Logo mark (`w-10 h-10 bg-primary-container rounded-xl` + `edit_note` icon) + "The Quiet Sanctuary" wordmark
 - Hero copy: `text-4xl font-extrabold` headline + subtitle
 - Google Sign-In button (prominent, pill-shaped)
 - Bottom: `"Privacy matters. Your thoughts are encrypted."` in `text-[10px] uppercase tracking-[0.2em] text-on-surface-variant/60`
 
 **Right panel** (desktop only, `md:flex-grow`):
+
 - Full-bleed atmospheric photo (journal/desk/morning light) with `grayscale-[20%]`
 - Natural paper texture overlay at 20% opacity
 - Glassmorphism scripture card: `bg-surface/70 backdrop-blur-2xl rounded-[2rem] border border-surface-container-lowest/30`
@@ -200,6 +208,7 @@ px-6 pb-8 pt-4
 ### Screen 2: App Shell (All authenticated pages)
 
 **Desktop (≥768px):** Three-column layout
+
 - **Left sidebar** (`w-64 fixed`, `bg-surface-container-low`):
   - Brand: "Reflect" + "The Quiet Sanctuary" subtitle
   - Nav items: Journal (edit_note), History (calendar_month), Insights (bar_chart), Settings (settings)
@@ -210,6 +219,7 @@ px-6 pb-8 pt-4
   - Sync status: `cloud_done` icon + "Synced to Cloud" when online; `cloud_off` icon + "Offline — changes will sync" when `!navigator.onLine`
 
 **Mobile (<768px):**
+
 - No sidebar
 - Fixed top bar: date display (left) + "Draft saved Xm ago" + search icon (`search`) + avatar (right)
 - Bottom nav: Entry (edit_note), History (calendar_month), Focus (visibility_off), Settings (settings)
@@ -220,11 +230,13 @@ px-6 pb-8 pt-4
 ### Screen 3: Daily Entry (Today / Entry Page)
 
 **Top bar (desktop):**
+
 - Day of week in `text-xs uppercase tracking-[0.2em] text-on-surface-variant`
 - Date in `text-2xl font-bold text-primary tracking-tighter`
 - Draft saved indicator (right)
 
 **Editor area** (`max-w-3xl mx-auto pt-32 pb-24 px-8`):
+
 - Metadata chips row (scrollable on mobile, `no-scrollbar`):
   - Mood chip: `bg-secondary-container` + Material Symbol icon + label
   - Tag chips: same style
@@ -245,12 +257,14 @@ px-6 pb-8 pt-4
 ### Screen 4: History Page
 
 **Header** (`mb-16`):
+
 - `text-[3.5rem] font-bold tracking-tight` — "Past Chapters"
 - Subtitle in `text-on-surface-variant max-w-xl text-lg leading-relaxed`
 
 **Bento grid** (`grid-cols-1 lg:grid-cols-12 gap-8`):
 
 **Left: Mini Calendar** (`lg:col-span-5 bg-surface-container-low rounded-[2rem] p-8`):
+
 - Month/year header + chevron nav
 - 7-col grid, day labels in `text-[10px] uppercase tracking-widest`
 - Date states:
@@ -261,6 +275,7 @@ px-6 pb-8 pt-4
 - Mood Summary bar at bottom: 4 colored `h-1` bars + italic AI summary text
 
 **Right: Entry Cards** (`lg:col-span-7`):
+
 - Count label + search/filter icon buttons
 - **List card** (`bg-surface-container-lowest rounded-[2rem]`):
   - Date label (`text-[10px] uppercase tracking-widest font-black`)
@@ -415,80 +430,84 @@ Tailwind v4 uses a **CSS-first config** — no `tailwind.config.ts`. All theme t
 
 ```css
 /* src/styles/globals.css */
-@import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap");
+@import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 @theme {
   /* Colors */
-  --color-background:                 #faf9f7;
-  --color-surface:                    #faf9f7;
-  --color-surface-bright:             #faf9f7;
-  --color-surface-dim:                #d9dad8;
-  --color-surface-variant:            #e1e3e0;
-  --color-surface-container-lowest:   #ffffff;
-  --color-surface-container-low:      #f4f4f1;
-  --color-surface-container:          #edeeec;
-  --color-surface-container-high:     #e7e8e6;
-  --color-surface-container-highest:  #e1e3e0;
-  --color-on-surface:                 #303331;
-  --color-on-surface-variant:         #5d605e;
-  --color-on-background:              #303331;
-  --color-primary:                    #526448;
-  --color-primary-dim:                #46583d;
-  --color-primary-fixed:              #d4e9c5;
-  --color-primary-fixed-dim:          #c6dbb8;
-  --color-primary-container:          #d4e9c5;
-  --color-on-primary:                 #ecffdd;
-  --color-on-primary-fixed:           #33442a;
-  --color-on-primary-fixed-variant:   #4f6145;
-  --color-on-primary-container:       #45573b;
-  --color-inverse-primary:            #e8fdd8;
-  --color-surface-tint:               #526448;
-  --color-secondary:                  #645e54;
-  --color-secondary-dim:              #585348;
-  --color-secondary-fixed:            #eae1d4;
-  --color-secondary-fixed-dim:        #dcd3c6;
-  --color-secondary-container:        #eae1d4;
-  --color-on-secondary:               #fff8ef;
-  --color-on-secondary-fixed:         #433f35;
+  --color-background: #faf9f7;
+  --color-surface: #faf9f7;
+  --color-surface-bright: #faf9f7;
+  --color-surface-dim: #d9dad8;
+  --color-surface-variant: #e1e3e0;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f4f4f1;
+  --color-surface-container: #edeeec;
+  --color-surface-container-high: #e7e8e6;
+  --color-surface-container-highest: #e1e3e0;
+  --color-on-surface: #303331;
+  --color-on-surface-variant: #5d605e;
+  --color-on-background: #303331;
+  --color-primary: #526448;
+  --color-primary-dim: #46583d;
+  --color-primary-fixed: #d4e9c5;
+  --color-primary-fixed-dim: #c6dbb8;
+  --color-primary-container: #d4e9c5;
+  --color-on-primary: #ecffdd;
+  --color-on-primary-fixed: #33442a;
+  --color-on-primary-fixed-variant: #4f6145;
+  --color-on-primary-container: #45573b;
+  --color-inverse-primary: #e8fdd8;
+  --color-surface-tint: #526448;
+  --color-secondary: #645e54;
+  --color-secondary-dim: #585348;
+  --color-secondary-fixed: #eae1d4;
+  --color-secondary-fixed-dim: #dcd3c6;
+  --color-secondary-container: #eae1d4;
+  --color-on-secondary: #fff8ef;
+  --color-on-secondary-fixed: #433f35;
   --color-on-secondary-fixed-variant: #605b51;
-  --color-on-secondary-container:     #565147;
-  --color-tertiary:                   #65612a;
-  --color-tertiary-dim:               #58551f;
-  --color-tertiary-fixed:             #fdf6b0;
-  --color-tertiary-fixed-dim:         #eee8a3;
-  --color-tertiary-container:         #fdf6b0;
-  --color-on-tertiary:                #fffada;
-  --color-on-tertiary-fixed:          #4f4b16;
-  --color-on-tertiary-fixed-variant:  #6c6830;
-  --color-on-tertiary-container:      #615d27;
-  --color-outline:                    #797b79;
-  --color-outline-variant:            #b0b2b0;
-  --color-error:                      #a73b21;
-  --color-error-dim:                  #791903;
-  --color-error-container:            #fd795a;
-  --color-on-error:                   #fff7f6;
-  --color-on-error-container:         #6e1400;
-  --color-inverse-surface:            #0d0e0e;
-  --color-inverse-on-surface:         #9d9d9b;
+  --color-on-secondary-container: #565147;
+  --color-tertiary: #65612a;
+  --color-tertiary-dim: #58551f;
+  --color-tertiary-fixed: #fdf6b0;
+  --color-tertiary-fixed-dim: #eee8a3;
+  --color-tertiary-container: #fdf6b0;
+  --color-on-tertiary: #fffada;
+  --color-on-tertiary-fixed: #4f4b16;
+  --color-on-tertiary-fixed-variant: #6c6830;
+  --color-on-tertiary-container: #615d27;
+  --color-outline: #797b79;
+  --color-outline-variant: #b0b2b0;
+  --color-error: #a73b21;
+  --color-error-dim: #791903;
+  --color-error-container: #fd795a;
+  --color-on-error: #fff7f6;
+  --color-on-error-container: #6e1400;
+  --color-inverse-surface: #0d0e0e;
+  --color-inverse-on-surface: #9d9d9b;
 
   /* Border radius */
-  --radius:      0.125rem;
-  --radius-lg:   0.25rem;
-  --radius-xl:   0.5rem;
+  --radius: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
   --radius-full: 0.75rem;
 
   /* Font families */
-  --font-headline: "Manrope", sans-serif;
-  --font-body:     "Manrope", sans-serif;
-  --font-label:    "Manrope", sans-serif;
-  --font-manrope:  "Manrope", sans-serif;
+  --font-headline: 'Manrope', sans-serif;
+  --font-body: 'Manrope', sans-serif;
+  --font-label: 'Manrope', sans-serif;
+  --font-manrope: 'Manrope', sans-serif;
 }
 
 /* Material Symbols base */
 .material-symbols-outlined {
-  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
 }
 
 /* Writing area selection */
@@ -505,6 +524,7 @@ Tailwind v4 uses a **CSS-first config** — no `tailwind.config.ts`. All theme t
 ### Firestore
 
 #### `users/{userId}`
+
 ```ts
 {
   displayName: string
@@ -522,6 +542,7 @@ Tailwind v4 uses a **CSS-first config** — no `tailwind.config.ts`. All theme t
 ```
 
 #### `users/{userId}/entries/{YYYY-MM-DD}`
+
 ```ts
 {
   date: string                  // "2025-04-13" — also the document ID
@@ -539,17 +560,19 @@ Tailwind v4 uses a **CSS-first config** — no `tailwind.config.ts`. All theme t
 ```
 
 ### Mood Mapping
+
 ```ts
 const MOODS = [
-  { value: 1, emoji: "😔", label: "Heavy" },
-  { value: 2, emoji: "😐", label: "Neutral" },
-  { value: 3, emoji: "🙂", label: "Calm" },
-  { value: 4, emoji: "😊", label: "Peaceful" },
-  { value: 5, emoji: "🥳", label: "Radiant" },
+  { value: 1, emoji: '😔', label: 'Heavy' },
+  { value: 2, emoji: '😐', label: 'Neutral' },
+  { value: 3, emoji: '🙂', label: 'Calm' },
+  { value: 4, emoji: '😊', label: 'Peaceful' },
+  { value: 5, emoji: '🥳', label: 'Radiant' },
 ]
 ```
 
 ### Algolia Record (index: `journal_entries`)
+
 ```ts
 {
   objectID: string              // "{userId}_{YYYY-MM-DD}"
@@ -565,6 +588,7 @@ const MOODS = [
 ```
 
 ### Firestore Indexes
+
 ```json
 [
   {
@@ -620,10 +644,10 @@ service cloud.firestore {
 export const getSearchKey = onCall(async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError('unauthenticated', 'Login required')
-  const key = algoliaAdminClient.generateSecuredApiKey(
-    ALGOLIA_SEARCH_ONLY_KEY,
-    { filters: `userId:${uid}`, validUntil: nowPlusOneHour() }
-  )
+  const key = algoliaAdminClient.generateSecuredApiKey(ALGOLIA_SEARCH_ONLY_KEY, {
+    filters: `userId:${uid}`,
+    validUntil: nowPlusOneHour(),
+  })
   return { key }
 })
 ```
@@ -633,6 +657,7 @@ export const getSearchKey = onCall(async (request) => {
 ## Algolia Sync Strategy
 
 Use the **Firebase Algolia Search Extension** (`firestore-algolia-search`):
+
 - Watches `users/{userId}/entries/{entryId}`
 - On create/update: indexes record with `excerpt` truncated to 8KB
 - On delete: removes from index
@@ -691,7 +716,7 @@ export default {
   trailingComma: 'all',
   printWidth: 100,
   tabWidth: 2,
-  plugins: ['prettier-plugin-tailwindcss'],  // auto-sorts Tailwind classes
+  plugins: ['prettier-plugin-tailwindcss'], // auto-sorts Tailwind classes
 }
 ```
 
@@ -802,7 +827,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    needs: []   # depends on CI passing via branch protection rules
+    needs: [] # depends on CI passing via branch protection rules
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -828,18 +853,18 @@ jobs:
 
 **Required GitHub Secrets:**
 
-| Secret | Source |
-| --- | --- |
-| `VITE_FIREBASE_API_KEY` | Firebase console |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase console |
-| `VITE_FIREBASE_PROJECT_ID` | Firebase console |
-| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase console |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase console |
-| `VITE_FIREBASE_APP_ID` | Firebase console |
-| `VITE_ALGOLIA_APP_ID` | Algolia dashboard |
-| `VITE_BIBLE_API_KEY` | scripture.api.bible dashboard |
-| `FIREBASE_SERVICE_ACCOUNT` | `firebase init hosting:github` generates this |
-| `FIREBASE_TOKEN` | `firebase login:ci` |
+| Secret                              | Source                                        |
+| ----------------------------------- | --------------------------------------------- |
+| `VITE_FIREBASE_API_KEY`             | Firebase console                              |
+| `VITE_FIREBASE_AUTH_DOMAIN`         | Firebase console                              |
+| `VITE_FIREBASE_PROJECT_ID`          | Firebase console                              |
+| `VITE_FIREBASE_STORAGE_BUCKET`      | Firebase console                              |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase console                              |
+| `VITE_FIREBASE_APP_ID`              | Firebase console                              |
+| `VITE_ALGOLIA_APP_ID`               | Algolia dashboard                             |
+| `VITE_BIBLE_API_KEY`                | scripture.api.bible dashboard                 |
+| `FIREBASE_SERVICE_ACCOUNT`          | `firebase init hosting:github` generates this |
+| `FIREBASE_TOKEN`                    | `firebase login:ci`                           |
 
 ---
 
@@ -850,6 +875,7 @@ jobs:
 Run against jsdom. Firebase is mocked via `firebase-mocks.ts`; no emulator needed for unit tests.
 
 **`vitest.config.ts`**
+
 ```ts
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
@@ -924,13 +950,13 @@ export default defineConfig({
 
 **E2E test coverage:**
 
-| File | Scenarios |
-| --- | --- |
-| `auth.spec.ts` | Google sign-in redirects to today; unauthenticated redirects to login |
-| `editor.spec.ts` | Write text → auto-saves → shows "Draft saved"; save button persists to Firestore; dictation button activates (mic mock) |
-| `history.spec.ts` | Calendar shows dots on days with entries; clicking a date navigates to that entry; entry cards render title + excerpt |
-| `search.spec.ts` | Cmd+K opens modal; typing returns results; tag filter narrows results; date range filters work |
-| `focus-mode.spec.ts` | Focus button hides nav + sidebar; visibility icon exits focus mode |
+| File                 | Scenarios                                                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `auth.spec.ts`       | Google sign-in redirects to today; unauthenticated redirects to login                                                   |
+| `editor.spec.ts`     | Write text → auto-saves → shows "Draft saved"; save button persists to Firestore; dictation button activates (mic mock) |
+| `history.spec.ts`    | Calendar shows dots on days with entries; clicking a date navigates to that entry; entry cards render title + excerpt   |
+| `search.spec.ts`     | Cmd+K opens modal; typing returns results; tag filter narrows results; date range filters work                          |
+| `focus-mode.spec.ts` | Focus button hides nav + sidebar; visibility icon exits focus mode                                                      |
 
 ---
 
@@ -955,6 +981,7 @@ export default defineConfig({
 - [ ] All `package.json` scripts wired: `lint`, `format:check`, `typecheck`, `test`, `test:coverage`, `test:e2e`
 
 ### Phase 2 — App Shell
+
 - [ ] `AppShell.tsx` — three-column layout (sidebar + main + right panel)
 - [ ] `SideNav.tsx` — brand, nav items with active states, New Entry button, user profile + streak
 - [ ] `useStreak.ts` — queries most recent consecutive entry dates; returns `{ current: number, longest: number }`
@@ -965,6 +992,7 @@ export default defineConfig({
 - [ ] **E2E**: `auth.spec.ts` — sign-in redirect + unauthenticated redirect
 
 ### Phase 3 — Core Editor
+
 - [ ] `EntryEditor.tsx` — Tiptap with StarterKit, Placeholder, CharacterCount; transparent writing area styles
 - [ ] `EditorToolbar.tsx` — formatting controls (bold, italic, bullet list, H2 heading); desktop only, fixed below TopBar
 - [ ] Tiptap `BubbleMenu` — appears on text selection on mobile (bold, italic, bullet list, H2); touch-friendly tap targets
@@ -979,6 +1007,7 @@ export default defineConfig({
 - [ ] **E2E**: `editor.spec.ts` — write → auto-save → save button → Firestore verify
 
 ### Phase 4 — Mood + Tags
+
 - [ ] `MoodPicker.tsx` — 5-emoji row rendered as `secondary-container` chips, tap to select/deselect; shows moodLabel
 - [ ] `TagInput.tsx` — chip-style autocomplete from `tagVocabulary`, create new inline, Material Symbol icon per tag
 - [ ] Wire mood + tags through `MetadataChips.tsx` into entry save
@@ -987,6 +1016,7 @@ export default defineConfig({
 - [ ] **Unit**: `TagInput.test.tsx` — autocomplete suggestions, create new, remove
 
 ### Phase 5 — Date Navigation + History
+
 - [ ] `useEntryDates.ts` — query which dates in a month have entries (for dot indicators)
 - [ ] `MiniCalendar.tsx` — 7-col month grid, entry dots, today highlight, out-of-month fade, prev/next month nav
 - [ ] `MoodSummaryBar.tsx` — 4 colored bars + italic caption below calendar
@@ -999,6 +1029,7 @@ export default defineConfig({
 - [ ] **E2E**: `history.spec.ts` — calendar dots, click-to-navigate, card rendering
 
 ### Phase 6 — Dictation
+
 - [ ] `useDictation.ts` — Web Speech API wrapper (start, stop, interim results, error states)
 - [ ] Wire to `EntryEditor.tsx` — appends transcript at cursor position
 - [ ] Dictate button in `FloatingActionBar.tsx` — pulsing animation while listening
@@ -1008,12 +1039,14 @@ export default defineConfig({
 - [ ] **E2E**: `editor.spec.ts` — dictation button mock activates, transcript appended
 
 ### Phase 7 — Focus Mode
+
 - [ ] `useFocusMode.ts` — global toggle state
 - [ ] When active: hide `SideNav`, `RightPanel`, `BottomNav`, `TopBar`; minimal exit button (`visibility` icon, top-right)
 - [ ] Smooth CSS transitions on show/hide
 - [ ] **E2E**: `focus-mode.spec.ts` — toggle hides chrome, exit button restores
 
 ### Phase 8 — Search
+
 - [ ] Firebase Algolia Extension deployed + configured
 - [ ] `getSearchKey` Cloud Function deployed
 - [ ] `algolia.ts` — init client with secured key (fetched on login, stored in memory)
@@ -1025,6 +1058,7 @@ export default defineConfig({
 - [ ] **E2E**: `search.spec.ts` — Cmd+K opens, typing returns results, facet filters narrow results
 
 ### Phase 9 — Soft Delete + Trash
+
 - [ ] Delete button on entry (confirmation dialog matching design system)
 - [ ] Sets `deleted: true`, `deletedAt: now()`
 - [ ] `TrashPage.tsx` — lists soft-deleted entries with restore / permanent delete
@@ -1033,6 +1067,7 @@ export default defineConfig({
 - [ ] **E2E**: delete entry → gone from History → appears in Trash → restore
 
 ### Phase 10 — Insights
+
 - [ ] `useInsights.ts` — streak, mood aggregation, tag frequency
 - [ ] `InsightsPage.tsx` — editorial header + cards layout
 - [ ] `MoodSparkline.tsx` — Recharts line chart, last 30/90 day toggle
@@ -1052,6 +1087,7 @@ export default defineConfig({
 - [ ] **Unit**: notification toggle saves correct fields to Firestore
 
 ### Phase 12 — PWA + Polish
+
 - [ ] `vite-plugin-pwa` — manifest, service worker, offline cache
 - [ ] PWA icons (192×192, 512×512) — use brand mark
 - [ ] `firebase.json` hosting config + deploy script

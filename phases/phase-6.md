@@ -27,7 +27,7 @@ cursor position in the Tiptap editor. Hidden on iOS Safari. Pulsing animation wh
 type DictationState = 'idle' | 'listening' | 'error'
 
 interface UseDictationReturn {
-  isSupported: boolean       // false on iOS Safari
+  isSupported: boolean // false on iOS Safari
   state: DictationState
   errorMessage: string | null
   start: () => void
@@ -41,8 +41,7 @@ function useDictation(onTranscript: (text: string) => void): UseDictationReturn
 
 ```ts
 // Feature detect
-const SpeechRecognitionClass =
-  window.SpeechRecognition || (window as any).webkitSpeechRecognition
+const SpeechRecognitionClass = window.SpeechRecognition || (window as any).webkitSpeechRecognition
 const isSupported = Boolean(SpeechRecognitionClass)
 
 // Setup
@@ -61,6 +60,7 @@ recognition.lang = navigator.language || 'en-US'
 ## FloatingActionBar (updated)
 
 When `state === 'listening'`:
+
 - Dictate button gets a pulsing ring animation:
   ```
   animate-pulse ring-2 ring-primary ring-offset-2
@@ -68,6 +68,7 @@ When `state === 'listening'`:
 - Icon changes to `mic_off` (tap to stop)
 
 When `state === 'error'`:
+
 - Show `<p className="text-xs text-error absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap">{errorMessage}</p>` above the FAB
 
 ## Transcript Insertion
@@ -76,7 +77,11 @@ In `EntryEditor.tsx`, pass a callback to `useDictation`:
 
 ```ts
 const { isSupported, state, start, stop } = useDictation((text) => {
-  editor.chain().focus().insertContent(text + ' ').run()
+  editor
+    .chain()
+    .focus()
+    .insertContent(text + ' ')
+    .run()
 })
 ```
 

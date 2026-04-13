@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged, type User } from 'firebase/auth'
 
 import { auth } from '@/lib/firebase'
+import AppShell from '@/components/layout/AppShell'
 import LoginPage from '@/components/auth/LoginPage'
 import TodayPage from '@/pages/TodayPage'
 import HistoryPage from '@/pages/HistoryPage'
@@ -30,54 +31,23 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+
+      {/* All authenticated routes share the AppShell layout */}
       <Route
-        path="/"
         element={
           <RequireAuth>
-            <TodayPage />
+            <AppShell />
           </RequireAuth>
         }
-      />
-      <Route
-        path="/history"
-        element={
-          <RequireAuth>
-            <HistoryPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/insights"
-        element={
-          <RequireAuth>
-            <InsightsPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <RequireAuth>
-            <SettingsPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/trash"
-        element={
-          <RequireAuth>
-            <TrashPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/entry/:date"
-        element={
-          <RequireAuth>
-            <EntryPage />
-          </RequireAuth>
-        }
-      />
+      >
+        <Route path="/" element={<TodayPage />} />
+        <Route path="/entry/:date" element={<EntryPage />} />
+        <Route path="/history" element={<HistoryPage />} />
+        <Route path="/insights" element={<InsightsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/trash" element={<TrashPage />} />
+      </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

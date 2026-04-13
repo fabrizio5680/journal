@@ -99,7 +99,8 @@ export const sendDailyReminders = onSchedule('every 5 minutes', async () => {
   const now = new Date()
 
   // Get all users with reminders enabled
-  const usersSnap = await db.collection('users')
+  const usersSnap = await db
+    .collection('users')
     .where('reminderEnabled', '==', true)
     .where('fcmToken', '!=', null)
     .get()
@@ -113,17 +114,19 @@ export const sendDailyReminders = onSchedule('every 5 minutes', async () => {
     const currentHHMM = format(zonedNow, 'HH:mm')
     const [rHH, rMM] = reminderTime.split(':').map(Number)
     const [cHH, cMM] = currentHHMM.split(':').map(Number)
-    const minutesSinceReminder = (cHH * 60 + cMM) - (rHH * 60 + rMM)
+    const minutesSinceReminder = cHH * 60 + cMM - (rHH * 60 + rMM)
     if (minutesSinceReminder < 0 || minutesSinceReminder >= 5) return
 
     // Check if user has written today in their timezone
     const today = format(zonedNow, 'yyyy-MM-dd')
     const entrySnap = await db
-      .collection('users').doc(userDoc.id)
-      .collection('entries').doc(today)
+      .collection('users')
+      .doc(userDoc.id)
+      .collection('entries')
+      .doc(today)
       .get()
 
-    if (entrySnap.exists && !entrySnap.data()?.deleted) return  // already wrote today
+    if (entrySnap.exists && !entrySnap.data()?.deleted) return // already wrote today
 
     // Send FCM push
     await messaging.send({

@@ -31,9 +31,9 @@ This is the heart of the app.
 
 ```ts
 interface UseEntryReturn {
-  entry: Entry | null          // null = not yet loaded or doesn't exist
+  entry: Entry | null // null = not yet loaded or doesn't exist
   isLoading: boolean
-  isDirty: boolean             // true from first keystroke until save completes
+  isDirty: boolean // true from first keystroke until save completes
   save: (data: Partial<Entry>) => Promise<void>
   wordCount: number
 }
@@ -84,7 +84,7 @@ class: "outline-none bg-transparent text-xl leading-[1.8] font-light text-on-sur
 
 ```tsx
 <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
-  <div className="flex gap-1 bg-surface-container-lowest rounded-xl shadow-lg p-1 border border-outline-variant/20">
+  <div className="bg-surface-container-lowest border-outline-variant/20 flex gap-1 rounded-xl border p-1 shadow-lg">
     {/* Bold, Italic, BulletList, H2 buttons — each w-9 h-9 rounded-lg */}
   </div>
 </BubbleMenu>
@@ -110,6 +110,7 @@ Inactive: text-on-surface-variant hover:bg-surface-container rounded-lg p-2 tran
 `flex items-center gap-2 overflow-x-auto no-scrollbar py-2`
 
 In Phase 3, render placeholder chips:
+
 - Mood slot: `bg-secondary-container text-on-secondary-container px-3 py-1.5 rounded-xl text-xs font-medium` — shows "Add mood" if no mood set
 - Tags slot: same style — shows "Add tag" if no tags
 - `add_circle` icon button: `text-on-surface-variant/40 hover:text-on-surface-variant`
@@ -159,7 +160,7 @@ Desktop: md:translate-x-0 md:left-auto md:right-12 md:bottom-12
 ```ts
 export interface Entry {
   date: string
-  content: object          // Tiptap JSON
+  content: object // Tiptap JSON
   contentText: string
   mood: 1 | 2 | 3 | 4 | 5 | null
   moodLabel: string | null

@@ -45,15 +45,16 @@ const { isFocused } = useFocusMode()
 Exit button (always mounted, visible only when focused):
 
 ```tsx
-{isFocused && (
-  <button
-    onClick={exit}
-    className="fixed top-4 right-4 z-50 p-2 bg-surface-container/80 backdrop-blur-sm rounded-full
-               text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"
-  >
-    <span className="material-symbols-outlined">visibility</span>
-  </button>
-)}
+{
+  isFocused && (
+    <button
+      onClick={exit}
+      className="bg-surface-container/80 text-on-surface-variant hover:text-primary hover:bg-surface-container fixed top-4 right-4 z-50 rounded-full p-2 backdrop-blur-sm transition-colors"
+    >
+      <span className="material-symbols-outlined">visibility</span>
+    </button>
+  )
+}
 ```
 
 Editor area padding: when focused, expand to full screen (`md:ml-0 xl:mr-0` overrides).

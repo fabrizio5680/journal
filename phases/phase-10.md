@@ -26,8 +26,8 @@ Uses `useInsights` for aggregations and `useStreak` (already built in Phase 2) f
 
 ```ts
 interface InsightsData {
-  moodByDate: Array<{ date: string; mood: number }>   // last 90 days with mood set
-  topTags: Array<{ tag: string; count: number }>       // top 10 by frequency
+  moodByDate: Array<{ date: string; mood: number }> // last 90 days with mood set
+  topTags: Array<{ tag: string; count: number }> // top 10 by frequency
   totalEntries: number
   totalWords: number
 }
@@ -62,16 +62,19 @@ text-on-surface-variant text-lg leading-relaxed → subtitle
 **Stats row** (`grid grid-cols-2 md:grid-cols-4 gap-4 mb-8`):
 
 Each stat card (`bg-surface-container-lowest rounded-[2rem] p-6`):
+
 - Current streak: `🔥 {current}` + "day streak"
 - Longest streak: `🏆 {longest}` + "best streak"
 - Total entries: `📖 {totalEntries}` + "entries"
 - Total words: `✍️ {totalWords.toLocaleString()}` + "words written"
 
 **Mood Sparkline card** (`bg-surface-container-lowest rounded-[2rem] p-6 mb-6`):
+
 - Title: "Mood Over Time" + 30d / 90d toggle buttons
 - `MoodSparkline` component
 
 **Top Tags card** (`bg-surface-container-lowest rounded-[2rem] p-6`):
+
 - Title: "Most Used Tags"
 - `TopTags` component
 
@@ -86,11 +89,21 @@ Uses Recharts `LineChart`:
 ```tsx
 <ResponsiveContainer width="100%" height={200}>
   <LineChart data={filtered}>
-    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-outline-variant)" strokeOpacity={0.3} />
-    <XAxis dataKey="date" tickFormatter={(d) => format(parseISO(d), 'MMM d')} tick={{ fontSize: 10 }} />
+    <CartesianGrid
+      strokeDasharray="3 3"
+      stroke="var(--color-outline-variant)"
+      strokeOpacity={0.3}
+    />
+    <XAxis
+      dataKey="date"
+      tickFormatter={(d) => format(parseISO(d), 'MMM d')}
+      tick={{ fontSize: 10 }}
+    />
     <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10 }} />
     <Tooltip
-      formatter={(v: number) => MOODS.find(m => m.value === v)?.emoji + ' ' + MOODS.find(m => m.value === v)?.label}
+      formatter={(v: number) =>
+        MOODS.find((m) => m.value === v)?.emoji + ' ' + MOODS.find((m) => m.value === v)?.label
+      }
     />
     <Line
       type="monotone"
@@ -120,7 +133,11 @@ Uses Recharts `BarChart` horizontal:
     <XAxis type="number" hide />
     <YAxis type="category" dataKey="tag" tick={{ fontSize: 12 }} width={80} />
     <Bar dataKey="count" fill="var(--color-primary-container)" radius={[0, 4, 4, 0]}>
-      <LabelList dataKey="count" position="right" style={{ fontSize: 10, fill: 'var(--color-on-surface-variant)' }} />
+      <LabelList
+        dataKey="count"
+        position="right"
+        style={{ fontSize: 10, fill: 'var(--color-on-surface-variant)' }}
+      />
     </Bar>
   </BarChart>
 </ResponsiveContainer>

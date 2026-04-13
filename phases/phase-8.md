@@ -52,19 +52,17 @@ export const getSearchKey = onCall({ region: 'us-central1' }, async (request) =>
 
   const nowPlusOneHour = Math.floor(Date.now() / 1000) + 3600
 
-  const key = algoliaClient.generateSecuredApiKey(
-    process.env.ALGOLIA_SEARCH_ONLY_KEY!,
-    {
-      filters: `userId:${uid} AND deleted:false`,
-      validUntil: nowPlusOneHour,
-      userToken: uid,
-    }
-  )
+  const key = algoliaClient.generateSecuredApiKey(process.env.ALGOLIA_SEARCH_ONLY_KEY!, {
+    filters: `userId:${uid} AND deleted:false`,
+    validUntil: nowPlusOneHour,
+    userToken: uid,
+  })
   return { key }
 })
 ```
 
 Functions environment vars (set via `firebase functions:secrets:set`):
+
 - `ALGOLIA_APP_ID`
 - `ALGOLIA_ADMIN_KEY`
 - `ALGOLIA_SEARCH_ONLY_KEY`
@@ -118,6 +116,7 @@ Auto-focused on open. Esc key closes modal.
 **Filters row** (`SearchFilters` component below the input)
 
 **Results list** (scrollable, same `EntryListCard` style):
+
 - Shows up to 20 results
 - Each result links to `/entry/{date}`, closes modal on click
 

@@ -12,6 +12,7 @@ responsive QA on mobile Safari and desktop. This is the final phase before launc
 ## Checklist
 
 ### PWA
+
 - [ ] `vite.config.ts` — add `vite-plugin-pwa` with manifest + service worker config (see PWA section)
 - [ ] `public/icons/icon-192.png` + `public/icons/icon-512.png` — brand mark PWA icons (**manual**: create using the app logo mark)
 - [ ] Verify installable: Chrome → address bar → install icon appears
@@ -19,6 +20,7 @@ responsive QA on mobile Safari and desktop. This is the final phase before launc
 - [ ] Service worker caches: app shell, Tailwind CSS, Google Fonts, Tiptap assets
 
 ### Loading Skeletons
+
 - [ ] `EntryListCard` skeleton — card-shaped with animated pulse
 - [ ] `MiniCalendar` skeleton — grid-shaped pulse
 - [ ] `RightPanel` scripture skeleton — text lines pulse
@@ -26,6 +28,7 @@ responsive QA on mobile Safari and desktop. This is the final phase before launc
 - [ ] All skeletons use `bg-surface-container animate-pulse rounded-xl` blocks
 
 ### Empty States
+
 - [ ] `TodayPage` — first time ever: "Welcome to your sanctuary. Start writing." prompt
 - [ ] `HistoryPage` — no entries: "Your story begins here." with a gentle prompt
 - [ ] `TrashPage` — empty: "Your trash is empty." with `delete` icon
@@ -34,6 +37,7 @@ responsive QA on mobile Safari and desktop. This is the final phase before launc
 - [ ] All empty states use `text-on-surface-variant` + `text-center` + appropriate Material Symbol icon
 
 ### Responsive QA
+
 - [ ] Test all pages on iPhone 14 viewport (Playwright `mobile-safari` project)
 - [ ] Test all pages on iPad viewport (`tablet` Playwright project — add `{ name: 'tablet', use: { ...devices['iPad Pro'] } }`)
 - [ ] Verify: no horizontal overflow on any page
@@ -42,6 +46,7 @@ responsive QA on mobile Safari and desktop. This is the final phase before launc
 - [ ] Verify: Tiptap editor doesn't zoom on focus (add `user-scalable=no` to viewport meta? Or `font-size: 16px` on input — preferred)
 
 ### Polish
+
 - [ ] `firebase.json` — hosting rewrites: `{ "source": "**", "destination": "/index.html" }` for SPA routing
 - [ ] 404 page — minimal, redirects to `/` after 3s
 - [ ] `<title>` updates per page via React Router (use `document.title` or a custom hook)
@@ -104,11 +109,11 @@ VitePWA({
 // Example: EntryListCard skeleton
 function EntryListCardSkeleton() {
   return (
-    <div className="bg-surface-container-lowest rounded-[2rem] p-6 animate-pulse">
-      <div className="h-3 w-24 bg-surface-container rounded-xl mb-3" />
-      <div className="h-6 w-3/4 bg-surface-container rounded-xl mb-2" />
-      <div className="h-4 w-full bg-surface-container rounded-xl mb-1" />
-      <div className="h-4 w-2/3 bg-surface-container rounded-xl" />
+    <div className="bg-surface-container-lowest animate-pulse rounded-[2rem] p-6">
+      <div className="bg-surface-container mb-3 h-3 w-24 rounded-xl" />
+      <div className="bg-surface-container mb-2 h-6 w-3/4 rounded-xl" />
+      <div className="bg-surface-container mb-1 h-4 w-full rounded-xl" />
+      <div className="bg-surface-container h-4 w-2/3 rounded-xl" />
     </div>
   )
 }
@@ -120,7 +125,9 @@ Tiptap editor on iOS Safari may zoom in when focused (browser default for inputs
 Fix: ensure the editor's font size is `text-xl` (20px) or add to `globals.css`:
 
 ```css
-input, textarea, [contenteditable] {
+input,
+textarea,
+[contenteditable] {
   font-size: max(16px, 1em);
 }
 ```
