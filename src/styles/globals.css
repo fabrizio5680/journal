@@ -1,0 +1,82 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap");
+
+@theme {
+  --color-background:                 #faf9f7;
+  --color-surface:                    #faf9f7;
+  --color-surface-bright:             #faf9f7;
+  --color-surface-dim:                #d9dad8;
+  --color-surface-variant:            #e1e3e0;
+  --color-surface-container-lowest:   #ffffff;
+  --color-surface-container-low:      #f4f4f1;
+  --color-surface-container:          #edeeec;
+  --color-surface-container-high:     #e7e8e6;
+  --color-surface-container-highest:  #e1e3e0;
+  --color-on-surface:                 #303331;
+  --color-on-surface-variant:         #5d605e;
+  --color-on-background:              #303331;
+  --color-primary:                    #526448;
+  --color-primary-dim:                #46583d;
+  --color-primary-fixed:              #d4e9c5;
+  --color-primary-fixed-dim:          #c6dbb8;
+  --color-primary-container:          #d4e9c5;
+  --color-on-primary:                 #ecffdd;
+  --color-on-primary-fixed:           #33442a;
+  --color-on-primary-fixed-variant:   #4f6145;
+  --color-on-primary-container:       #45573b;
+  --color-inverse-primary:            #e8fdd8;
+  --color-surface-tint:               #526448;
+  --color-secondary:                  #645e54;
+  --color-secondary-dim:              #585348;
+  --color-secondary-fixed:            #eae1d4;
+  --color-secondary-fixed-dim:        #dcd3c6;
+  --color-secondary-container:        #eae1d4;
+  --color-on-secondary:               #fff8ef;
+  --color-on-secondary-fixed:         #433f35;
+  --color-on-secondary-fixed-variant: #605b51;
+  --color-on-secondary-container:     #565147;
+  --color-tertiary:                   #65612a;
+  --color-tertiary-dim:               #58551f;
+  --color-tertiary-fixed:             #fdf6b0;
+  --color-tertiary-fixed-dim:         #eee8a3;
+  --color-tertiary-container:         #fdf6b0;
+  --color-on-tertiary:                #fffada;
+  --color-on-tertiary-fixed:          #4f4b16;
+  --color-on-tertiary-fixed-variant:  #6c6830;
+  --color-on-tertiary-container:      #615d27;
+  --color-outline:                    #797b79;
+  --color-outline-variant:            #b0b2b0;
+  --color-error:                      #a73b21;
+  --color-error-dim:                  #791903;
+  --color-error-container:            #fd795a;
+  --color-on-error:                   #fff7f6;
+  --color-on-error-container:         #6e1400;
+  --color-inverse-surface:            #0d0e0e;
+  --color-inverse-on-surface:         #9d9d9b;
+
+  --radius:      0.125rem;
+  --radius-lg:   0.25rem;
+  --radius-xl:   0.5rem;
+  --radius-full: 0.75rem;
+
+  --font-headline: "Manrope", sans-serif;
+  --font-body:     "Manrope", sans-serif;
+  --font-label:    "Manrope", sans-serif;
+  --font-manrope:  "Manrope", sans-serif;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+::selection {
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+body {
+  font-family: "Manrope", sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+}

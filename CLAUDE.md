@@ -7,13 +7,13 @@
 
 ## Tech Stack
 
-- React 19 + Vite 6 + TypeScript 5
+- React 19 + Vite 8 + TypeScript 6
 - Tailwind CSS v4 — CSS-first config, all tokens in `src/styles/globals.css` inside `@theme {}`, no `tailwind.config.ts`
 - React Router v7
-- Firebase 11 (Auth, Firestore, Hosting, Cloud Functions — Node 22)
-- Tiptap v2 — rich text editor, JSON serialization, extensions: StarterKit, Placeholder, CharacterCount, BubbleMenu, Heading (H2 only)
+- Firebase 12 (Auth, Firestore, Hosting, Cloud Functions — Node 22)
+- Tiptap v3 — rich text editor, JSON serialization, extensions: StarterKit, Placeholder, CharacterCount, BubbleMenu, Heading (H2 only)
 - Algolia — algoliasearch v5 + react-instantsearch v7, secured API keys via Cloud Function
-- date-fns v4, Recharts v2, clsx v2
+- date-fns v4, Recharts v3, clsx v2
 - Icons: Material Symbols Outlined | Font: Manrope (both Google Fonts)
 
 ## Key Architectural Decisions

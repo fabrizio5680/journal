@@ -1,0 +1,6 @@
+dist/
+.firebase/
+functions/lib/
+coverage/
+playwright-report/
+node_modules/
