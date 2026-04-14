@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
 import type { Editor } from '@tiptap/core'
 
 import { useEntry } from '@/hooks/useEntry'
@@ -13,12 +14,14 @@ import FloatingActionBar from '@/components/fab/FloatingActionBar'
 
 export default function TodayPage() {
   const today = format(new Date(), 'yyyy-MM-dd')
-  const { entry, isLoading, markDirty, save } = useEntry(today)
+  const navigate = useNavigate()
+  const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(today)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved } = useSaveStatus()
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const {
@@ -86,6 +89,12 @@ export default function TodayPage() {
     [save],
   )
 
+  const handleDeleteConfirm = useCallback(async () => {
+    await deleteEntry()
+    setShowDeleteConfirm(false)
+    navigate('/history')
+  }, [deleteEntry, navigate])
+
   // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
@@ -106,6 +115,19 @@ export default function TodayPage() {
       <EditorToolbar editor={editorInstance} />
 
       <div className="mx-auto max-w-2xl px-6 pt-4 md:pt-14">
+        {/* Delete button — only show when an entry exists */}
+        {entry && (
+          <div className="mb-2 flex justify-end">
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              aria-label="More options"
+              className="hover:bg-surface-container text-on-surface-variant flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+            >
+              <span className="material-symbols-outlined text-[20px]">more_vert</span>
+            </button>
+          </div>
+        )}
+
         <MetadataChips
           mood={entry?.mood ?? null}
           moodLabel={entry?.moodLabel ?? null}
@@ -134,6 +156,32 @@ export default function TodayPage() {
           onStop: stop,
         }}
       />
+
+      {/* Delete confirmation dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm">
+          <div className="bg-surface-container-lowest w-full max-w-sm rounded-[2rem] p-8 shadow-xl">
+            <h2 className="text-on-surface mb-2 text-xl font-bold">Move to Trash?</h2>
+            <p className="text-on-surface-variant mb-8 text-sm leading-relaxed">
+              This entry will be permanently deleted after 30 days.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="bg-surface-container text-on-surface rounded-full px-6 py-3 text-sm font-medium transition-colors hover:brightness-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="bg-error text-on-error rounded-full px-6 py-3 text-sm font-bold transition-colors hover:brightness-95"
+              >
+                Move to Trash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

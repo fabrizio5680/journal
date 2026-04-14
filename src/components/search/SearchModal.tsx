@@ -9,7 +9,6 @@ import SearchFilters from './SearchFilters'
 import { getAlgoliaClient } from '@/lib/algolia'
 import { useSearch } from '@/context/SearchContext'
 
-
 function dateToTimestamp(dateStr: string): number {
   return Math.floor(new Date(dateStr).getTime() / 1000)
 }

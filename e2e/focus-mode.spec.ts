@@ -1,7 +1,6 @@
 import { test, expect, devices } from '@playwright/test'
 
 const EMULATOR_AUTH_URL = 'http://localhost:9099'
-const PROJECT_ID = 'journal-manna'
 const FAKE_API_KEY = 'fake-api-key'
 
 const TEST_EMAIL = 'focus-test@example.com'
@@ -10,10 +9,34 @@ const TEST_PASSWORD = 'password123'
 // Focus mode is triggered via BottomNav which is mobile-only (md:hidden)
 test.use({ ...devices['iPhone 14'] })
 
-async function clearEmulatorUsers() {
-  await fetch(`${EMULATOR_AUTH_URL}/emulator/v1/projects/${PROJECT_ID}/accounts`, {
-    method: 'DELETE',
-  }).catch(() => {})
+async function clearTestUser() {
+  try {
+    const signInRes = await fetch(
+      `${EMULATOR_AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FAKE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: TEST_EMAIL,
+          password: TEST_PASSWORD,
+          returnSecureToken: true,
+        }),
+      },
+    )
+    const { idToken } = (await signInRes.json()) as { idToken?: string }
+    if (idToken) {
+      await fetch(
+        `${EMULATOR_AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:delete?key=${FAKE_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        },
+      )
+    }
+  } catch {
+    // user doesn't exist yet — nothing to clear
+  }
 }
 
 async function createEmulatorUser(email: string, password: string): Promise<string> {
@@ -44,9 +67,11 @@ async function signInAsTestUser(page: import('@playwright/test').Page) {
   )
 }
 
+test.describe.configure({ mode: 'serial' })
+
 test.describe('Focus Mode', () => {
   test.beforeEach(async ({ page }) => {
-    await clearEmulatorUsers()
+    await clearTestUser()
     await createEmulatorUser(TEST_EMAIL, TEST_PASSWORD)
     await page.goto('/login')
     await signInAsTestUser(page)

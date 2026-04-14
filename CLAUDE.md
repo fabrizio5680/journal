@@ -125,7 +125,7 @@ src/
     search/       SearchModal, SearchFilters, SearchResultCard
     mood/         MoodPicker
     tags/         TagInput
-    history/      EntryListCard, MoodSummaryBar
+    history/      EntryListCard, MoodSummaryBar, TrashEntryCard
     insights/     MoodSparkline, TopTags
     fab/          FloatingActionBar
     auth/         LoginPage
@@ -141,7 +141,7 @@ src/
   styles/         globals.css
   test/           setup.ts, firebase-mocks.ts, render.tsx
 functions/src/    index.ts  (getSearchKey + sendDailyReminders)
-e2e/              auth, editor, history, search, focus-mode specs
+e2e/              auth, editor, history, search, focus-mode, trash specs
 phases/           phase-1.md … phase-12.md
 ```
 
@@ -159,6 +159,14 @@ npm run test           vitest run
 npm run test:coverage  vitest run --coverage
 npm run test:e2e       playwright test
 ```
+
+## E2E Testing Conventions
+
+- Each spec file uses a **unique test email** (e.g. `trash-test@example.com`) to avoid cross-spec collisions.
+- `clearTestUser()` signs in with the spec's test credentials and self-deletes (via `accounts:delete`) rather than wiping all emulator users. This keeps parallel specs from invalidating each other's auth tokens.
+- All specs that share emulator state across tests include `test.describe.configure({ mode: 'serial' })` to prevent within-file parallelism.
+- Firestore REST seeding calls (`request.patch`) **must** include `Authorization: Bearer {idToken}` — the emulator enforces security rules on the `/v1/` REST path.
+- `LoginPage` has an `onAuthStateChanged` listener that navigates to `/` on sign-in; this is what makes `__signInForTest` redirect E2E tests out of the login page.
 
 ## Environment Variables (.env.local)
 

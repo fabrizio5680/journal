@@ -8,13 +8,40 @@ const FAKE_API_KEY = 'fake-api-key'
 const TEST_EMAIL = 'history-test@example.com'
 const TEST_PASSWORD = 'password123'
 
-async function clearEmulatorUsers() {
-  await fetch(`${EMULATOR_AUTH_URL}/emulator/v1/projects/${PROJECT_ID}/accounts`, {
-    method: 'DELETE',
-  }).catch(() => {})
+async function clearTestUser() {
+  try {
+    const signInRes = await fetch(
+      `${EMULATOR_AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FAKE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: TEST_EMAIL,
+          password: TEST_PASSWORD,
+          returnSecureToken: true,
+        }),
+      },
+    )
+    const { idToken } = (await signInRes.json()) as { idToken?: string }
+    if (idToken) {
+      await fetch(
+        `${EMULATOR_AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:delete?key=${FAKE_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        },
+      )
+    }
+  } catch {
+    // user doesn't exist yet — nothing to clear
+  }
 }
 
-async function createEmulatorUser(email: string, password: string): Promise<string> {
+async function createEmulatorUser(
+  email: string,
+  password: string,
+): Promise<{ uid: string; idToken: string }> {
   const res = await fetch(
     `${EMULATOR_AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FAKE_API_KEY}`,
     {
@@ -24,7 +51,7 @@ async function createEmulatorUser(email: string, password: string): Promise<stri
     },
   )
   const data = await res.json()
-  return data.localId as string
+  return { uid: data.localId as string, idToken: data.idToken as string }
 }
 
 async function signInAsTestUser(page: import('@playwright/test').Page) {
@@ -45,11 +72,13 @@ async function signInAsTestUser(page: import('@playwright/test').Page) {
 async function seedEntry(
   request: import('@playwright/test').APIRequestContext,
   uid: string,
+  idToken: string,
   date: string,
   data: Record<string, unknown>,
 ) {
   const url = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${uid}/entries/${date}`
   await request.patch(url, {
+    headers: { Authorization: `Bearer ${idToken}` },
     data: {
       fields: {
         date: { stringValue: date },
@@ -76,29 +105,34 @@ async function seedEntry(
   })
 }
 
+test.describe.configure({ mode: 'serial' })
+
 test.describe('History', () => {
   let testUid: string
+  let testIdToken: string
 
   test.beforeEach(async ({ page, request }) => {
-    await clearEmulatorUsers()
-    testUid = await createEmulatorUser(TEST_EMAIL, TEST_PASSWORD)
+    await clearTestUser()
+    const user = await createEmulatorUser(TEST_EMAIL, TEST_PASSWORD)
+    testUid = user.uid
+    testIdToken = user.idToken
 
     // Seed 3 entries with different dates in the current month
     const now = new Date()
     const year = now.getFullYear()
     const month = String(now.getMonth() + 1).padStart(2, '0')
 
-    await seedEntry(request, testUid, `${year}-${month}-01`, {
+    await seedEntry(request, testUid, testIdToken, `${year}-${month}-01`, {
       contentText: 'First entry of the month',
       mood: 5,
       moodLabel: 'Radiant',
     })
-    await seedEntry(request, testUid, `${year}-${month}-05`, {
+    await seedEntry(request, testUid, testIdToken, `${year}-${month}-05`, {
       contentText: 'Mid month reflection',
       mood: 3,
       moodLabel: 'Calm',
     })
-    await seedEntry(request, testUid, `${year}-${month}-10`, {
+    await seedEntry(request, testUid, testIdToken, `${year}-${month}-10`, {
       contentText: 'Another quiet day of writing',
       mood: 4,
       moodLabel: 'Peaceful',

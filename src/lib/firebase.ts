@@ -47,8 +47,16 @@ export const db = dbInstance
 if (import.meta.env.VITE_USE_EMULATOR === 'true') {
   const { connectAuthEmulator, signInWithEmailAndPassword } = await import('firebase/auth')
   const { connectFirestoreEmulator } = await import('firebase/firestore')
-  connectAuthEmulator(auth, 'http://localhost:9099')
-  connectFirestoreEmulator(db, 'localhost', 8080)
+  try {
+    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+  } catch (e) {
+    console.warn('[firebase] auth emulator connect failed:', e)
+  }
+  try {
+    connectFirestoreEmulator(db, 'localhost', 8080)
+  } catch (e) {
+    console.warn('[firebase] firestore emulator connect failed:', e)
+  }
   // Expose a test sign-in helper so Playwright E2E tests can authenticate
   ;(
     window as typeof window & {

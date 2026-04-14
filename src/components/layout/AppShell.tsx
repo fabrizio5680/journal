@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import clsx from 'clsx'
 
-
 import SideNav from './SideNav'
 import TopBar from './TopBar'
 import BottomNav from './BottomNav'

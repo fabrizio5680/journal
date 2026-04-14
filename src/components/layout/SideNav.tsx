@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, type User } from 'firebase/auth'
 import clsx from 'clsx'
@@ -65,6 +65,15 @@ export default function SideNav() {
           </NavLink>
         ))}
       </div>
+
+      {/* Trash link */}
+      <Link
+        to="/trash"
+        className="text-on-surface-variant hover:bg-surface-bright mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-xs transition-colors duration-300"
+      >
+        <span className="material-symbols-outlined text-[18px]">delete</span>
+        <span>Trash</span>
+      </Link>
 
       {/* Search button */}
       <button

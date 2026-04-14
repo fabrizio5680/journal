@@ -1,15 +1,32 @@
 import { test, expect } from '@playwright/test'
 
 const EMULATOR_AUTH_URL = 'http://localhost:9099'
-const PROJECT_ID = 'journal-manna'
 const FAKE_API_KEY = 'fake-api-key'
 
-async function clearEmulatorUsers() {
-  await fetch(`${EMULATOR_AUTH_URL}/emulator/v1/projects/${PROJECT_ID}/accounts`, {
-    method: 'DELETE',
-  }).catch(() => {
-    /* ignore if emulator not running */
-  })
+async function clearTestUser(email: string, password: string) {
+  try {
+    const signInRes = await fetch(
+      `${EMULATOR_AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FAKE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
+      },
+    )
+    const { idToken } = (await signInRes.json()) as { idToken?: string }
+    if (idToken) {
+      await fetch(
+        `${EMULATOR_AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:delete?key=${FAKE_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        },
+      )
+    }
+  } catch {
+    // user doesn't exist yet — nothing to clear
+  }
 }
 
 async function createEmulatorUser(email: string, password: string) {
@@ -24,9 +41,11 @@ async function createEmulatorUser(email: string, password: string) {
   return res.json()
 }
 
+test.describe.configure({ mode: 'serial' })
+
 test.describe('Auth redirects', () => {
   test.beforeEach(async () => {
-    await clearEmulatorUsers()
+    await clearTestUser('test@example.com', 'password123')
   })
 
   test('unauthenticated user visiting / is redirected to /login', async ({ page }) => {

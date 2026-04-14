@@ -24,12 +24,13 @@ export default function EntryPage() {
 
 function EntryEditorView({ date }: { date: string }) {
   const navigate = useNavigate()
-  const { entry, isLoading, markDirty, save } = useEntry(date)
+  const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved } = useSaveStatus()
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const {
@@ -97,6 +98,12 @@ function EntryEditorView({ date }: { date: string }) {
     [save],
   )
 
+  const handleDeleteConfirm = useCallback(async () => {
+    await deleteEntry()
+    setShowDeleteConfirm(false)
+    navigate('/history')
+  }, [deleteEntry, navigate])
+
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
@@ -116,7 +123,7 @@ function EntryEditorView({ date }: { date: string }) {
       <EditorToolbar editor={editorInstance} />
 
       <div className="mx-auto max-w-2xl px-6 pt-4 md:pt-14">
-        {/* Back button + historical date */}
+        {/* Back button + historical date + overflow menu */}
         <div className="mb-6 flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
@@ -126,9 +133,18 @@ function EntryEditorView({ date }: { date: string }) {
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Back
           </button>
-          <span className="text-on-surface-variant text-sm">
+          <span className="text-on-surface-variant flex-1 text-sm">
             {format(parseISO(date), 'EEEE, MMMM d, yyyy')}
           </span>
+          {entry && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              aria-label="More options"
+              className="hover:bg-surface-container text-on-surface-variant flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+            >
+              <span className="material-symbols-outlined text-[20px]">more_vert</span>
+            </button>
+          )}
         </div>
 
         <MetadataChips
@@ -159,6 +175,36 @@ function EntryEditorView({ date }: { date: string }) {
           onStop: stop,
         }}
       />
+
+      {/* Delete confirmation dialog */}
+      {showDeleteConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm"
+        >
+          <div className="bg-surface-container-lowest w-full max-w-sm rounded-[2rem] p-8 shadow-xl">
+            <h2 className="text-on-surface mb-2 text-xl font-bold">Move to Trash?</h2>
+            <p className="text-on-surface-variant mb-8 text-sm leading-relaxed">
+              This entry will be permanently deleted after 30 days.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="bg-surface-container text-on-surface rounded-full px-6 py-3 text-sm font-medium transition-colors hover:brightness-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="bg-error text-on-error rounded-full px-6 py-3 text-sm font-bold transition-colors hover:brightness-95"
+              >
+                Move to Trash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

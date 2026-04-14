@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   GoogleAuthProvider,
+  onAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
@@ -23,6 +24,13 @@ export default function LoginPage() {
         if (result) navigate('/')
       })
       .catch(console.error)
+  }, [navigate])
+
+  // Redirect already-authenticated users (e.g. after email/password sign-in in tests)
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => {
+      if (user) navigate('/')
+    })
   }, [navigate])
 
   async function handleSignIn() {
