@@ -8,8 +8,12 @@ describe('MetadataChips', () => {
     mood: null as null,
     moodLabel: null,
     tags: [] as string[],
+    tagVocabulary: [] as string[],
     onMoodClick: vi.fn(),
     onTagClick: vi.fn(),
+    onMoodChange: vi.fn(),
+    onTagsChange: vi.fn(),
+    onNewTag: vi.fn(),
   }
 
   it('renders "Add mood" slot when mood is null', () => {

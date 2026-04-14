@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import type { Editor } from '@tiptap/core'
 
 import { useEntry } from '@/hooks/useEntry'
+import { useTagVocabulary } from '@/hooks/useTagVocabulary'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
@@ -12,6 +13,7 @@ import FloatingActionBar from '@/components/fab/FloatingActionBar'
 export default function TodayPage() {
   const today = format(new Date(), 'yyyy-MM-dd')
   const { entry, isLoading, markDirty, save } = useEntry(today)
+  const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved } = useSaveStatus()
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
@@ -50,6 +52,20 @@ export default function TodayPage() {
     setLastSaved(new Date())
   }, [editorInstance, save, setDirty, setLastSaved])
 
+  const handleMoodChange = useCallback(
+    async (mood: number | null, moodLabel: string | null) => {
+      await save({ mood: mood as 1 | 2 | 3 | 4 | 5 | null, moodLabel })
+    },
+    [save],
+  )
+
+  const handleTagsChange = useCallback(
+    async (tags: string[]) => {
+      await save({ tags })
+    },
+    [save],
+  )
+
   // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
@@ -74,8 +90,10 @@ export default function TodayPage() {
           mood={entry?.mood ?? null}
           moodLabel={entry?.moodLabel ?? null}
           tags={entry?.tags ?? []}
-          onMoodClick={() => {}}
-          onTagClick={() => {}}
+          tagVocabulary={vocabulary}
+          onMoodChange={handleMoodChange}
+          onTagsChange={handleTagsChange}
+          onNewTag={addToVocabulary}
         />
 
         <EntryEditor

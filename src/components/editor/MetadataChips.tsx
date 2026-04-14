@@ -1,59 +1,109 @@
-import { MOODS } from '@/types'
+import { useState } from 'react'
+import { MOODS } from '@/lib/moods'
+import MoodPicker from '@/components/mood/MoodPicker'
+import TagInput from '@/components/tags/TagInput'
 
 interface MetadataChipsProps {
   mood: 1 | 2 | 3 | 4 | 5 | null
   moodLabel: string | null
   tags: string[]
-  onMoodClick: () => void
-  onTagClick: () => void
+  tagVocabulary: string[]
+  onMoodClick?: () => void
+  onTagClick?: () => void
+  onMoodChange: (mood: number | null, label: string | null) => void
+  onTagsChange: (tags: string[]) => void
+  onNewTag: (tag: string) => void
 }
 
 export default function MetadataChips({
   mood,
   moodLabel,
   tags,
+  tagVocabulary,
   onMoodClick,
   onTagClick,
+  onMoodChange,
+  onTagsChange,
+  onNewTag,
 }: MetadataChipsProps) {
+  const [showMoodPicker, setShowMoodPicker] = useState(false)
+  const [showTagInput, setShowTagInput] = useState(false)
+
   const moodEntry = mood !== null ? MOODS.find((m) => m.value === mood) : null
 
-  return (
-    <div className="flex items-center gap-2 overflow-x-auto py-2 no-scrollbar">
-      {/* Mood chip */}
-      <button
-        onClick={onMoodClick}
-        className="bg-secondary-container text-on-secondary-container flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium"
-      >
-        {moodEntry ? `${moodEntry.emoji} ${moodLabel ?? moodEntry.label}` : 'Add mood'}
-      </button>
+  function handleMoodClick() {
+    setShowMoodPicker((prev) => !prev)
+    setShowTagInput(false)
+    onMoodClick?.()
+  }
 
-      {/* Tag chips */}
-      {tags.map((tag) => (
-        <span
-          key={tag}
+  function handleTagClick() {
+    setShowTagInput((prev) => !prev)
+    setShowMoodPicker(false)
+    onTagClick?.()
+  }
+
+  function handleMoodChange(newMood: number | null, label: string | null) {
+    onMoodChange(newMood, label)
+    setShowMoodPicker(false)
+  }
+
+  return (
+    <div>
+      {/* Chips row */}
+      <div className="no-scrollbar flex items-center gap-2 overflow-x-auto py-2">
+        {/* Mood chip */}
+        <button
+          type="button"
+          onClick={handleMoodClick}
           className="bg-secondary-container text-on-secondary-container flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium"
         >
-          {tag}
-        </span>
-      ))}
+          {moodEntry ? `${moodEntry.emoji} ${moodLabel ?? moodEntry.label}` : 'Add mood'}
+        </button>
 
-      {/* Add tag button */}
-      <button
-        onClick={onTagClick}
-        aria-label="Add tag"
-        className="flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium text-on-surface-variant/40 hover:text-on-surface-variant transition-colors"
-      >
-        + Add tag
-      </button>
+        {/* Tag chips */}
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="bg-secondary-container text-on-secondary-container flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium"
+          >
+            {tag}
+          </span>
+        ))}
 
-      {/* Add circle icon button */}
-      <button
-        onClick={onTagClick}
-        aria-label="Add"
-        className="text-on-surface-variant/40 hover:text-on-surface-variant flex-shrink-0 transition-colors"
-      >
-        <span className="material-symbols-outlined text-[20px]">add_circle</span>
-      </button>
+        {/* Add tag button */}
+        <button
+          type="button"
+          onClick={handleTagClick}
+          aria-label="Add tag"
+          className="text-on-surface-variant/40 hover:text-on-surface-variant flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors"
+        >
+          + Add tag
+        </button>
+
+        {/* Add circle icon button */}
+        <button
+          type="button"
+          onClick={handleTagClick}
+          aria-label="Add"
+          className="text-on-surface-variant/40 hover:text-on-surface-variant flex-shrink-0 transition-colors"
+        >
+          <span className="material-symbols-outlined text-[20px]">add_circle</span>
+        </button>
+      </div>
+
+      {/* Inline MoodPicker */}
+      {showMoodPicker && <MoodPicker value={mood} onChange={handleMoodChange} />}
+
+      {/* Inline TagInput */}
+      {showTagInput && (
+        <TagInput
+          tags={tags}
+          vocabulary={tagVocabulary}
+          onChange={onTagsChange}
+          onNewTag={onNewTag}
+        />
+      )}
     </div>
   )
 }
