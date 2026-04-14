@@ -5,6 +5,7 @@ import clsx from 'clsx'
 
 import { auth } from '@/lib/firebase'
 import { useStreak } from '@/hooks/useStreak'
+import { useFocusMode } from '@/context/FocusModeContext'
 
 const NAV_ITEMS = [
   { label: 'Journal', icon: 'edit_note', to: '/' },
@@ -17,13 +18,19 @@ export default function SideNav() {
   const [user, setUser] = useState<User | null>(null)
   const { current: streakCount } = useStreak()
   const navigate = useNavigate()
+  const { isFocused } = useFocusMode()
 
   useEffect(() => {
     return onAuthStateChanged(auth, setUser)
   }, [])
 
   return (
-    <nav className="bg-surface-container-low fixed top-0 left-0 z-30 hidden h-screen w-64 flex-col px-4 py-8 md:flex">
+    <nav
+      className={clsx(
+        'bg-surface-container-low fixed top-0 left-0 z-30 hidden h-screen w-64 flex-col px-4 py-8 transition-all duration-500 md:flex',
+        isFocused && 'md:-translate-x-full md:opacity-0 md:pointer-events-none',
+      )}
+    >
       {/* Logo + brand */}
       <div className="mb-8 flex items-center gap-3">
         <div className="bg-primary-container flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">

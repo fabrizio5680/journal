@@ -26,6 +26,7 @@
 - **Soft delete** — `deleted: true` + `deletedAt: Timestamp`; 30-day hard delete via Firestore TTL policy on `deletedAt` field (configured in Firestore console, no code)
 - **Algolia** — Firebase Extension syncs Firestore → Algolia; secured key scoped `userId == auth.uid` + `deleted:false`; key fetched via `getSearchKey` Cloud Function, stored in memory only, never localStorage
 - **Dictation** — `useDictation` hook wraps Web Speech API (`continuous`, `interimResults`); only fires `onTranscript` on final results; silently restarts up to 5× on `no-speech` then idles; hidden entirely on iOS Safari (`isSupported` feature detect, no error shown); `FloatingActionBar` receives a single `dictation` prop object
+- **Focus mode** — `FocusModeContext` (`src/context/FocusModeContext.tsx`) provides `{ isFocused, toggle, exit }`; wrapped around `AppShell` in `App.tsx`; each layout component (SideNav, TopBar, BottomNav, RightPanel) reads the context and applies `transition-all duration-500` + translate/opacity classes to slide off-screen; `BottomNav` Focus button is a `<button>` (not a NavLink) that calls `toggle()`; exit button appears `fixed top-4 right-4 z-50` when focused
 - **Offline** — Firestore IndexedDB persistence enabled in `firebase.ts`; sync status indicator watches `navigator.onLine`
 - **Notifications** — `sendDailyReminders` Cloud Function (Cloud Scheduler, every 5 min); fires FCM push only if user hasn't written today; reminder time stored as `"HH:MM"` + IANA timezone on user doc
 - **Daily Scripture** — fetched from scripture.api.bible (free key); cached per translation per day in localStorage; fallback hardcoded array; NLT/MSG/ESV toggle per user preference
@@ -129,9 +130,10 @@ src/
     fab/          FloatingActionBar
     auth/         LoginPage
     ui/           Chip, GlassCard, DailyScripture
+  context/          SaveStatusContext, FocusModeContext
   hooks/
     useEntry, useEntryDates, useStreak, useDictation,
-    useSearch, useInsights, useFocusMode
+    useSearch, useInsights
   lib/            firebase, firestore, algolia, tiptap
   types/          index.ts
   pages/          TodayPage, EntryPage, HistoryPage, InsightsPage,

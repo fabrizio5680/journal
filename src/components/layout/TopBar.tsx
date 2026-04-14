@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, type User } from 'firebase/auth'
 import { format, formatDistanceToNow } from 'date-fns'
+import clsx from 'clsx'
 
 import { auth } from '@/lib/firebase'
 import { useSaveStatus } from '@/context/SaveStatusContext'
+import { useFocusMode } from '@/context/FocusModeContext'
 
 export default function TopBar() {
   const [user, setUser] = useState<User | null>(null)
   const now = new Date()
   const { isDirty, lastSaved } = useSaveStatus()
+  const { isFocused } = useFocusMode()
 
   useEffect(() => {
     return onAuthStateChanged(auth, setUser)
@@ -21,7 +24,12 @@ export default function TopBar() {
       : null
 
   return (
-    <header className="bg-surface/80 fixed top-0 right-0 left-0 z-40 flex items-center justify-between px-4 py-3 backdrop-blur-md md:hidden">
+    <header
+      className={clsx(
+        'bg-surface/80 fixed top-0 right-0 left-0 z-40 flex items-center justify-between px-4 py-3 backdrop-blur-md transition-all duration-500 md:hidden',
+        isFocused && '-translate-y-full opacity-0 pointer-events-none',
+      )}
+    >
       {/* Left: day + date */}
       <div className="flex flex-col">
         <span className="text-on-surface-variant text-xs tracking-[0.2em] uppercase">
