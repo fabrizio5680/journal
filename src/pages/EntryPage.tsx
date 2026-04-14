@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams, Navigate } from 'react-router-dom'
+import { useParams, Navigate, useNavigate } from 'react-router-dom'
+import { format, parseISO } from 'date-fns'
 import type { Editor } from '@tiptap/core'
 
 import { useEntry } from '@/hooks/useEntry'
@@ -10,15 +11,18 @@ import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
 
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
+
 export default function EntryPage() {
   const { date } = useParams<{ date: string }>()
 
-  if (!date) return <Navigate to="/" replace />
+  if (!date || !DATE_REGEX.test(date)) return <Navigate to="/history" replace />
 
   return <EntryEditorView date={date} />
 }
 
 function EntryEditorView({ date }: { date: string }) {
+  const navigate = useNavigate()
   const { entry, isLoading, markDirty, save } = useEntry(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved } = useSaveStatus()
@@ -92,6 +96,21 @@ function EntryEditorView({ date }: { date: string }) {
       <EditorToolbar editor={editorInstance} />
 
       <div className="mx-auto max-w-2xl px-6 pt-4 md:pt-14">
+        {/* Back button + historical date */}
+        <div className="mb-6 flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            aria-label="Go back"
+            className="hover:bg-surface-container text-on-surface-variant flex items-center gap-1 rounded-full px-3 py-1.5 text-sm transition-colors"
+          >
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            Back
+          </button>
+          <span className="text-on-surface-variant text-sm">
+            {format(parseISO(date), 'EEEE, MMMM d, yyyy')}
+          </span>
+        </div>
+
         <MetadataChips
           mood={entry?.mood ?? null}
           moodLabel={entry?.moodLabel ?? null}
@@ -109,10 +128,7 @@ function EntryEditorView({ date }: { date: string }) {
         />
       </div>
 
-      <FloatingActionBar
-        wordCount={liveWordCount}
-        onSave={handleSave}
-      />
+      <FloatingActionBar wordCount={liveWordCount} onSave={handleSave} />
     </>
   )
 }
