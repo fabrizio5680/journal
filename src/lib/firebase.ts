@@ -1,6 +1,11 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore'
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentSingleTabManager,
+} from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,7 +19,30 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
-export const db = getFirestore(app)
+
+let dbInstance
+
+if (import.meta.env.VITE_USE_EMULATOR !== 'true') {
+  try {
+    dbInstance = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager({}),
+      }),
+    })
+  } catch (err) {
+    const code = (err as { code?: string }).code
+    if (code === 'failed-precondition') {
+      console.warn('Firestore persistence unavailable: multiple tabs open')
+    } else if (code === 'unimplemented') {
+      console.warn('Firestore persistence not supported in this browser')
+    }
+    dbInstance = getFirestore(app)
+  }
+} else {
+  dbInstance = getFirestore(app)
+}
+
+export const db = dbInstance
 
 if (import.meta.env.VITE_USE_EMULATOR === 'true') {
   const { connectAuthEmulator, signInWithEmailAndPassword } = await import('firebase/auth')
@@ -30,13 +58,7 @@ if (import.meta.env.VITE_USE_EMULATOR === 'true') {
     await signInWithEmailAndPassword(auth, email, password)
   }
 } else {
-  enableIndexedDbPersistence(db).catch((err: { code: string }) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('Firestore persistence unavailable: multiple tabs open')
-    } else if (err.code === 'unimplemented') {
-      console.warn('Firestore persistence not supported in this browser')
-    }
-  })
+  // Persistence is configured via Firestore initialization settings above.
 }
 
 export default app
