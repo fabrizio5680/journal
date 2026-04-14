@@ -43,18 +43,18 @@ export default function EntryListCard({ entry }: EntryListCardProps) {
       tabIndex={0}
       onClick={handleClick}
       onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-      className="group bg-surface-container-lowest cursor-pointer rounded-[2rem] border border-transparent p-6 transition-all duration-500 hover:border-outline-variant/10 hover:shadow-[0_4px_40px_rgba(48,51,49,0.06)]"
+      className="group bg-surface-container-lowest hover:border-outline-variant/10 cursor-pointer rounded-[2rem] border border-transparent p-6 transition-all duration-500 hover:shadow-[0_4px_40px_rgba(48,51,49,0.06)]"
     >
       {/* Date label */}
-      <p className="text-on-surface-variant mb-1 text-[10px] font-black uppercase tracking-widest">
+      <p className="text-on-surface-variant mb-1 text-[10px] font-black tracking-widest uppercase">
         {format(parseISO(entry.date), 'EEEE, MMMM d, yyyy')}
       </p>
 
       {/* Title row + mood chip */}
       <div className="flex items-start justify-between gap-4">
-        <h3 className="text-on-surface flex-1 text-2xl font-bold leading-snug">{title}</h3>
+        <h3 className="text-on-surface flex-1 text-2xl leading-snug font-bold">{title}</h3>
         {mood && (
-          <Chip className="shrink-0 mt-1">
+          <Chip className="mt-1 shrink-0">
             {mood.emoji} {mood.label}
           </Chip>
         )}

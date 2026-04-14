@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
+
 import Chip from '@/components/ui/Chip'
 
 interface TagInputProps {
@@ -22,9 +23,7 @@ export default function TagInput({ tags, vocabulary, onChange, onNewTag }: TagIn
   const inputRef = useRef<HTMLInputElement>(null)
 
   const filtered = inputValue
-    ? vocabulary.filter(
-        (v) => v.includes(inputValue.toLowerCase()) && !tags.includes(v),
-      )
+    ? vocabulary.filter((v) => v.includes(inputValue.toLowerCase()) && !tags.includes(v))
     : vocabulary.filter((v) => !tags.includes(v))
 
   const showCreate =
@@ -47,7 +46,7 @@ export default function TagInput({ tags, vocabulary, onChange, onNewTag }: TagIn
     onChange(tags.filter((t) => t !== tag))
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
       e.preventDefault()
       if (inputValue.trim()) addTag(inputValue)

@@ -9,7 +9,7 @@ export default function EditorToolbar({ editor, saveStatus }: EditorToolbarProps
   if (!editor) return null
 
   return (
-    <div className="fixed top-0 right-0 left-0 z-30 hidden md:left-64 xl:right-80 md:flex items-center justify-between bg-surface/80 backdrop-blur-md border-b border-outline-variant/10 px-6 py-2">
+    <div className="bg-surface/80 border-outline-variant/10 fixed top-0 right-0 left-0 z-30 hidden items-center justify-between border-b px-6 py-2 backdrop-blur-md md:left-64 md:flex xl:right-80">
       <div className="flex items-center gap-1">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -37,9 +37,7 @@ export default function EditorToolbar({ editor, saveStatus }: EditorToolbarProps
         />
       </div>
 
-      {saveStatus && (
-        <span className="text-on-surface-variant text-xs">{saveStatus}</span>
-      )}
+      {saveStatus && <span className="text-on-surface-variant text-xs">{saveStatus}</span>}
     </div>
   )
 }

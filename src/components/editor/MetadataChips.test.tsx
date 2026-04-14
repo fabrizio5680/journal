@@ -22,34 +22,17 @@ describe('MetadataChips', () => {
   })
 
   it('renders mood emoji and label when mood is set', () => {
-    render(
-      <MetadataChips
-        {...defaultProps}
-        mood={3}
-        moodLabel="Calm"
-      />,
-    )
+    render(<MetadataChips {...defaultProps} mood={3} moodLabel="Calm" />)
     expect(screen.getByText('🙂 Calm')).toBeInTheDocument()
   })
 
   it('renders mood emoji with default label when moodLabel is null', () => {
-    render(
-      <MetadataChips
-        {...defaultProps}
-        mood={5}
-        moodLabel={null}
-      />,
-    )
+    render(<MetadataChips {...defaultProps} mood={5} moodLabel={null} />)
     expect(screen.getByText('🥳 Radiant')).toBeInTheDocument()
   })
 
   it('renders tag chips for each tag', () => {
-    render(
-      <MetadataChips
-        {...defaultProps}
-        tags={['gratitude', 'morning']}
-      />,
-    )
+    render(<MetadataChips {...defaultProps} tags={['gratitude', 'morning']} />)
     expect(screen.getByText('gratitude')).toBeInTheDocument()
     expect(screen.getByText('morning')).toBeInTheDocument()
   })

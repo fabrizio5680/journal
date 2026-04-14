@@ -1,0 +1,250 @@
+import { renderHook, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+import { useDictation } from './useDictation'
+
+// --- Mock SpeechRecognition ---
+
+type RecognitionEventHandler = (event: SpeechRecognitionEvent) => void
+type ErrorEventHandler = (event: SpeechRecognitionErrorEvent) => void
+type EndHandler = () => void
+
+interface MockRecognitionInstance {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start: ReturnType<typeof vi.fn>
+  stop: ReturnType<typeof vi.fn>
+  onresult: RecognitionEventHandler | null
+  onerror: ErrorEventHandler | null
+  onend: EndHandler | null
+}
+
+let mockRecognitionInstance: MockRecognitionInstance | null = null
+
+function installMockSpeechRecognition() {
+  // Must be a real class/constructor — arrow functions can't be called with `new`
+  class MockSpeechRecognition {
+    continuous = false
+    interimResults = false
+    lang = ''
+    start = vi.fn()
+    stop = vi.fn()
+    onresult: RecognitionEventHandler | null = null
+    onerror: ErrorEventHandler | null = null
+    onend: EndHandler | null = null
+
+    constructor() {
+      // Capture this instance so tests can drive events
+      mockRecognitionInstance = this as unknown as MockRecognitionInstance
+    }
+  }
+
+  ;(window as typeof window & { SpeechRecognition?: unknown }).SpeechRecognition =
+    MockSpeechRecognition as unknown as typeof SpeechRecognition
+}
+
+function fireResult(instance: MockRecognitionInstance, transcript: string, isFinal: boolean) {
+  const event = {
+    resultIndex: 0,
+    results: [Object.assign([{ transcript, confidence: 1 }], { isFinal })],
+  } as unknown as SpeechRecognitionEvent
+  instance.onresult?.(event)
+}
+
+function fireError(instance: MockRecognitionInstance, error: string) {
+  instance.onerror?.({ error } as SpeechRecognitionErrorEvent)
+}
+
+function fireEnd(instance: MockRecognitionInstance) {
+  instance.onend?.()
+}
+
+describe('useDictation', () => {
+  beforeEach(() => {
+    mockRecognitionInstance = null
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    delete (window as typeof window & { SpeechRecognition?: unknown }).SpeechRecognition
+    delete (
+      window as typeof window & { webkitSpeechRecognition?: unknown }
+    ).webkitSpeechRecognition
+  })
+
+  it('isSupported = false when SpeechRecognition not in window', () => {
+    const { result } = renderHook(() => useDictation(vi.fn()))
+    expect(result.current.isSupported).toBe(false)
+  })
+
+  it('isSupported = true when SpeechRecognition is present', () => {
+    installMockSpeechRecognition()
+    const { result } = renderHook(() => useDictation(vi.fn()))
+    expect(result.current.isSupported).toBe(true)
+  })
+
+  it('state transitions idle → listening on start()', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+    expect(result.current.state).toBe('idle')
+
+    act(() => {
+      result.current.start()
+    })
+
+    expect(result.current.state).toBe('listening')
+    expect(mockRecognitionInstance?.start).toHaveBeenCalledOnce()
+  })
+
+  it('state transitions listening → idle on stop()', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+    expect(result.current.state).toBe('listening')
+
+    act(() => {
+      result.current.stop()
+    })
+
+    expect(result.current.state).toBe('idle')
+    expect(mockRecognitionInstance?.stop).toHaveBeenCalledOnce()
+  })
+
+  it('onTranscript called when final result fires', () => {
+    installMockSpeechRecognition()
+
+    const onTranscript = vi.fn()
+    const { result } = renderHook(() => useDictation(onTranscript))
+
+    act(() => {
+      result.current.start()
+    })
+
+    act(() => {
+      fireResult(mockRecognitionInstance!, 'hello world', true)
+    })
+
+    expect(onTranscript).toHaveBeenCalledWith('hello world')
+  })
+
+  it('onTranscript NOT called for interim (non-final) results', () => {
+    installMockSpeechRecognition()
+
+    const onTranscript = vi.fn()
+    const { result } = renderHook(() => useDictation(onTranscript))
+
+    act(() => {
+      result.current.start()
+    })
+
+    act(() => {
+      fireResult(mockRecognitionInstance!, 'partial text', false)
+    })
+
+    expect(onTranscript).not.toHaveBeenCalled()
+  })
+
+  it('state = error and errorMessage set when not-allowed error fires', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    act(() => {
+      fireError(mockRecognitionInstance!, 'not-allowed')
+    })
+
+    expect(result.current.state).toBe('error')
+    expect(result.current.errorMessage).toBe('Microphone permission denied')
+  })
+
+  it('silent restart after no-speech: restarts after 2s', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    const firstInstance = mockRecognitionInstance!
+    expect(firstInstance.start).toHaveBeenCalledTimes(1)
+
+    // Simulate no-speech → onend fires while still listening
+    act(() => {
+      fireEnd(firstInstance)
+    })
+
+    // After 2s, should restart on the same instance
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    expect(firstInstance.start).toHaveBeenCalledTimes(2)
+    expect(result.current.state).toBe('listening')
+  })
+
+  it('transitions to idle after max silent restarts exceeded', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    const instance = mockRecognitionInstance!
+
+    // Fire onend MAX_SILENT_RESTARTS (5) + 1 times
+    for (let i = 0; i <= 5; i++) {
+      act(() => {
+        fireEnd(instance)
+      })
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+    }
+
+    expect(result.current.state).toBe('idle')
+  })
+
+  it('stop() called on unmount (cleanup)', () => {
+    installMockSpeechRecognition()
+
+    const { result, unmount } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    const instance = mockRecognitionInstance!
+    expect(instance.stop).not.toHaveBeenCalled()
+
+    unmount()
+
+    expect(instance.stop).toHaveBeenCalledOnce()
+  })
+
+  it('configures recognition with continuous = true and interimResults = true', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    expect(mockRecognitionInstance?.continuous).toBe(true)
+    expect(mockRecognitionInstance?.interimResults).toBe(true)
+  })
+})

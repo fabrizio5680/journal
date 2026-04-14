@@ -1,10 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { renderWithProviders } from '@/test/render'
-import EntryListCard from './EntryListCard'
-import type { Entry } from '@/types'
 import { Timestamp } from 'firebase/firestore'
+
+import EntryListCard from './EntryListCard'
+
+import { renderWithProviders } from '@/test/render'
+import type { Entry } from '@/types'
+
 
 // Mock useNavigate
 const mockNavigate = vi.fn()

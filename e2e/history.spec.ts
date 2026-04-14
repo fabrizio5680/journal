@@ -63,7 +63,8 @@ async function seedEntry(
           },
         },
         mood: data.mood != null ? { integerValue: data.mood } : { nullValue: null },
-        moodLabel: data.moodLabel != null ? { stringValue: data.moodLabel as string } : { nullValue: null },
+        moodLabel:
+          data.moodLabel != null ? { stringValue: data.moodLabel as string } : { nullValue: null },
         tags: { arrayValue: { values: [] } },
         wordCount: { integerValue: (data.contentText as string)?.split(' ').length ?? 0 },
         deleted: { booleanValue: false },
@@ -112,7 +113,6 @@ test.describe('History', () => {
 
   test('Scenario 1: calendar shows dots on dates with entries', async ({ page }) => {
     const now = new Date()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
     const year = now.getFullYear()
 
     // Entry dot should be present on the 1st

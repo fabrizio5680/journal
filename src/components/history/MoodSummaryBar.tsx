@@ -8,9 +8,7 @@ export default function MoodSummaryBar({ entries }: MoodSummaryBarProps) {
   const moodEntries = entries.filter((e) => e.mood !== null && e.mood !== undefined)
 
   if (moodEntries.length === 0) {
-    return (
-      <p className="text-on-surface-variant mt-4 text-xs italic">No entries yet this month.</p>
-    )
+    return <p className="text-on-surface-variant mt-4 text-xs italic">No entries yet this month.</p>
   }
 
   const total = moodEntries.length

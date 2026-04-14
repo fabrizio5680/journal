@@ -14,9 +14,7 @@ export default function MoodPicker({ value, onChange }: MoodPickerProps) {
           <button
             key={mood.value}
             type="button"
-            onClick={() =>
-              onChange(isSelected ? null : mood.value, isSelected ? null : mood.label)
-            }
+            onClick={() => onChange(isSelected ? null : mood.value, isSelected ? null : mood.label)}
             className={
               isSelected
                 ? 'border-primary/20 bg-primary-container text-on-primary-container rounded-xl border px-4 py-2 text-sm font-semibold'

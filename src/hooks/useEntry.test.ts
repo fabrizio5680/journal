@@ -32,7 +32,7 @@ import { useEntry } from './useEntry'
 
 function fireAuth(uid: string | null = 'test-uid') {
   act(() => {
-    authCallback?.({ uid } as { uid: string } | null ?? null)
+    authCallback?.(({ uid } as { uid: string } | null) ?? null)
   })
 }
 

@@ -5,6 +5,7 @@ import type { Editor } from '@tiptap/core'
 import { useEntry } from '@/hooks/useEntry'
 import { useTagVocabulary } from '@/hooks/useTagVocabulary'
 import { useSaveStatus } from '@/context/SaveStatusContext'
+import { useDictation } from '@/hooks/useDictation'
 import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
@@ -19,6 +20,25 @@ export default function TodayPage() {
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const {
+    isSupported,
+    state: dictationState,
+    errorMessage,
+    start,
+    stop,
+  } = useDictation(
+    useCallback(
+      (text: string) => {
+        editorInstance
+          ?.chain()
+          .focus()
+          .insertContent(text + ' ')
+          .run()
+      },
+      [editorInstance],
+    ),
+  )
 
   const handleUpdate = useCallback(
     (editor: Editor) => {
@@ -106,6 +126,13 @@ export default function TodayPage() {
       <FloatingActionBar
         wordCount={liveWordCount}
         onSave={handleSave}
+        dictation={{
+          isSupported,
+          state: dictationState,
+          errorMessage,
+          onStart: start,
+          onStop: stop,
+        }}
       />
     </>
   )

@@ -87,7 +87,7 @@ export default function MiniCalendar({
         {DAY_LABELS.map((day) => (
           <div
             key={day}
-            className="text-on-surface-variant flex items-center justify-center text-[10px] uppercase tracking-widest"
+            className="text-on-surface-variant flex items-center justify-center text-[10px] tracking-widest uppercase"
           >
             {day}
           </div>

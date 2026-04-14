@@ -100,4 +100,100 @@ test.describe('Editor', () => {
 
     await expect(page.getByText(/3 words/i)).toBeVisible({ timeout: 3000 })
   })
+
+  test('Scenario 4: dictation — mock SpeechRecognition, transcript inserts into editor', async ({
+    page,
+    browserName,
+  }) => {
+    // Skip on non-Chromium browsers (Safari/Firefox don't support Web Speech API)
+    if (browserName !== 'chromium') return
+
+    // Inject a mock SpeechRecognition into the page before any app code runs
+    await page.addInitScript(() => {
+      let onresultHandler: ((e: SpeechRecognitionEvent) => void) | null = null
+      let onendHandler: (() => void) | null = null
+
+      const MockSpeechRecognition = function (this: SpeechRecognition) {
+        ;(
+          window as typeof window & { __mockRecognitionInstance?: SpeechRecognition }
+        ).__mockRecognitionInstance = this
+      } as unknown as typeof SpeechRecognition
+
+      MockSpeechRecognition.prototype.continuous = false
+      MockSpeechRecognition.prototype.interimResults = false
+      MockSpeechRecognition.prototype.lang = ''
+      MockSpeechRecognition.prototype.start = function () {}
+      MockSpeechRecognition.prototype.stop = function () {
+        onendHandler?.()
+      }
+
+      Object.defineProperty(MockSpeechRecognition.prototype, 'onresult', {
+        set(fn) {
+          onresultHandler = fn
+        },
+        get() {
+          return onresultHandler
+        },
+      })
+      Object.defineProperty(MockSpeechRecognition.prototype, 'onend', {
+        set(fn) {
+          onendHandler = fn
+        },
+        get() {
+          return onendHandler
+        },
+      })
+      Object.defineProperty(MockSpeechRecognition.prototype, 'onerror', {
+        set() {},
+        get() {
+          return null
+        },
+      })
+
+      // Helper to fire a transcript from test code
+      ;(
+        window as typeof window & {
+          __fireMockTranscript?: (text: string) => void
+        }
+      ).__fireMockTranscript = (text: string) => {
+        const event = {
+          resultIndex: 0,
+          results: [Object.assign([{ transcript: text, confidence: 1 }], { isFinal: true })],
+        } as unknown as SpeechRecognitionEvent
+        onresultHandler?.(event)
+      }
+      ;(
+        window as typeof window & { SpeechRecognition?: typeof SpeechRecognition }
+      ).SpeechRecognition = MockSpeechRecognition
+    })
+
+    // Reload so the mock is in place before the app initialises
+    await page.reload()
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+
+    // Dictate button should be visible (isSupported = true due to mock)
+    const dictateBtn = page.getByRole('button', { name: /dictate/i })
+    await expect(dictateBtn).toBeVisible({ timeout: 5000 })
+
+    // Click dictate → button switches to mic_off (listening state)
+    await dictateBtn.click()
+    await expect(page.getByRole('button', { name: /stop dictation/i })).toBeVisible({
+      timeout: 3000,
+    })
+
+    // Fire a mock transcript
+    await page.evaluate(() => {
+      ;(
+        window as typeof window & { __fireMockTranscript?: (t: string) => void }
+      ).__fireMockTranscript?.('dictated text')
+    })
+
+    // Text should appear in editor
+    const editor = page.locator('.tiptap')
+    await expect(editor).toContainText('dictated text', { timeout: 3000 })
+
+    // Click mic-off → back to idle
+    await page.getByRole('button', { name: /stop dictation/i }).click()
+    await expect(page.getByRole('button', { name: /dictate/i })).toBeVisible({ timeout: 3000 })
+  })
 })

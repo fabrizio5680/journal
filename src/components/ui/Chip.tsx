@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react'
+
 interface ChipProps {
-  children: React.ReactNode
+  children: ReactNode
   icon?: string
   onRemove?: () => void
   className?: string

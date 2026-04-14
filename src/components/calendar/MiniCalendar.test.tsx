@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { renderWithProviders } from '@/test/render'
+
 import MiniCalendar from './MiniCalendar'
+
+import { renderWithProviders } from '@/test/render'
 
 // Pin date to a known month for deterministic tests
 // April 2026: April 1 is a Wednesday (day index 3)

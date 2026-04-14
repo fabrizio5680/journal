@@ -67,7 +67,7 @@ export default function HistoryPage() {
       {/* Header */}
       <div className="mb-16 flex items-start justify-between">
         <div>
-          <h1 className="text-on-surface text-[3.5rem] font-bold leading-tight tracking-tight">
+          <h1 className="text-on-surface text-[3.5rem] leading-tight font-bold tracking-tight">
             Past Chapters
           </h1>
           <p className="text-on-surface-variant mt-3 max-w-xl text-lg leading-relaxed">
@@ -98,7 +98,7 @@ export default function HistoryPage() {
 
         {/* Right: entry cards */}
         <div className="lg:col-span-7">
-          <p className="text-on-surface-variant mb-4 text-[10px] font-bold uppercase tracking-widest">
+          <p className="text-on-surface-variant mb-4 text-[10px] font-bold tracking-widest uppercase">
             {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
           </p>
           <div className="flex flex-col gap-4">
