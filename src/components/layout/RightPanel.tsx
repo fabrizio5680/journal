@@ -55,7 +55,7 @@ export default function RightPanel() {
     <aside
       className={clsx(
         'bg-surface border-outline-variant/10 fixed top-0 right-0 z-30 hidden h-screen w-80 flex-col gap-6 border-l px-6 py-8 transition-all duration-500 xl:flex',
-        isFocused && 'xl:translate-x-full xl:opacity-0 xl:pointer-events-none',
+        isFocused && 'xl:pointer-events-none xl:translate-x-full xl:opacity-0',
       )}
     >
       <DailyScripture translation={translation} />

@@ -6,6 +6,7 @@ import clsx from 'clsx'
 import { auth } from '@/lib/firebase'
 import { useStreak } from '@/hooks/useStreak'
 import { useFocusMode } from '@/context/FocusModeContext'
+import { useSearch } from '@/context/SearchContext'
 
 const NAV_ITEMS = [
   { label: 'Journal', icon: 'edit_note', to: '/' },
@@ -19,6 +20,7 @@ export default function SideNav() {
   const { current: streakCount } = useStreak()
   const navigate = useNavigate()
   const { isFocused } = useFocusMode()
+  const { openSearch } = useSearch()
 
   useEffect(() => {
     return onAuthStateChanged(auth, setUser)
@@ -28,7 +30,7 @@ export default function SideNav() {
     <nav
       className={clsx(
         'bg-surface-container-low fixed top-0 left-0 z-30 hidden h-screen w-64 flex-col px-4 py-8 transition-all duration-500 md:flex',
-        isFocused && 'md:-translate-x-full md:opacity-0 md:pointer-events-none',
+        isFocused && 'md:pointer-events-none md:-translate-x-full md:opacity-0',
       )}
     >
       {/* Logo + brand */}
@@ -63,6 +65,18 @@ export default function SideNav() {
           </NavLink>
         ))}
       </div>
+
+      {/* Search button */}
+      <button
+        onClick={openSearch}
+        className="text-on-surface-variant hover:bg-surface-bright mt-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-colors duration-300"
+      >
+        <span className="material-symbols-outlined text-xl">search</span>
+        <span className="flex-1 text-left">Search</span>
+        <kbd className="bg-surface-container rounded px-1.5 py-0.5 font-mono text-[10px] opacity-60">
+          ⌘K
+        </kbd>
+      </button>
 
       {/* Bottom section */}
       <div className="mt-auto flex flex-col gap-4">

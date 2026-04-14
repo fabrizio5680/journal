@@ -8,7 +8,6 @@ import EntryListCard from './EntryListCard'
 import { renderWithProviders } from '@/test/render'
 import type { Entry } from '@/types'
 
-
 // Mock useNavigate
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {

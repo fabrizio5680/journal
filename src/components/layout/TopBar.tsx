@@ -6,12 +6,14 @@ import clsx from 'clsx'
 import { auth } from '@/lib/firebase'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useFocusMode } from '@/context/FocusModeContext'
+import { useSearch } from '@/context/SearchContext'
 
 export default function TopBar() {
   const [user, setUser] = useState<User | null>(null)
   const now = new Date()
   const { isDirty, lastSaved } = useSaveStatus()
   const { isFocused } = useFocusMode()
+  const { openSearch } = useSearch()
 
   useEffect(() => {
     return onAuthStateChanged(auth, setUser)
@@ -27,7 +29,7 @@ export default function TopBar() {
     <header
       className={clsx(
         'bg-surface/80 fixed top-0 right-0 left-0 z-40 flex items-center justify-between px-4 py-3 backdrop-blur-md transition-all duration-500 md:hidden',
-        isFocused && '-translate-y-full opacity-0 pointer-events-none',
+        isFocused && 'pointer-events-none -translate-y-full opacity-0',
       )}
     >
       {/* Left: day + date */}
@@ -51,6 +53,7 @@ export default function TopBar() {
       <div className="flex items-center gap-2">
         <button
           aria-label="Search"
+          onClick={openSearch}
           className="hover:bg-surface-container flex h-9 w-9 items-center justify-center rounded-full transition-colors"
         >
           <span className="material-symbols-outlined text-on-surface-variant">search</span>

@@ -7,7 +7,10 @@
       "Bash(npx npm-check-updates:*)",
       "Bash(node -e \"const p = require\\('./package.json'\\); const deps = {...p.dependencies, ...p.devDependencies}; const keys = ['vite','vitest','typescript','firebase','eslint','react','react-router-dom','@tiptap/react','recharts','tailwindcss','algoliasearch','react-instantsearch','date-fns','clsx','@vitejs/plugin-react','@playwright/test','@testing-library/react']; keys.forEach\\(k => console.log\\(k, deps[k]\\)\\)\")",
       "WebSearch",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(ls /Users/fabrizio/github/journal/*.json)",
+      "Bash(node -e \"const pkg = require\\('./node_modules/react-instantsearch/package.json'\\); console.log\\(pkg.version\\)\")",
+      "Bash(grep -rn \"react-refresh\" /Users/fabrizio/github/journal/eslint.config.*)"
     ]
   }
 }

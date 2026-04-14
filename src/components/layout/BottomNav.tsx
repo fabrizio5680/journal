@@ -16,7 +16,7 @@ export default function BottomNav() {
     <nav
       className={clsx(
         'bg-surface/70 fixed bottom-0 left-0 z-40 flex w-full items-center justify-around rounded-t-3xl px-6 pt-4 pb-8 shadow-[0_-4px_40px_rgba(48,51,49,0.06)] backdrop-blur-xl transition-all duration-500 md:hidden',
-        isFocused && 'translate-y-full opacity-0 pointer-events-none',
+        isFocused && 'pointer-events-none translate-y-full opacity-0',
       )}
     >
       {NAV_ITEMS.map(({ label, icon, to }) => (

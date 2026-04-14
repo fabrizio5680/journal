@@ -1,15 +1,32 @@
+import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import clsx from 'clsx'
+
 
 import SideNav from './SideNav'
 import TopBar from './TopBar'
 import BottomNav from './BottomNav'
 import RightPanel from './RightPanel'
 
+import SearchModal from '@/components/search/SearchModal'
+import { useSearch } from '@/context/SearchContext'
 import { useFocusMode } from '@/context/FocusModeContext'
 
 export default function AppShell() {
   const { isFocused, exit } = useFocusMode()
+  const { openSearch } = useSearch()
+
+  // Cmd/Ctrl+K global shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        openSearch()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [openSearch])
 
   return (
     <div className="bg-background min-h-screen">
@@ -53,6 +70,9 @@ export default function AppShell() {
 
       {/* Mobile: fixed bottom nav */}
       <BottomNav />
+
+      {/* Full-screen search modal */}
+      <SearchModal />
     </div>
   )
 }

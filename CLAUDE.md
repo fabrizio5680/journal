@@ -24,7 +24,7 @@
 - **`contentText`** — extracted client-side via Tiptap `getText()` at save time; stored alongside `content` (Tiptap JSON) in Firestore
 - **Auth** — Google Sign-In only; `signInWithPopup` on desktop, `signInWithRedirect` on mobile (userAgent detect); `getRedirectResult()` called on mount
 - **Soft delete** — `deleted: true` + `deletedAt: Timestamp`; 30-day hard delete via Firestore TTL policy on `deletedAt` field (configured in Firestore console, no code)
-- **Algolia** — Firebase Extension syncs Firestore → Algolia; secured key scoped `userId == auth.uid` + `deleted:false`; key fetched via `getSearchKey` Cloud Function, stored in memory only, never localStorage
+- **Algolia** — Firebase Extension syncs Firestore → Algolia; secured key scoped `userId == auth.uid` + `deleted:false`; key fetched via `getSearchKey` Cloud Function, stored in memory only, never localStorage; `SearchModal` uses `react-instantsearch` with async client init (fetched on modal open, shown as "Loading…" until ready); `SearchContext` provides `{ isSearchOpen, openSearch, closeSearch }` — wrapped in `App.tsx`; Cmd/Ctrl+K global shortcut wired in `AppShell`; `SearchResultCard` is a separate component from `EntryListCard` because Algolia hits have `excerpt` not Tiptap `content`; E2E tests inject `window.__mockAlgoliaClient` (detected when `VITE_USE_EMULATOR=true`) to bypass the Cloud Function call
 - **Dictation** — `useDictation` hook wraps Web Speech API (`continuous`, `interimResults`); only fires `onTranscript` on final results; silently restarts up to 5× on `no-speech` then idles; hidden entirely on iOS Safari (`isSupported` feature detect, no error shown); `FloatingActionBar` receives a single `dictation` prop object
 - **Focus mode** — `FocusModeContext` (`src/context/FocusModeContext.tsx`) provides `{ isFocused, toggle, exit }`; wrapped around `AppShell` in `App.tsx`; each layout component (SideNav, TopBar, BottomNav, RightPanel) reads the context and applies `transition-all duration-500` + translate/opacity classes to slide off-screen; `BottomNav` Focus button is a `<button>` (not a NavLink) that calls `toggle()`; exit button appears `fixed top-4 right-4 z-50` when focused
 - **Offline** — Firestore IndexedDB persistence enabled in `firebase.ts`; sync status indicator watches `navigator.onLine`
@@ -122,7 +122,7 @@ src/
     editor/       EntryEditor, EditorToolbar, MetadataChips
     layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav
     calendar/     MiniCalendar
-    search/       SearchModal, SearchFilters
+    search/       SearchModal, SearchFilters, SearchResultCard
     mood/         MoodPicker
     tags/         TagInput
     history/      EntryListCard, MoodSummaryBar
@@ -130,7 +130,7 @@ src/
     fab/          FloatingActionBar
     auth/         LoginPage
     ui/           Chip, GlassCard, DailyScripture
-  context/          SaveStatusContext, FocusModeContext
+  context/          SaveStatusContext, FocusModeContext, SearchContext
   hooks/
     useEntry, useEntryDates, useStreak, useDictation,
     useSearch, useInsights

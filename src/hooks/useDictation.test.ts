@@ -69,9 +69,7 @@ describe('useDictation', () => {
   afterEach(() => {
     vi.useRealTimers()
     delete (window as typeof window & { SpeechRecognition?: unknown }).SpeechRecognition
-    delete (
-      window as typeof window & { webkitSpeechRecognition?: unknown }
-    ).webkitSpeechRecognition
+    delete (window as typeof window & { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
   })
 
   it('isSupported = false when SpeechRecognition not in window', () => {

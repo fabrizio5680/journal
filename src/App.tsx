@@ -5,6 +5,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { SaveStatusProvider } from '@/context/SaveStatusContext'
 import { FocusModeProvider } from '@/context/FocusModeContext'
+import { SearchProvider } from '@/context/SearchContext'
 import AppShell from '@/components/layout/AppShell'
 import LoginPage from '@/components/auth/LoginPage'
 import TodayPage from '@/pages/TodayPage'
@@ -38,11 +39,13 @@ export default function App() {
       <Route
         element={
           <RequireAuth>
-            <FocusModeProvider>
-              <SaveStatusProvider>
-                <AppShell />
-              </SaveStatusProvider>
-            </FocusModeProvider>
+            <SearchProvider>
+              <FocusModeProvider>
+                <SaveStatusProvider>
+                  <AppShell />
+                </SaveStatusProvider>
+              </FocusModeProvider>
+            </SearchProvider>
           </RequireAuth>
         }
       >
