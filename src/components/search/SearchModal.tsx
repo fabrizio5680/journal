@@ -47,6 +47,7 @@ export default function SearchModal() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [client, setClient] = useState<SearchClient | null>(null)
+  const [indexName, setIndexName] = useState<string | null>(null)
   const [clientError, setClientError] = useState(false)
   const [query, setQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -61,6 +62,7 @@ export default function SearchModal() {
         setDateFrom('')
         setDateTo('')
         setClient(null)
+        setIndexName(null)
       }, 0)
       return () => clearTimeout(t)
     }
@@ -69,10 +71,11 @@ export default function SearchModal() {
     const t = setTimeout(() => inputRef.current?.focus(), 50)
 
     getAlgoliaClient()
-      .then((c) => {
+      .then(({ client: searchClient, indexName: runtimeIndexName }) => {
         if (!cancelled) {
           setClientError(false)
-          setClient(c as unknown as SearchClient)
+          setClient(searchClient as unknown as SearchClient)
+          setIndexName(runtimeIndexName)
         }
       })
       .catch(() => {
@@ -149,8 +152,8 @@ export default function SearchModal() {
         </div>
 
         {/* Algolia-powered filters + results */}
-        {client && (
-          <InstantSearch searchClient={client} indexName="journal_entries">
+        {client && indexName && (
+          <InstantSearch searchClient={client} indexName={indexName}>
             <Configure
               hitsPerPage={20}
               query={query}

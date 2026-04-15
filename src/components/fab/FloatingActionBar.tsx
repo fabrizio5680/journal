@@ -10,12 +10,14 @@ interface DictationProps {
 
 interface FloatingActionBarProps {
   wordCount: number
+  isDirty: boolean
   onSave: () => void
   dictation?: DictationProps
 }
 
 export default function FloatingActionBar({
   wordCount,
+  isDirty,
   onSave,
   dictation,
 }: FloatingActionBarProps) {
@@ -55,11 +57,16 @@ export default function FloatingActionBar({
         {/* Save button */}
         <button
           onClick={onSave}
-          aria-label="Save Entry"
-          className="bg-primary hover:bg-primary-dim text-on-primary flex h-12 items-center gap-2 rounded-full px-7 text-sm font-semibold shadow-[0_8px_32px_rgba(61,84,49,0.25)] transition-all hover:shadow-[0_12px_40px_rgba(61,84,49,0.3)] hover:-translate-y-0.5"
+          aria-label="Save changes"
+          disabled={!isDirty}
+          className={`text-on-primary flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold transition-all ${
+            isDirty
+              ? 'bg-primary hover:bg-primary-dim shadow-[0_8px_32px_rgba(61,84,49,0.25)] hover:shadow-[0_12px_40px_rgba(61,84,49,0.3)] hover:-translate-y-0.5'
+              : 'bg-outline-variant/40 cursor-not-allowed shadow-none'
+          } md:h-12 md:w-auto md:gap-2 md:px-7`}
         >
           <span className="material-symbols-outlined text-[18px]">check</span>
-          Save Entry
+          <span className="hidden md:inline">Save</span>
         </button>
       </div>
     </div>

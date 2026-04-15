@@ -20,9 +20,11 @@ if (getApps().length === 0) {
 const {
   ALGOLIA_APP_ID,
   ALGOLIA_SEARCH_ONLY_KEY,
+  ALGOLIA_INDEX_NAME,
 } = process.env
 
 const FUNCTIONS_REGION = 'europe-west2'
+const SEARCH_INDEX_NAME = ALGOLIA_INDEX_NAME || 'journal_entries'
 
 if (!ALGOLIA_APP_ID) {
   throw new Error('Missing ALGOLIA_APP_ID')
@@ -55,11 +57,12 @@ export const getSearchKey = onCall({ region: FUNCTIONS_REGION }, async (request)
 
   const key = generateSecuredApiKey(ALGOLIA_SEARCH_ONLY_KEY, {
     filters: `userId:${uid} AND deleted:false`,
+    restrictIndices: SEARCH_INDEX_NAME,
     validUntil,
     userToken: uid,
   })
 
-  return { key, appId: ALGOLIA_APP_ID }
+  return { key, appId: ALGOLIA_APP_ID, indexName: SEARCH_INDEX_NAME }
 })
 
 export const sendDailyReminders = onSchedule(

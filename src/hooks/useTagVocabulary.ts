@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc, arrayUnion } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, db } from '@/lib/firebase'
@@ -35,7 +35,7 @@ export function useTagVocabulary() {
     async (tag: string) => {
       if (!uid) return
       const userRef = doc(db, 'users', uid)
-      await updateDoc(userRef, { tagVocabulary: arrayUnion(tag) })
+      await setDoc(userRef, { tagVocabulary: arrayUnion(tag) }, { merge: true })
     },
     [uid],
   )

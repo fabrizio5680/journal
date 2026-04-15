@@ -16,7 +16,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "check:deploy": "npm run lint && npm run typecheck && npm run test && npm run build && npm --prefix functions run build",
-    "deploy:firebase": "npm run check:deploy && firebase deploy --only hosting,functions",
+    "deploy:firebase": "npm run check:deploy && firebase deploy --only hosting,functions,firestore:rules,firestore:indexes",
     "verify:all": "npm run lint && npm run typecheck && npm run test && npm run test:e2e && npm run build && npm --prefix functions run build",
     "preview": "vite preview"
   },
