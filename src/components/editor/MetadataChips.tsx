@@ -57,16 +57,16 @@ export default function MetadataChips({
         <button
           type="button"
           onClick={handleMoodClick}
-          className="bg-secondary-container text-on-secondary-container flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium"
+          className="bg-secondary-container/70 text-on-secondary-container flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary-container"
         >
-          {moodEntry ? `${moodEntry.emoji} ${moodLabel ?? moodEntry.label}` : 'Add mood'}
+          {moodEntry ? `${moodEntry.emoji} ${moodLabel ?? moodEntry.label}` : '+ mood'}
         </button>
 
         {/* Tag chips */}
         {tags.map((tag) => (
           <span
             key={tag}
-            className="bg-secondary-container text-on-secondary-container flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium"
+            className="bg-secondary-container/70 text-on-secondary-container flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium"
           >
             {tag}
           </span>
@@ -77,19 +77,9 @@ export default function MetadataChips({
           type="button"
           onClick={handleTagClick}
           aria-label="Add tag"
-          className="text-on-surface-variant/40 hover:text-on-surface-variant flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors"
+          className="text-on-surface-variant/40 hover:text-on-surface-variant flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
         >
-          + Add tag
-        </button>
-
-        {/* Add circle icon button */}
-        <button
-          type="button"
-          onClick={handleTagClick}
-          aria-label="Add"
-          className="text-on-surface-variant/40 hover:text-on-surface-variant flex-shrink-0 transition-colors"
-        >
-          <span className="material-symbols-outlined text-[20px]">add_circle</span>
+          + tag
         </button>
       </div>
 

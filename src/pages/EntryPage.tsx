@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns'
 import type { Editor } from '@tiptap/core'
 
 import { useEntry } from '@/hooks/useEntry'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useTagVocabulary } from '@/hooks/useTagVocabulary'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
@@ -23,6 +24,7 @@ export default function EntryPage() {
 }
 
 function EntryEditorView({ date }: { date: string }) {
+  usePageTitle(format(parseISO(date), 'MMMM d, yyyy'))
   const navigate = useNavigate()
   const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()

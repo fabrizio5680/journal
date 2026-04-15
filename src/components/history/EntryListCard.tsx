@@ -27,15 +27,28 @@ function extractTitle(entry: Entry): string {
   return entry.contentText?.slice(0, 60) || 'Untitled'
 }
 
+export function EntryListCardSkeleton() {
+  return (
+    <div className="bg-surface-container-lowest animate-pulse rounded-[2rem] p-6">
+      <div className="bg-surface-container mb-3 h-3 w-24 rounded-lg" />
+      <div className="bg-surface-container mb-2 h-7 w-3/4 rounded-lg" />
+      <div className="bg-surface-container mb-1.5 h-4 w-full rounded-lg" />
+      <div className="bg-surface-container h-4 w-2/3 rounded-lg" />
+    </div>
+  )
+}
+
 export default function EntryListCard({ entry }: EntryListCardProps) {
   const navigate = useNavigate()
   const mood = entry.mood !== null ? MOODS.find((m) => m.value === entry.mood) : null
   const title = extractTitle(entry)
-  const excerpt = entry.contentText?.slice(0, 120) ?? ''
+  const excerpt = entry.contentText?.slice(0, 130) ?? ''
 
   const handleClick = () => {
     navigate(`/entry/${entry.date}`)
   }
+
+  const parsedDate = parseISO(entry.date)
 
   return (
     <div
@@ -43,32 +56,47 @@ export default function EntryListCard({ entry }: EntryListCardProps) {
       tabIndex={0}
       onClick={handleClick}
       onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-      className="group bg-surface-container-lowest hover:border-outline-variant/10 cursor-pointer rounded-[2rem] border border-transparent p-6 transition-all duration-500 hover:shadow-[0_4px_40px_rgba(48,51,49,0.06)]"
+      className="group bg-surface-container-lowest hover:shadow-[0_8px_48px_rgba(27,30,24,0.07)] cursor-pointer rounded-[2rem] border border-transparent hover:border-outline-variant/15 p-6 transition-all duration-500"
     >
-      {/* Date label */}
-      <p className="text-on-surface-variant mb-1 text-[10px] font-black tracking-widest uppercase">
-        {format(parseISO(entry.date), 'EEEE, MMMM d, yyyy')}
-      </p>
-
-      {/* Title row + mood chip */}
-      <div className="flex items-start justify-between gap-4">
-        <h3 className="text-on-surface flex-1 text-2xl leading-snug font-bold">{title}</h3>
+      {/* Date + mood row */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-on-surface-variant/60 text-[10px] font-medium tracking-[0.18em] uppercase">
+            {format(parsedDate, 'EEEE')}
+          </span>
+          <span className="text-outline-variant/60">·</span>
+          <span className="text-on-surface-variant/60 text-[10px] font-medium tracking-[0.12em] uppercase">
+            {format(parsedDate, 'MMM d, yyyy')}
+          </span>
+        </div>
         {mood && (
-          <Chip className="mt-1 shrink-0">
+          <Chip className="shrink-0">
             {mood.emoji} {mood.label}
           </Chip>
         )}
       </div>
 
+      {/* Title */}
+      <h3 className="font-display text-on-surface text-[1.6rem] leading-tight font-semibold mb-2 tracking-tight">
+        {title}
+      </h3>
+
       {/* Excerpt + arrow */}
-      <div className="mt-2 flex items-end justify-between gap-4">
-        <p className="text-on-surface-variant line-clamp-2 flex-1 text-sm leading-relaxed">
+      <div className="flex items-end justify-between gap-4">
+        <p className="text-on-surface-variant/70 line-clamp-2 flex-1 text-sm leading-relaxed">
           {excerpt}
         </p>
-        <span className="material-symbols-outlined text-on-surface-variant shrink-0 transition-transform duration-300 group-hover:translate-x-1">
+        <span className="material-symbols-outlined text-outline-variant/60 shrink-0 text-[18px] transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary">
           arrow_forward
         </span>
       </div>
+
+      {/* Word count */}
+      {entry.wordCount > 0 && (
+        <p className="text-outline-variant/60 mt-3 text-[10px] tracking-wide">
+          {entry.wordCount} words
+        </p>
+      )}
     </div>
   )
 }

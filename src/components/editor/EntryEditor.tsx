@@ -26,7 +26,7 @@ export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryE
     editorProps: {
       attributes: {
         class:
-          'outline-none bg-transparent text-xl leading-[1.8] font-light text-on-surface min-h-[60vh] w-full',
+          'outline-none bg-transparent text-[1.35rem] leading-[1.9] font-light text-on-surface min-h-[60vh] w-full font-display',
       },
     },
     onUpdate({ editor }) {
@@ -55,7 +55,7 @@ export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryE
   return (
     <div className="relative">
       <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
-        <div className="bg-surface-container-lowest border-outline-variant/20 flex gap-1 rounded-xl border p-1 shadow-lg">
+        <div className="bg-surface-container-lowest border-outline-variant/15 flex gap-0.5 rounded-xl border p-1 shadow-xl">
           <BubbleButton
             onClick={() => editor.chain().focus().toggleBold().run()}
             active={editor.isActive('bold')}

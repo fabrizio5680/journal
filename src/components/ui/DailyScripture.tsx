@@ -130,22 +130,43 @@ interface DailyScriptureProps {
   translation?: 'NLT' | 'MSG' | 'ESV'
 }
 
+export function DailyScriptureSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="bg-surface-container h-6 w-6 rounded-full mb-4" />
+      <div className="bg-surface-container mb-2 h-3 w-full rounded-lg" />
+      <div className="bg-surface-container mb-2 h-3 w-5/6 rounded-lg" />
+      <div className="bg-surface-container mb-4 h-3 w-4/6 rounded-lg" />
+      <div className="bg-surface-container h-2 w-24 rounded-lg" />
+    </div>
+  )
+}
+
 export default function DailyScripture({ translation = 'NLT' }: DailyScriptureProps) {
   // Initialize from localStorage so we never render empty on first paint
-  const [verse, setVerse] = useState<Verse | null>(() => readCache(translation))
+  const cached = readCache(translation)
+  const [verse, setVerse] = useState<Verse | null>(cached)
+  const [isLoading, setIsLoading] = useState(!cached)
 
   useEffect(() => {
     // Re-check cache in case translation changed after mount
-    const cached = readCache(translation)
-    if (cached) {
-      // Wrap in a microtask so we don't call setState synchronously in the effect body
-      Promise.resolve(cached).then(setVerse)
+    const fresh = readCache(translation)
+    if (fresh) {
+      Promise.resolve(fresh).then((v) => {
+        setVerse(v)
+        setIsLoading(false)
+      })
       return
     }
 
+    // Wrap in Promise so setState is not called synchronously in the effect body
+    Promise.resolve().then(() => setIsLoading(true))
     const apiKey = import.meta.env.VITE_BIBLE_API_KEY as string | undefined
     if (!apiKey) {
-      Promise.resolve(getFallbackVerse()).then(setVerse)
+      Promise.resolve(getFallbackVerse()).then((v) => {
+        setVerse(v)
+        setIsLoading(false)
+      })
       return
     }
 
@@ -167,24 +188,48 @@ export default function DailyScripture({ translation = 'NLT' }: DailyScripturePr
         }
         localStorage.setItem(getCacheKey(translation), JSON.stringify(fetched))
         setVerse(fetched)
+        setIsLoading(false)
       })
       .catch(() => {
         setVerse(getFallbackVerse())
+        setIsLoading(false)
       })
   }, [translation])
+
+  if (isLoading) return <DailyScriptureSkeleton />
 
   const display = verse ?? getFallbackVerse()
 
   return (
-    <div className="bg-surface-container-low rounded-[2rem] p-6">
-      <span className="material-symbols-outlined text-primary text-2xl">format_quote</span>
-      <p className="text-on-surface mt-3 text-sm leading-relaxed font-light italic">
-        "{display.text}"
+    <div className="flex flex-col gap-3">
+      {/* Decorative label */}
+      <p className="text-on-surface-variant/50 text-[9px] tracking-[0.25em] uppercase">
+        Today's Word
       </p>
-      <p className="text-primary mt-3 text-[10px] font-bold tracking-widest uppercase">
-        {display.reference}
+
+      {/* Large opening quote */}
+      <div className="font-display text-primary/20 text-7xl leading-none select-none -mb-4">
+        "
+      </div>
+
+      {/* Verse text */}
+      <p className="font-display text-on-surface text-lg font-light italic leading-relaxed">
+        {display.text}
       </p>
-      <p className="text-on-surface-variant mt-1 text-[10px]">{translation}</p>
+
+      {/* Reference */}
+      <div className="flex items-center gap-2 pt-1">
+        <div className="h-px flex-1 bg-outline-variant/30" />
+        <p className="text-primary text-[10px] font-semibold tracking-[0.2em] uppercase">
+          {display.reference}
+        </p>
+        <div className="h-px flex-1 bg-outline-variant/30" />
+      </div>
+
+      {/* Translation badge */}
+      <p className="text-on-surface-variant/40 text-[9px] tracking-[0.15em] uppercase text-center">
+        {translation}
+      </p>
     </div>
   )
 }

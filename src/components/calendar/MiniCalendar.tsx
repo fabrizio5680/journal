@@ -24,7 +24,29 @@ interface MiniCalendarProps {
   entries?: Entry[]
 }
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+
+export function MiniCalendarSkeleton() {
+  return (
+    <div className="bg-surface-container-lowest animate-pulse rounded-[2rem] p-7">
+      <div className="mb-5 flex items-center justify-between">
+        <div className="bg-surface-container h-8 w-8 rounded-full" />
+        <div className="bg-surface-container h-4 w-28 rounded-lg" />
+        <div className="bg-surface-container h-8 w-8 rounded-full" />
+      </div>
+      <div className="mb-2 grid grid-cols-7 gap-1">
+        {DAY_LABELS.map((d) => (
+          <div key={d} className="bg-surface-container mx-auto h-2.5 w-5 rounded" />
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: 35 }).map((_, i) => (
+          <div key={i} className="bg-surface-container mx-auto h-9 w-9 rounded-full" />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function MiniCalendar({
   selectedDate,
@@ -54,40 +76,41 @@ export default function MiniCalendar({
   }
 
   return (
-    <div className="bg-surface-container-low rounded-[2rem] p-8">
-      {/* Header row */}
-      <div className="mb-4 flex items-center justify-between">
+    <div className="bg-surface-container-lowest rounded-[2rem] p-7">
+      {/* Month / year header */}
+      <div className="mb-5 flex items-center justify-between">
         <button
           onClick={navigatePrev}
           aria-label="Previous month"
-          className="hover:bg-surface-container flex h-8 w-8 items-center justify-center rounded-full transition-colors"
+          className="hover:bg-surface-container text-on-surface-variant flex h-8 w-8 items-center justify-center rounded-full transition-colors"
         >
-          <span className="material-symbols-outlined text-on-surface-variant text-[20px]">
-            chevron_left
-          </span>
+          <span className="material-symbols-outlined text-[20px]">chevron_left</span>
         </button>
 
-        <span className="text-on-surface text-base font-bold">
-          {format(currentDate, 'MMMM yyyy')}
-        </span>
+        <div className="text-center">
+          <span className="font-display text-on-surface text-xl font-semibold">
+            {format(currentDate, 'MMMM')}
+          </span>
+          <span className="text-on-surface-variant/60 ml-2 text-sm">
+            {format(currentDate, 'yyyy')}
+          </span>
+        </div>
 
         <button
           onClick={navigateNext}
           aria-label="Next month"
-          className="hover:bg-surface-container flex h-8 w-8 items-center justify-center rounded-full transition-colors"
+          className="hover:bg-surface-container text-on-surface-variant flex h-8 w-8 items-center justify-center rounded-full transition-colors"
         >
-          <span className="material-symbols-outlined text-on-surface-variant text-[20px]">
-            chevron_right
-          </span>
+          <span className="material-symbols-outlined text-[20px]">chevron_right</span>
         </button>
       </div>
 
-      {/* Day labels row */}
+      {/* Day labels */}
       <div className="mb-1 grid grid-cols-7 gap-1">
         {DAY_LABELS.map((day) => (
           <div
             key={day}
-            className="text-on-surface-variant flex items-center justify-center text-[10px] tracking-widest uppercase"
+            className="text-on-surface-variant/40 flex items-center justify-center text-[10px] font-semibold tracking-widest uppercase py-1"
           >
             {day}
           </div>
@@ -111,17 +134,21 @@ export default function MiniCalendar({
               aria-label={format(day, 'MMMM d, yyyy')}
               aria-pressed={isSelected}
               className={clsx(
-                'flex h-9 w-9 flex-col items-center justify-center rounded-full text-sm transition-colors',
-                !inMonth && 'text-on-surface-variant cursor-default opacity-30',
-                inMonth && !today && !isSelected && 'hover:bg-primary-container/20 cursor-pointer',
-                today && !isSelected && 'bg-primary-container text-primary font-bold',
-                isSelected && 'bg-primary text-on-primary font-bold',
-                hasEntry && !today && !isSelected && 'text-on-surface font-medium',
+                'relative flex h-9 w-9 flex-col items-center justify-center rounded-full text-sm transition-all duration-200 mx-auto',
+                !inMonth && 'cursor-default opacity-20',
+                inMonth && !today && !isSelected && 'hover:bg-primary-container/30 cursor-pointer text-on-surface',
+                today && !isSelected && 'bg-primary-container/50 text-primary font-semibold',
+                isSelected && 'bg-primary text-on-primary font-semibold shadow-sm',
               )}
             >
-              <span>{format(day, 'd')}</span>
+              <span className="leading-none">{format(day, 'd')}</span>
               {hasEntry && inMonth && (
-                <span className="bg-primary mx-auto mt-0.5 h-1 w-1 rounded-full" />
+                <span
+                  className={clsx(
+                    'absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full',
+                    isSelected ? 'bg-on-primary/60' : 'bg-primary/50',
+                  )}
+                />
               )}
             </button>
           )

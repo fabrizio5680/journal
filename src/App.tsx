@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged, type User } from 'firebase/auth'
 
 import { auth } from '@/lib/firebase'
@@ -15,6 +15,7 @@ import InsightsPage from '@/pages/InsightsPage'
 import SettingsPage from '@/pages/SettingsPage'
 import TrashPage from '@/pages/TrashPage'
 import EntryPage from '@/pages/EntryPage'
+import NotFoundPage from '@/pages/NotFoundPage'
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined)
@@ -60,7 +61,7 @@ export default function App() {
         <Route path="/trash" element={<TrashPage />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

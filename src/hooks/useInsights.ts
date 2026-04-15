@@ -9,9 +9,16 @@ interface InsightsData {
   topTags: Array<{ tag: string; count: number }>
   totalEntries: number
   totalWords: number
+  isLoading: boolean
 }
 
-const EMPTY: InsightsData = { moodByDate: [], topTags: [], totalEntries: 0, totalWords: 0 }
+const EMPTY: InsightsData = {
+  moodByDate: [],
+  topTags: [],
+  totalEntries: 0,
+  totalWords: 0,
+  isLoading: true,
+}
 
 export function useInsights(): InsightsData {
   const [data, setData] = useState<InsightsData>(EMPTY)
@@ -21,7 +28,7 @@ export function useInsights(): InsightsData {
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        setData(EMPTY)
+        setData({ ...EMPTY, isLoading: false })
         return
       }
 
@@ -60,7 +67,7 @@ export function useInsights(): InsightsData {
       const totalEntries = entries.length
       const totalWords = entries.reduce((sum, e) => sum + ((e.wordCount as number) ?? 0), 0)
 
-      setData({ moodByDate, topTags, totalEntries, totalWords })
+      setData({ moodByDate, topTags, totalEntries, totalWords, isLoading: false })
     })
 
     return () => {

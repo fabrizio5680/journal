@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore'
 import { signOut, onAuthStateChanged, type User } from 'firebase/auth'
@@ -6,6 +6,7 @@ import { getToken } from 'firebase/messaging'
 
 import { auth, db, messagingPromise } from '@/lib/firebase'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 type Translation = 'NLT' | 'MSG' | 'ESV'
 
@@ -27,12 +28,12 @@ function Toggle({
       aria-checked={enabled}
       aria-label={label}
       onClick={() => onChange(!enabled)}
-      className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none ${
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none ${
         enabled ? 'bg-primary' : 'bg-surface-container-high'
       }`}
     >
       <span
-        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 mt-1 ${
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 mt-1 ${
           enabled ? 'translate-x-6' : 'translate-x-1'
         }`}
       />
@@ -40,7 +41,34 @@ function Toggle({
   )
 }
 
+function SettingsSection({ children }: { children: ReactNode }) {
+  return (
+    <div className="bg-surface-container-lowest rounded-[1.75rem] p-6 mb-3">{children}</div>
+  )
+}
+
+function SettingsRow({
+  icon,
+  label,
+  children,
+}: {
+  icon: string
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <span className="material-symbols-outlined text-primary text-[20px]">{icon}</span>
+        <span className="text-on-surface text-sm font-medium">{label}</span>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 export default function SettingsPage() {
+  usePageTitle('Settings')
   const [user, setUser] = useState<User | null>(null)
   const navigate = useNavigate()
   const { grainEnabled, scriptureTranslation } = useUserPreferences()
@@ -49,7 +77,6 @@ export default function SettingsPage() {
   const [reminderTime, setReminderTime] = useState('20:00')
   const [notifError, setNotifError] = useState<string | null>(null)
 
-  // Load reminder fields from user doc once
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -125,10 +152,8 @@ export default function SettingsPage() {
 
   async function handleTranslationChange(translation: Translation) {
     await updateUserDoc({ scriptureTranslation: translation })
-    // Clear cached scripture so it re-fetches with the new translation
     const today = new Date().toISOString().slice(0, 10)
     localStorage.removeItem(`scripture_${translation}_${today}`)
-    // Also clear the old translation cache
     ;(['NLT', 'MSG', 'ESV'] as Translation[]).forEach((t) => {
       if (t !== translation) localStorage.removeItem(`scripture_${t}_${today}`)
     })
@@ -140,14 +165,14 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-8">
-      {/* Header */}
-      <div className="mb-8 flex items-center gap-4">
+    <div className="mx-auto max-w-lg px-4 py-8 md:pt-16">
+      {/* Profile header */}
+      <div className="mb-10 flex items-center gap-4">
         {user?.photoURL ? (
           <img
             src={user.photoURL}
             alt={user.displayName ?? 'User'}
-            className="h-16 w-16 rounded-full object-cover"
+            className="h-16 w-16 rounded-full object-cover ring-2 ring-outline-variant/20"
           />
         ) : (
           <div className="bg-primary-container flex h-16 w-16 shrink-0 items-center justify-center rounded-full">
@@ -157,33 +182,29 @@ export default function SettingsPage() {
           </div>
         )}
         <div>
-          <p className="text-on-surface text-2xl font-bold">{user?.displayName}</p>
-          <p className="text-on-surface-variant text-sm">{user?.email}</p>
+          <p className="font-display text-on-surface text-3xl font-light">{user?.displayName}</p>
+          <p className="text-on-surface-variant/60 text-sm">{user?.email}</p>
         </div>
       </div>
 
       {/* Notifications */}
-      <div className="bg-surface-container-lowest mb-4 rounded-[2rem] p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary">notifications</span>
-            <span className="text-on-surface font-semibold">Daily Reminder</span>
-          </div>
+      <SettingsSection>
+        <SettingsRow icon="notifications" label="Daily Reminder">
           <Toggle
             id="reminder-toggle"
             label="Daily Reminder"
             enabled={reminderEnabled}
             onChange={handleReminderToggle}
           />
-        </div>
+        </SettingsRow>
 
-        {notifError && <p className="text-error mb-3 text-xs">{notifError}</p>}
+        {notifError && <p className="text-error mt-3 text-xs">{notifError}</p>}
 
         {reminderEnabled && (
-          <div className="mt-2">
+          <div className="mt-4 border-t border-outline-variant/20 pt-4">
             <label
               htmlFor="reminder-time"
-              className="text-on-surface-variant mb-1 block text-xs font-medium"
+              className="text-on-surface-variant/60 mb-2 block text-xs font-medium tracking-wide"
             >
               Reminder time
             </label>
@@ -196,54 +217,51 @@ export default function SettingsPage() {
             />
           </div>
         )}
-      </div>
+      </SettingsSection>
 
       {/* Appearance */}
-      <div className="bg-surface-container-lowest mb-4 rounded-[2rem] p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary">texture</span>
-            <span className="text-on-surface font-semibold">Paper Grain Texture</span>
-          </div>
-          <Toggle id="grain-toggle" label="Paper Grain Texture" enabled={grainEnabled} onChange={handleGrainToggle} />
-        </div>
-      </div>
+      <SettingsSection>
+        <SettingsRow icon="texture" label="Paper Grain Texture">
+          <Toggle
+            id="grain-toggle"
+            label="Paper Grain Texture"
+            enabled={grainEnabled}
+            onChange={handleGrainToggle}
+          />
+        </SettingsRow>
+      </SettingsSection>
 
       {/* Scripture */}
-      <div className="bg-surface-container-lowest mb-4 rounded-[2rem] p-6">
-        <div className="mb-4 flex items-center gap-3">
-          <span className="material-symbols-outlined text-primary">menu_book</span>
-          <span className="text-on-surface font-semibold">Daily Scripture Translation</span>
-        </div>
-        <div className="flex gap-2">
-          {(['NLT', 'MSG', 'ESV'] as Translation[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => handleTranslationChange(t)}
-              className={
-                scriptureTranslation === t
-                  ? 'bg-primary-container text-primary rounded-full px-4 py-2 text-sm font-semibold'
-                  : 'bg-surface-container text-on-surface-variant rounded-full px-4 py-2 text-sm'
-              }
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
+      <SettingsSection>
+        <SettingsRow icon="menu_book" label="Scripture Translation">
+          <div className="flex gap-1.5">
+            {(['NLT', 'MSG', 'ESV'] as Translation[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => handleTranslationChange(t)}
+                className={
+                  scriptureTranslation === t
+                    ? 'bg-primary text-on-primary rounded-full px-3 py-1.5 text-xs font-semibold'
+                    : 'bg-surface-container text-on-surface-variant/70 rounded-full px-3 py-1.5 text-xs hover:text-on-surface-variant transition-colors'
+                }
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </SettingsRow>
+      </SettingsSection>
 
-      {/* Account */}
-      <div className="bg-surface-container-lowest rounded-[2rem] p-6">
+      {/* Sign out */}
+      <SettingsSection>
         <button
           onClick={handleSignOut}
-          className="bg-error-container text-on-error-container w-full rounded-full py-3 px-6 font-semibold transition-opacity hover:opacity-80"
+          className="text-on-surface-variant/60 hover:text-error flex w-full items-center justify-center gap-2 py-1 text-sm font-medium transition-colors"
         >
-          <span className="flex items-center justify-center gap-2">
-            <span className="material-symbols-outlined text-base">logout</span>
-            Sign Out
-          </span>
+          <span className="material-symbols-outlined text-[18px]">logout</span>
+          Sign Out
         </button>
-      </div>
+      </SettingsSection>
     </div>
   )
 }

@@ -20,31 +20,31 @@ export default function TopBar() {
   }, [])
 
   const saveLabel = isDirty
-    ? 'Saving...'
+    ? 'Saving…'
     : lastSaved
-      ? `Draft saved ${formatDistanceToNow(lastSaved, { addSuffix: true })}`
+      ? `Saved ${formatDistanceToNow(lastSaved, { addSuffix: true })}`
       : null
 
   return (
     <header
       className={clsx(
-        'bg-surface/80 fixed top-0 right-0 left-0 z-40 flex items-center justify-between px-4 py-3 backdrop-blur-md transition-all duration-500 md:hidden',
+        'bg-surface/90 border-outline-variant/15 fixed top-0 right-0 left-0 z-40 flex items-center justify-between border-b px-5 py-3 backdrop-blur-md transition-all duration-500 md:hidden',
         isFocused && 'pointer-events-none -translate-y-full opacity-0',
       )}
     >
-      {/* Left: day + date */}
+      {/* Left: brand mark + date */}
       <div className="flex flex-col">
-        <span className="text-on-surface-variant text-xs tracking-[0.2em] uppercase">
-          {format(now, 'EEEE')}
-        </span>
-        <span className="text-primary text-lg leading-tight font-bold">
+        <span className="font-display text-primary text-xl font-semibold leading-none">
           {format(now, 'MMMM d')}
+        </span>
+        <span className="text-on-surface-variant/70 text-[10px] tracking-[0.15em] uppercase">
+          {format(now, 'EEEE')}
         </span>
       </div>
 
       {/* Centre: save status */}
       {saveLabel && (
-        <span className="text-on-surface-variant absolute left-1/2 -translate-x-1/2 text-xs">
+        <span className="text-on-surface-variant/60 absolute left-1/2 -translate-x-1/2 text-[10px] tracking-wide">
           {saveLabel}
         </span>
       )}
@@ -54,16 +54,16 @@ export default function TopBar() {
         <button
           aria-label="Search"
           onClick={openSearch}
-          className="hover:bg-surface-container flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+          className="hover:bg-surface-container text-on-surface-variant flex h-8 w-8 items-center justify-center rounded-full transition-colors"
         >
-          <span className="material-symbols-outlined text-on-surface-variant">search</span>
+          <span className="material-symbols-outlined text-[20px]">search</span>
         </button>
 
         {user?.photoURL ? (
           <img
             src={user.photoURL}
             alt={user.displayName ?? 'User'}
-            className="h-8 w-8 rounded-full"
+            className="h-8 w-8 rounded-full ring-1 ring-outline-variant/30"
           />
         ) : (
           <div className="bg-primary-container flex h-8 w-8 items-center justify-center rounded-full">

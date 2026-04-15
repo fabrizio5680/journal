@@ -12,10 +12,12 @@ import {
 } from 'firebase/firestore'
 
 import { auth, db } from '@/lib/firebase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import TrashEntryCard from '@/components/history/TrashEntryCard'
 import type { Entry } from '@/types'
 
 export default function TrashPage() {
+  usePageTitle('Trash')
   const [uid, setUid] = useState<string | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
   const [confirmDeleteDate, setConfirmDeleteDate] = useState<string | null>(null)
@@ -59,8 +61,13 @@ export default function TrashPage() {
     <div className="mx-auto max-w-2xl px-6 pt-8 md:pt-16">
       {/* Header */}
       <div className="mb-10">
-        <h1 className="text-on-surface text-3xl font-bold">Trash</h1>
-        <p className="text-on-surface-variant mt-1 text-sm">
+        <p className="text-on-surface-variant/50 text-[10px] tracking-[0.25em] uppercase mb-2">
+          Deleted entries
+        </p>
+        <h1 className="font-display text-on-surface text-[3rem] font-light leading-none tracking-tight">
+          Trash
+        </h1>
+        <p className="text-on-surface-variant/60 mt-2 text-sm">
           Entries are permanently deleted after 30 days.
         </p>
       </div>
@@ -68,10 +75,12 @@ export default function TrashPage() {
       {/* Entry list */}
       {entries.length === 0 ? (
         <div className="flex flex-col items-center gap-4 py-24 text-center">
-          <span className="material-symbols-outlined text-on-surface-variant text-[64px] opacity-30">
+          <span className="material-symbols-outlined text-on-surface-variant/20 text-[56px]">
             delete
           </span>
-          <p className="text-on-surface-variant text-sm">Your trash is empty.</p>
+          <p className="font-display text-on-surface-variant text-2xl font-light italic">
+            Your trash is empty.
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -91,25 +100,25 @@ export default function TrashPage() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 backdrop-blur-sm"
         >
-          <div className="bg-surface-container-lowest w-full max-w-sm rounded-[2rem] p-8 shadow-xl">
-            <h2 className="text-on-surface mb-2 text-xl font-bold">
-              Permanently delete this entry?
+          <div className="bg-surface-container-lowest w-full max-w-sm rounded-[2rem] p-8 shadow-2xl border border-outline-variant/10">
+            <h2 className="font-display text-on-surface mb-2 text-2xl font-semibold">
+              Permanently delete?
             </h2>
-            <p className="text-on-surface-variant mb-8 text-sm leading-relaxed">
+            <p className="text-on-surface-variant/70 mb-8 text-sm leading-relaxed">
               This cannot be undone.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setConfirmDeleteDate(null)}
-                className="bg-surface-container text-on-surface rounded-full px-6 py-3 text-sm font-medium transition-colors hover:brightness-95"
+                className="bg-surface-container text-on-surface-variant rounded-full px-5 py-2.5 text-sm font-medium transition-colors hover:brightness-95"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteForever(confirmDeleteDate)}
-                className="bg-error text-on-error rounded-full px-6 py-3 text-sm font-bold transition-colors hover:brightness-95"
+                className="bg-error text-on-error rounded-full px-5 py-2.5 text-sm font-semibold transition-colors hover:brightness-95"
               >
                 Delete Forever
               </button>

@@ -11,6 +11,7 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile-safari', use: { ...devices['iPhone 14'] } },
+    { name: 'tablet', use: { ...devices['iPad Pro 11'] } },
   ],
   webServer: {
     command: 'vite --mode test',

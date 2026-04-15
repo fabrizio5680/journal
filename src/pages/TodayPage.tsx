@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import type { Editor } from '@tiptap/core'
 
 import { useEntry } from '@/hooks/useEntry'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useTagVocabulary } from '@/hooks/useTagVocabulary'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
@@ -13,6 +14,7 @@ import MetadataChips from '@/components/editor/MetadataChips'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
 
 export default function TodayPage() {
+  usePageTitle("Today's Entry")
   const today = format(new Date(), 'yyyy-MM-dd')
   const navigate = useNavigate()
   const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(today)
@@ -104,8 +106,12 @@ export default function TodayPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <span className="text-on-surface-variant text-sm">Loading...</span>
+      <div className="mx-auto max-w-2xl animate-pulse px-6 pt-14">
+        <div className="bg-surface-container mb-6 h-4 w-32 rounded-xl" />
+        <div className="bg-surface-container mb-3 h-8 w-2/3 rounded-xl" />
+        <div className="bg-surface-container mb-2 h-5 w-full rounded-xl" />
+        <div className="bg-surface-container mb-2 h-5 w-5/6 rounded-xl" />
+        <div className="bg-surface-container h-5 w-4/6 rounded-xl" />
       </div>
     )
   }
@@ -125,6 +131,18 @@ export default function TodayPage() {
             >
               <span className="material-symbols-outlined text-[20px]">more_vert</span>
             </button>
+          </div>
+        )}
+
+        {/* First-time welcome — shown when no entry exists yet today */}
+        {!entry && (
+          <div className="mb-10 py-4">
+            <p className="font-display text-on-surface/80 text-3xl font-light italic leading-relaxed">
+              Welcome to your sanctuary.
+            </p>
+            <p className="text-on-surface-variant/50 mt-2 text-sm">
+              This space is yours — start writing.
+            </p>
           </div>
         )}
 
@@ -160,21 +178,21 @@ export default function TodayPage() {
       {/* Delete confirmation dialog */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm">
-          <div className="bg-surface-container-lowest w-full max-w-sm rounded-[2rem] p-8 shadow-xl">
-            <h2 className="text-on-surface mb-2 text-xl font-bold">Move to Trash?</h2>
-            <p className="text-on-surface-variant mb-8 text-sm leading-relaxed">
+          <div className="bg-surface-container-lowest w-full max-w-sm rounded-[2rem] p-8 shadow-2xl border border-outline-variant/10">
+            <h2 className="font-display text-on-surface mb-2 text-2xl font-semibold">Move to Trash?</h2>
+            <p className="text-on-surface-variant/70 mb-8 text-sm leading-relaxed">
               This entry will be permanently deleted after 30 days.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="bg-surface-container text-on-surface rounded-full px-6 py-3 text-sm font-medium transition-colors hover:brightness-95"
+                className="bg-surface-container text-on-surface-variant rounded-full px-5 py-2.5 text-sm font-medium transition-colors hover:brightness-95"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="bg-error text-on-error rounded-full px-6 py-3 text-sm font-bold transition-colors hover:brightness-95"
+                className="bg-error text-on-error rounded-full px-5 py-2.5 text-sm font-semibold transition-colors hover:brightness-95"
               >
                 Move to Trash
               </button>
