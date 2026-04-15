@@ -59,7 +59,14 @@ export default function MetadataChips({
           onClick={handleMoodClick}
           className="bg-secondary-container/70 text-on-secondary-container flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary-container"
         >
-          {moodEntry ? `${moodEntry.emoji} ${moodLabel ?? moodEntry.label}` : '+ mood'}
+          {moodEntry ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden="true">{moodEntry.emoji}</span>
+              <span>{moodLabel ?? moodEntry.label}</span>
+            </span>
+          ) : (
+            '+ mood'
+          )}
         </button>
 
         {/* Tag chips */}
