@@ -34,12 +34,24 @@ export default function LoginPage() {
 
   async function handleSignIn() {
     const provider = new GoogleAuthProvider()
-    const isMobile = /Mobi|Android/i.test(navigator.userAgent)
-    if (isMobile) {
+    const isMobileUserAgent = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    const isTouchDevice = navigator.maxTouchPoints > 0
+    const shouldUseRedirect = isMobileUserAgent || isTouchDevice
+
+    if (shouldUseRedirect) {
       await signInWithRedirect(auth, provider)
     } else {
-      await signInWithPopup(auth, provider)
-      navigate('/')
+      try {
+        await signInWithPopup(auth, provider)
+        navigate('/')
+      } catch (error) {
+        const code = (error as { code?: string }).code
+        if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
+          await signInWithRedirect(auth, provider)
+          return
+        }
+        throw error
+      }
     }
   }
 

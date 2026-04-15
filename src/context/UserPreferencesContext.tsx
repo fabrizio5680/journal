@@ -34,14 +34,20 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
       }
 
       const userRef = doc(db, 'users', user.uid)
-      unsubscribeSnapshot = onSnapshot(userRef, (snap) => {
-        const data = snap.data()
-        if (!data) return
-        setPrefs({
-          grainEnabled: data.grainEnabled ?? true,
-          scriptureTranslation: (data.scriptureTranslation as Translation) ?? 'NLT',
-        })
-      })
+      unsubscribeSnapshot = onSnapshot(
+        userRef,
+        (snap) => {
+          const data = snap.data()
+          if (!data) return
+          setPrefs({
+            grainEnabled: data.grainEnabled ?? true,
+            scriptureTranslation: (data.scriptureTranslation as Translation) ?? 'NLT',
+          })
+        },
+        () => {
+          setPrefs(defaultPreferences)
+        },
+      )
     })
 
     return () => {

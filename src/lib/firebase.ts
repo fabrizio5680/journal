@@ -10,7 +10,17 @@ import { getMessaging, isSupported } from 'firebase/messaging'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  authDomain: (() => {
+    const configuredAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
+    const shouldUseCurrentHostForAuth =
+      import.meta.env.PROD &&
+      hostname.endsWith('.web.app') &&
+      configuredAuthDomain.endsWith('.firebaseapp.com')
+
+    // Use same-site auth domain on Firebase Hosting to avoid redirect state loss in strict mobile browsers.
+    return shouldUseCurrentHostForAuth ? hostname : configuredAuthDomain
+  })(),
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,

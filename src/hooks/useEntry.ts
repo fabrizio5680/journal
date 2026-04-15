@@ -41,20 +41,28 @@ export function useEntry(date: string): UseEntryReturn {
     const entryRef = doc(db, 'users', uid, 'entries', date)
     const currentKey = `${uid}/${date}`
 
-    const unsub = onSnapshot(entryRef, (snap) => {
-      // Mark this key as loaded (in callback — not synchronous in effect body)
-      setLoadedKey(currentKey)
-      if (snap.exists()) {
-        const data = snap.data() as Entry
-        // Ignore remote updates while the user is typing.
-        // Also treat soft-deleted entries as non-existent so the editor stays empty.
-        if (!isDirtyRef.current) {
-          setEntry(data.deleted ? null : data)
+    const unsub = onSnapshot(
+      entryRef,
+      (snap) => {
+        // Mark this key as loaded (in callback — not synchronous in effect body)
+        setLoadedKey(currentKey)
+        if (snap.exists()) {
+          const data = snap.data() as Entry
+          // Ignore remote updates while the user is typing.
+          // Also treat soft-deleted entries as non-existent so the editor stays empty.
+          if (!isDirtyRef.current) {
+            setEntry(data.deleted ? null : data)
+          }
+        } else {
+          if (!isDirtyRef.current) setEntry(null)
         }
-      } else {
+      },
+      () => {
+        // Avoid uncaught listener errors from bubbling to the console.
+        setLoadedKey(currentKey)
         if (!isDirtyRef.current) setEntry(null)
-      }
-    })
+      },
+    )
 
     return unsub
   }, [uid, date])

@@ -3,6 +3,8 @@ import { getFunctions, httpsCallable } from 'firebase/functions'
 
 import app from './firebase'
 
+const FUNCTIONS_REGION = 'europe-west2'
+
 let securedKey: string | null = null
 let keyExpiry = 0
 let cachedClient: ReturnType<typeof liteClient> | null = null
@@ -18,7 +20,7 @@ export async function getAlgoliaClient() {
 
   const now = Math.floor(Date.now() / 1000)
   if (!securedKey || now >= keyExpiry - 60) {
-    const fn = httpsCallable(getFunctions(app), 'getSearchKey')
+    const fn = httpsCallable(getFunctions(app, FUNCTIONS_REGION), 'getSearchKey')
     const result = await fn()
     securedKey = (result.data as { key: string }).key
     keyExpiry = now + 3600

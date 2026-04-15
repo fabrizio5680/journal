@@ -48,13 +48,20 @@ export default function HistoryPage() {
     )
 
     Promise.resolve().then(() => setEntriesLoading(true))
-    return onSnapshot(q, (snap) => {
-      const list: Entry[] = []
-      snap.forEach((doc) => list.push(doc.data() as Entry))
-      list.sort((a, b) => b.date.localeCompare(a.date))
-      setEntries(list)
-      setEntriesLoading(false)
-    })
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list: Entry[] = []
+        snap.forEach((doc) => list.push(doc.data() as Entry))
+        list.sort((a, b) => b.date.localeCompare(a.date))
+        setEntries(list)
+        setEntriesLoading(false)
+      },
+      () => {
+        setEntries([])
+        setEntriesLoading(false)
+      },
+    )
   }, [uid, selectedMonth.year, selectedMonth.month])
 
   const handleDateSelect = (date: string) => {

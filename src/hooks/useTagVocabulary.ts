@@ -18,11 +18,17 @@ export function useTagVocabulary() {
     if (!uid) return
 
     const userRef = doc(db, 'users', uid)
-    return onSnapshot(userRef, (snap) => {
-      if (snap.exists()) {
-        setVocabulary((snap.data().tagVocabulary as string[]) ?? [])
-      }
-    })
+    return onSnapshot(
+      userRef,
+      (snap) => {
+        if (snap.exists()) {
+          setVocabulary((snap.data().tagVocabulary as string[]) ?? [])
+        }
+      },
+      () => {
+        setVocabulary([])
+      },
+    )
   }, [uid])
 
   const addToVocabulary = useCallback(

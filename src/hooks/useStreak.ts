@@ -76,10 +76,16 @@ export function useStreak(): StreakResult {
         limit(365),
       )
 
-      unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
-        const dates = snapshot.docs.map((doc) => doc.id)
-        setStreak(computeStreaks(dates))
-      })
+      unsubscribeSnapshot = onSnapshot(
+        q,
+        (snapshot) => {
+          const dates = snapshot.docs.map((doc) => doc.id)
+          setStreak(computeStreaks(dates))
+        },
+        () => {
+          setStreak({ current: 0, longest: 0 })
+        },
+      )
     })
 
     return () => {

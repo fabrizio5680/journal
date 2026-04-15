@@ -37,11 +37,17 @@ export default function TrashPage() {
       orderBy('deletedAt', 'desc'),
     )
 
-    return onSnapshot(q, (snap) => {
-      const list: Entry[] = []
-      snap.forEach((d) => list.push(d.data() as Entry))
-      setEntries(list)
-    })
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list: Entry[] = []
+        snap.forEach((d) => list.push(d.data() as Entry))
+        setEntries(list)
+      },
+      () => {
+        setEntries([])
+      },
+    )
   }, [uid])
 
   const handleRestore = async (date: string) => {

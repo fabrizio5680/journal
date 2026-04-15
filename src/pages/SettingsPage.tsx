@@ -82,12 +82,19 @@ export default function SettingsPage() {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u)
       if (!u) return
-      unsubscribe = onSnapshot(doc(db, 'users', u.uid), (snap) => {
-        const data = snap.data()
-        if (!data) return
-        setReminderEnabled(data.reminderEnabled ?? false)
-        setReminderTime(data.reminderTime ?? '20:00')
-      })
+      unsubscribe = onSnapshot(
+        doc(db, 'users', u.uid),
+        (snap) => {
+          const data = snap.data()
+          if (!data) return
+          setReminderEnabled(data.reminderEnabled ?? false)
+          setReminderTime(data.reminderTime ?? '20:00')
+        },
+        () => {
+          setReminderEnabled(false)
+          setReminderTime('20:00')
+        },
+      )
     })
     return () => {
       unsub()
