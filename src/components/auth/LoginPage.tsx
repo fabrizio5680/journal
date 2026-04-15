@@ -21,14 +21,34 @@ export default function LoginPage() {
   useEffect(() => {
     getRedirectResult(auth)
       .then((result) => {
-        if (result) navigate('/')
+        if (result?.user || auth.currentUser) {
+          navigate('/', { replace: true })
+        }
       })
       .catch(console.error)
   }, [navigate])
 
   useEffect(() => {
+    let isMounted = true
+
+    auth
+      .authStateReady()
+      .then(() => {
+        if (!isMounted) return
+        if (auth.currentUser) {
+          navigate('/', { replace: true })
+        }
+      })
+      .catch(console.error)
+
+    return () => {
+      isMounted = false
+    }
+  }, [navigate])
+
+  useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
-      if (user) navigate('/')
+      if (user) navigate('/', { replace: true })
     })
   }, [navigate])
 
@@ -43,7 +63,7 @@ export default function LoginPage() {
     } else {
       try {
         await signInWithPopup(auth, provider)
-        navigate('/')
+        navigate('/', { replace: true })
       } catch (error) {
         const code = (error as { code?: string }).code
         if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
