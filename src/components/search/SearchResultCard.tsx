@@ -1,4 +1,4 @@
-import { format, parseISO } from 'date-fns'
+import { format, isValid, parseISO } from 'date-fns'
 
 import Chip from '@/components/ui/Chip'
 import { MOODS } from '@/lib/moods'
@@ -6,7 +6,8 @@ import { MOODS } from '@/lib/moods'
 export interface SearchHit {
   objectID: string
   date: string
-  excerpt: string
+  excerpt?: string
+  contentText?: string
   mood: number | null
   moodLabel: string | null
   tags: string[]
@@ -20,8 +21,13 @@ interface SearchResultCardProps {
 
 export default function SearchResultCard({ hit, onSelect }: SearchResultCardProps) {
   const mood = hit.mood != null ? MOODS.find((m) => m.value === hit.mood) : null
-  const title = hit.excerpt?.slice(0, 60) || 'Untitled'
-  const excerpt = hit.excerpt?.slice(0, 120) ?? ''
+  const parsedDate = parseISO(hit.date)
+  const formattedDate = isValid(parsedDate)
+    ? format(parsedDate, 'EEEE, MMMM d, yyyy')
+    : hit.date
+  const sourceText = hit.excerpt ?? hit.contentText ?? ''
+  const title = sourceText.slice(0, 60) || 'Untitled'
+  const excerpt = sourceText.slice(0, 120)
 
   return (
     <div
@@ -32,7 +38,7 @@ export default function SearchResultCard({ hit, onSelect }: SearchResultCardProp
       className="group bg-surface-container-lowest hover:border-outline-variant/10 cursor-pointer rounded-[2rem] border border-transparent p-6 transition-all duration-500 hover:shadow-[0_4px_40px_rgba(48,51,49,0.06)]"
     >
       <p className="text-on-surface-variant mb-1 text-[10px] font-black tracking-widest uppercase">
-        {format(parseISO(hit.date), 'EEEE, MMMM d, yyyy')}
+        {formattedDate}
       </p>
 
       <div className="flex items-start justify-between gap-4">

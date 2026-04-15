@@ -29,27 +29,24 @@ function TagFilter() {
   )
 }
 
-// --- Mood filter ---
-function MoodFilter() {
-  const { items, refine } = useRefinementList({ attribute: 'mood', limit: 5 })
+interface MoodFilterProps {
+  selectedMoods: number[]
+  onToggleMood: (value: number) => void
+}
 
-  // Build a set of refined mood values for easy lookup
-  const refinedValues = new Set(items.filter((i) => i.isRefined).map((i) => i.value))
-
-  const handleMoodClick = (value: number) => {
-    refine(String(value))
-  }
+function MoodFilter({ selectedMoods, onToggleMood }: MoodFilterProps) {
+  const refinedValues = new Set(selectedMoods)
 
   return (
     <>
       {MOODS.map((m) => (
         <button
           key={m.value}
-          onClick={() => handleMoodClick(m.value)}
+          onClick={() => onToggleMood(m.value)}
           aria-label={m.label}
           className={clsx(
             'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors',
-            refinedValues.has(String(m.value))
+            refinedValues.has(m.value)
               ? 'bg-primary text-on-primary'
               : 'bg-secondary-container text-on-secondary-container hover:opacity-80',
           )}
@@ -103,16 +100,24 @@ interface SearchFiltersProps {
   dateFrom: string
   dateTo: string
   onDateChange: (from: string, to: string) => void
+  selectedMoods: number[]
+  onToggleMood: (value: number) => void
 }
 
-export default function SearchFilters({ dateFrom, dateTo, onDateChange }: SearchFiltersProps) {
+export default function SearchFilters({
+  dateFrom,
+  dateTo,
+  onDateChange,
+  selectedMoods,
+  onToggleMood,
+}: SearchFiltersProps) {
   // useNumericMenu is only used to check if the attribute is indexable;
   // actual range is applied via <Configure numericFilters={...} /> in the modal.
   // We render tag + mood refinements + date inputs.
   return (
     <div className="border-outline-variant/10 flex flex-wrap items-center gap-2 border-b px-6 py-3">
       <TagFilter />
-      <MoodFilter />
+      <MoodFilter selectedMoods={selectedMoods} onToggleMood={onToggleMood} />
       <DateRangeFilter from={dateFrom} to={dateTo} onChange={onDateChange} />
     </div>
   )

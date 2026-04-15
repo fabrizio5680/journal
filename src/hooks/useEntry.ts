@@ -5,6 +5,10 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
 import type { Entry } from '@/types'
 
+function toDateTimestamp(date: string): number {
+  return Math.floor(new Date(`${date}T00:00:00Z`).getTime() / 1000)
+}
+
 export interface UseEntryReturn {
   entry: Entry | null
   isLoading: boolean
@@ -97,9 +101,17 @@ export function useEntry(date: string): UseEntryReturn {
         entryRef,
         {
           ...entryPatch,
+          userId: uid,
           date,
+          dateTimestamp: toDateTimestamp(date),
           updatedAt: serverTimestamp(),
-          ...(isNew ? { createdAt: serverTimestamp() } : {}),
+          ...(isNew
+            ? {
+                createdAt: serverTimestamp(),
+                deleted: false,
+                deletedAt: null,
+              }
+            : {}),
         },
         { merge: true },
       )
