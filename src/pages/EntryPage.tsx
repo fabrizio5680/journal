@@ -160,6 +160,7 @@ function EntryEditorView({ date }: { date: string }) {
         />
 
         <EntryEditor
+          key={date}
           content={entry?.content ?? null}
           onUpdate={handleUpdate}
           onEditorReady={setEditorInstance}

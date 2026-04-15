@@ -157,6 +157,7 @@ export default function TodayPage() {
         />
 
         <EntryEditor
+          key={today}
           content={entry?.content ?? null}
           onUpdate={handleUpdate}
           onEditorReady={setEditorInstance}
