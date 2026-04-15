@@ -212,4 +212,36 @@ describe('useEntry', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.entry).toBe(null)
   })
+
+  it('entry is null when snapshot date does not match requested date', async () => {
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+    fireSnapshot({ date: '2026-04-12', contentText: 'wrong day', wordCount: 2, deleted: false })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.entry).toBe(null)
+  })
+
+  it('save() ignores caller-provided date and writes requested date', async () => {
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+    fireSnapshot(null)
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    await act(async () => {
+      await result.current.save({
+        date: '1999-01-01',
+        contentText: 'today only',
+        wordCount: 2,
+      })
+    })
+
+    const [, payload] = mockSetDoc.mock.calls[0]
+    expect(payload).toMatchObject({
+      date: '2026-04-13',
+      contentText: 'today only',
+      wordCount: 2,
+    })
+  })
 })

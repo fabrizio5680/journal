@@ -48,6 +48,13 @@ export function useEntry(date: string): UseEntryReturn {
         setLoadedKey(currentKey)
         if (snap.exists()) {
           const data = snap.data() as Entry
+
+          // Guard invariant: entry payload date must match the document day key.
+          if (data.date !== date) {
+            if (!isDirtyRef.current) setEntry(null)
+            return
+          }
+
           // Ignore remote updates while the user is typing.
           // Also treat soft-deleted entries as non-existent so the editor stays empty.
           if (!isDirtyRef.current) {
@@ -79,13 +86,17 @@ export function useEntry(date: string): UseEntryReturn {
     async (data: Partial<Entry>) => {
       if (!uid) return
 
+      // Explicitly ignore caller-provided date to keep doc id/date 1:1.
+      const entryPatch: Partial<Entry> = { ...data }
+      delete entryPatch.date
+
       const entryRef = doc(db, 'users', uid, 'entries', date)
       const isNew = entry === null
 
       await setDoc(
         entryRef,
         {
-          ...data,
+          ...entryPatch,
           date,
           updatedAt: serverTimestamp(),
           ...(isNew ? { createdAt: serverTimestamp() } : {}),
