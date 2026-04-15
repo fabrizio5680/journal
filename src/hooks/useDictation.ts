@@ -43,6 +43,41 @@ export interface UseDictationReturn {
 
 const MAX_SILENT_RESTARTS = 5
 
+function splitWords(text: string): string[] {
+  return text.trim().split(/\s+/).filter(Boolean)
+}
+
+function getDeltaTranscript(previous: string, current: string): string {
+  const previousWords = splitWords(previous)
+  const currentWords = splitWords(current)
+
+  if (currentWords.length === 0) return ''
+  if (previousWords.length === 0) return currentWords.join(' ')
+
+  // Some engines emit cumulative phrases (e.g. "hello", then "hello world").
+  // Emit only the suffix that wasn't already emitted.
+  if (
+    currentWords.length >= previousWords.length &&
+    previousWords.every((word, index) => currentWords[index] === word)
+  ) {
+    return currentWords.slice(previousWords.length).join(' ')
+  }
+
+  // Also handle partial overlap between consecutive final results.
+  const maxOverlap = Math.min(previousWords.length, currentWords.length)
+  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+    const previousSuffix = previousWords.slice(previousWords.length - overlap)
+    const currentPrefix = currentWords.slice(0, overlap)
+    const isOverlap = previousSuffix.every((word, index) => currentPrefix[index] === word)
+
+    if (isOverlap) {
+      return currentWords.slice(overlap).join(' ')
+    }
+  }
+
+  return currentWords.join(' ')
+}
+
 export function useDictation(onTranscript: (text: string) => void): UseDictationReturn {
   const SpeechRecognitionClass =
     typeof window !== 'undefined'
@@ -59,6 +94,7 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const stateRef = useRef<DictationState>('idle')
   const silentRestartCountRef = useRef(0)
+  const lastFinalTranscriptRef = useRef('')
   const onTranscriptRef = useRef(onTranscript)
 
   // Keep transcript callback ref current without re-creating recognition
@@ -80,7 +116,11 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
         if (result.isFinal) {
           const transcript = result[0].transcript.trim()
           if (transcript) {
-            onTranscriptRef.current(transcript)
+            const deltaTranscript = getDeltaTranscript(lastFinalTranscriptRef.current, transcript)
+            if (deltaTranscript) {
+              onTranscriptRef.current(deltaTranscript)
+            }
+            lastFinalTranscriptRef.current = transcript
           }
         }
       }
@@ -122,6 +162,7 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
 
     setErrorMessage(null)
     silentRestartCountRef.current = 0
+    lastFinalTranscriptRef.current = ''
 
     const recognition = createRecognition()
     if (!recognition) return
@@ -136,6 +177,7 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
     stateRef.current = 'idle'
     setState('idle')
     silentRestartCountRef.current = 0
+    lastFinalTranscriptRef.current = ''
     recognitionRef.current?.stop()
     recognitionRef.current = null
   }, [])
