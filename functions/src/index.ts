@@ -53,10 +53,13 @@ export const getSearchKey = onCall({ region: FUNCTIONS_REGION }, async (request)
     throw new HttpsError('unauthenticated', 'Login required')
   }
 
+  const escapedUid = uid.replace(/[\\"]/g, '\\$&')
+
   const validUntil = Math.floor(Date.now() / 1000) + 60 * 60
 
   const key = generateSecuredApiKey(ALGOLIA_SEARCH_ONLY_KEY, {
-    filters: `userId:${uid} AND deleted:false`,
+    // Keep non-deleted records even if older docs are missing the `deleted` field.
+    filters: `userId:"${escapedUid}" AND NOT deleted:true`,
     restrictIndices: SEARCH_INDEX_NAME,
     validUntil,
     userToken: uid,
