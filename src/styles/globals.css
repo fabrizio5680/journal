@@ -95,6 +95,18 @@ body {
   height: 0;
 }
 
+/* Grain overlay — applied when .grain-enabled class is on root */
+.grain-enabled::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('/textures/natural-paper.png');
+  background-repeat: repeat;
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 9999;
+}
+
 /* Hide scrollbar for metadata chips row */
 .no-scrollbar {
   scrollbar-width: none;

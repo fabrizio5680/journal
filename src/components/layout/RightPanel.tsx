@@ -1,18 +1,14 @@
 import { useEffect, useState } from 'react'
-import { doc, onSnapshot } from 'firebase/firestore'
-import { onAuthStateChanged } from 'firebase/auth'
 import clsx from 'clsx'
 
-import { auth, db } from '@/lib/firebase'
 import DailyScripture from '@/components/ui/DailyScripture'
 import { useFocusMode } from '@/context/FocusModeContext'
-
-type Translation = 'NLT' | 'MSG' | 'ESV'
+import { useUserPreferences } from '@/context/UserPreferencesContext'
 
 export default function RightPanel() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
-  const [translation, setTranslation] = useState<Translation>('NLT')
   const { isFocused } = useFocusMode()
+  const { scriptureTranslation } = useUserPreferences()
 
   // Watch online/offline status
   useEffect(() => {
@@ -26,31 +22,6 @@ export default function RightPanel() {
     }
   }, [])
 
-  // Read translation preference from user doc
-  useEffect(() => {
-    let unsubscribeSnapshot: (() => void) | null = null
-
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      unsubscribeSnapshot?.()
-      unsubscribeSnapshot = null
-
-      if (!user) return
-
-      const userRef = doc(db, 'users', user.uid)
-      unsubscribeSnapshot = onSnapshot(userRef, (snap) => {
-        const data = snap.data()
-        if (data?.scriptureTranslation) {
-          setTranslation(data.scriptureTranslation as Translation)
-        }
-      })
-    })
-
-    return () => {
-      unsubscribeAuth()
-      unsubscribeSnapshot?.()
-    }
-  }, [])
-
   return (
     <aside
       className={clsx(
@@ -58,7 +29,7 @@ export default function RightPanel() {
         isFocused && 'xl:pointer-events-none xl:translate-x-full xl:opacity-0',
       )}
     >
-      <DailyScripture translation={translation} />
+      <DailyScripture translation={scriptureTranslation} />
 
       {/* Sync status */}
       <div className="text-on-surface-variant mt-auto flex items-center gap-2 text-xs">

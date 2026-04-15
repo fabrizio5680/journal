@@ -6,6 +6,7 @@ import {
   persistentLocalCache,
   persistentSingleTabManager,
 } from 'firebase/firestore'
+import { getMessaging, isSupported } from 'firebase/messaging'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -43,6 +44,12 @@ if (import.meta.env.VITE_USE_EMULATOR !== 'true') {
 }
 
 export const db = dbInstance
+
+// FCM messaging — only available outside the emulator and in supported browsers
+export const messagingPromise: Promise<ReturnType<typeof getMessaging> | null> =
+  import.meta.env.VITE_USE_EMULATOR === 'true'
+    ? Promise.resolve(null)
+    : isSupported().then((ok) => (ok ? getMessaging(app) : null))
 
 if (import.meta.env.VITE_USE_EMULATOR === 'true') {
   const { connectAuthEmulator, signInWithEmailAndPassword } = await import('firebase/auth')
