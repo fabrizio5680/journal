@@ -16,12 +16,12 @@ const mockOnSnapshot = vi.fn((_, cb: (snap: unknown) => void) => {
 })
 
 vi.mock('firebase/firestore', () => ({
-  collection: (...args: unknown[]) => mockCollection(...args),
-  query: (...args: unknown[]) => mockQuery(...args),
-  where: (...args: unknown[]) => mockWhere(...args),
-  orderBy: (...args: unknown[]) => mockOrderBy(...args),
-  limit: (...args: unknown[]) => mockLimit(...args),
-  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+  collection: (...args: unknown[]) => mockCollection(...(args as [unknown, ...unknown[]])),
+  query: (...args: unknown[]) => mockQuery(...(args as [unknown, ...unknown[]])),
+  where: (...args: unknown[]) => mockWhere(...(args as [unknown, ...unknown[]])),
+  orderBy: (...args: unknown[]) => mockOrderBy(...(args as [unknown, ...unknown[]])),
+  limit: (...args: unknown[]) => mockLimit(...(args as [unknown, ...unknown[]])),
+  onSnapshot: (ref: unknown, cb: (snap: unknown) => void) => mockOnSnapshot(ref, cb),
 }))
 
 let authCallback: ((user: { uid: string } | null) => void) | null = null

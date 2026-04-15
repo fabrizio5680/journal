@@ -41,7 +41,7 @@ function installMockSpeechRecognition() {
   }
 
   ;(window as typeof window & { SpeechRecognition?: unknown }).SpeechRecognition =
-    MockSpeechRecognition as unknown as typeof SpeechRecognition
+    MockSpeechRecognition as unknown
 }
 
 function fireResult(instance: MockRecognitionInstance, transcript: string, isFinal: boolean) {

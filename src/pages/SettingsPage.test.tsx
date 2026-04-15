@@ -15,9 +15,9 @@ const mockOnSnapshot = vi.fn((_: unknown, cb: (snap: unknown) => void) => {
 })
 
 vi.mock('firebase/firestore', () => ({
-  doc: (...args: unknown[]) => mockDoc(...args),
-  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
-  updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
+  doc: (...args: unknown[]) => mockDoc(...(args as [unknown, ...unknown[]])),
+  onSnapshot: (ref: unknown, cb: (snap: unknown) => void) => mockOnSnapshot(ref, cb),
+  updateDoc: (...args: unknown[]) => mockUpdateDoc(...(args as [unknown, ...unknown[]])),
 }))
 
 // --- Auth mocks ---

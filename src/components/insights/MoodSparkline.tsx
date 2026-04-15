@@ -43,9 +43,10 @@ export default function MoodSparkline({ data, days }: Props) {
         />
         <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10 }} />
         <Tooltip
-          formatter={(v: number) => {
-            const mood = MOODS.find((m) => m.value === v)
-            return mood ? `${mood.emoji} ${mood.label}` : String(v)
+          formatter={(value) => {
+            const numericValue = typeof value === 'number' ? value : Number(value ?? 0)
+            const mood = MOODS.find((m) => m.value === numericValue)
+            return mood ? `${mood.emoji} ${mood.label}` : String(value ?? '')
           }}
         />
         <Line

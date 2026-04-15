@@ -1,11 +1,17 @@
+import { createHmac } from 'node:crypto'
+import { resolve } from 'node:path'
+
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
-import { algoliasearch } from 'algoliasearch'
+import { initializeApp, getApps } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
-import { initializeApp, getApps } from 'firebase-admin/app'
 import { format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
+import { config as dotenvConfig } from 'dotenv'
+
+dotenvConfig({ path: resolve(__dirname, '../.env.local') })
+dotenvConfig({ path: resolve(__dirname, '../.env') })
 
 if (getApps().length === 0) {
   initializeApp()
@@ -24,8 +30,18 @@ if (!ALGOLIA_SEARCH_ONLY_KEY) {
   throw new Error('Missing ALGOLIA_SEARCH_ONLY_KEY')
 }
 
-// v5 named import
-const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_ONLY_KEY)
+function generateSecuredApiKey(
+  parentApiKey: string,
+  restrictions: Record<string, string | number | boolean>,
+): string {
+  const queryParameters = Object.entries(restrictions)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&')
+
+  const signature = createHmac('sha256', parentApiKey).update(queryParameters).digest('hex')
+  return Buffer.from(`${signature}${queryParameters}`).toString('base64')
+}
 
 export const getSearchKey = onCall({ region: 'us-central1' }, async (request) => {
   const uid = request.auth?.uid
@@ -35,7 +51,7 @@ export const getSearchKey = onCall({ region: 'us-central1' }, async (request) =>
 
   const validUntil = Math.floor(Date.now() / 1000) + 60 * 60
 
-  const key = searchClient.generateSecuredApiKey({
+  const key = generateSecuredApiKey(ALGOLIA_SEARCH_ONLY_KEY, {
     filters: `userId:${uid} AND deleted:false`,
     validUntil,
     userToken: uid,

@@ -23,7 +23,8 @@ afterEach(() => {
 describe('MiniCalendar', () => {
   it('renders the current month and year in the header', () => {
     renderWithProviders(<MiniCalendar onDateSelect={vi.fn()} />)
-    expect(screen.getByText('April 2026')).toBeTruthy()
+    expect(screen.getByText('April')).toBeTruthy()
+    expect(screen.getByText('2026')).toBeTruthy()
   })
 
   it('renders correct number of day cells for April 2026', () => {
@@ -45,7 +46,7 @@ describe('MiniCalendar', () => {
     renderWithProviders(<MiniCalendar onDateSelect={vi.fn()} entryDates={entryDates} />)
     // Each date with an entry should have a dot — rendered as a child span
     const apr5 = screen.getByRole('button', { name: 'April 5, 2026' })
-    expect(apr5.querySelector('.bg-primary.rounded-full')).toBeTruthy()
+    expect(apr5.querySelector('span.absolute.rounded-full')).toBeTruthy()
   })
 
   it('calls onDateSelect with correct YYYY-MM-DD when a date is clicked', async () => {
@@ -62,7 +63,8 @@ describe('MiniCalendar', () => {
     renderWithProviders(<MiniCalendar onDateSelect={vi.fn()} />)
 
     await user.click(screen.getByRole('button', { name: 'Next month' }))
-    expect(screen.getByText('May 2026')).toBeTruthy()
+    expect(screen.getByText('May')).toBeTruthy()
+    expect(screen.getByText('2026')).toBeTruthy()
   })
 
   it('goes back to previous month when prev chevron is clicked', async () => {
@@ -70,7 +72,8 @@ describe('MiniCalendar', () => {
     renderWithProviders(<MiniCalendar onDateSelect={vi.fn()} />)
 
     await user.click(screen.getByRole('button', { name: 'Previous month' }))
-    expect(screen.getByText('March 2026')).toBeTruthy()
+    expect(screen.getByText('March')).toBeTruthy()
+    expect(screen.getByText('2026')).toBeTruthy()
   })
 
   it('calls onMonthChange with correct year/month when navigating', async () => {
@@ -86,7 +89,7 @@ describe('MiniCalendar', () => {
     renderWithProviders(<MiniCalendar onDateSelect={vi.fn()} />)
     // March 29 is a leading out-of-month day in April 2026 grid
     const outOfMonth = screen.getByRole('button', { name: 'March 29, 2026' })
-    expect(outOfMonth.className).toContain('opacity-30')
+    expect(outOfMonth.className).toContain('opacity-20')
   })
 
   it('applies selected styles to the selectedDate', () => {

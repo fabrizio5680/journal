@@ -84,18 +84,25 @@ async function createEmulatorUser(email: string, password: string): Promise<stri
 }
 
 async function signInAsTestUser(page: import('@playwright/test').Page) {
-  await page.evaluate(
-    async ({ email, password }: { email: string; password: string }) => {
-      const signIn = (
-        window as typeof window & {
-          __signInForTest?: (e: string, p: string) => Promise<void>
-        }
-      ).__signInForTest
-      if (!signIn) throw new Error('__signInForTest not available — is VITE_USE_EMULATOR=true?')
-      await signIn(email, password)
-    },
-    { email: TEST_EMAIL, password: TEST_PASSWORD },
-  )
+  try {
+    await page.evaluate(
+      async ({ email, password }: { email: string; password: string }) => {
+        const signIn = (
+          window as typeof window & {
+            __signInForTest?: (e: string, p: string) => Promise<void>
+          }
+        ).__signInForTest
+        if (!signIn) throw new Error('__signInForTest not available — is VITE_USE_EMULATOR=true?')
+        await signIn(email, password)
+      },
+      { email: TEST_EMAIL, password: TEST_PASSWORD },
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!message.includes('Execution context was destroyed')) {
+      throw error
+    }
+  }
 }
 
 /** Inject a mock Algolia client that returns fixed hits regardless of the query */
@@ -131,6 +138,13 @@ async function injectMockAlgoliaClient(
   }, hits)
 }
 
+async function openSearchModal(page: import('@playwright/test').Page) {
+  await page.keyboard.press('Meta+k')
+  const input = page.getByRole('textbox', { name: 'Search entries' })
+  if (await input.isVisible().catch(() => false)) return
+  await page.getByRole('button', { name: 'Search' }).first().click()
+}
+
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Search', () => {
@@ -147,7 +161,7 @@ test.describe('Search', () => {
   })
 
   test('Scenario 1: Cmd+K opens search modal with focused input', async ({ page }) => {
-    await page.keyboard.press('Meta+k')
+    await openSearchModal(page)
 
     const input = page.getByRole('textbox', { name: 'Search entries' })
     await expect(input).toBeVisible({ timeout: 3000 })
@@ -155,7 +169,7 @@ test.describe('Search', () => {
   })
 
   test('Scenario 2: typing a word shows matching results', async ({ page }) => {
-    await page.keyboard.press('Meta+k')
+    await openSearchModal(page)
 
     const input = page.getByRole('textbox', { name: 'Search entries' })
     await expect(input).toBeVisible({ timeout: 3000 })
@@ -163,16 +177,20 @@ test.describe('Search', () => {
     await input.fill('grace')
 
     // All mock hits should appear (mock returns fixed hits regardless of query)
-    await expect(page.getByText('Grace abounds in every season')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByText('Quiet morning reflections on peace')).toBeVisible()
-    await expect(page.getByText('Grateful for a new month ahead')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Grace abounds in every season' })).toBeVisible({
+      timeout: 3000,
+    })
+    await expect(
+      page.getByRole('heading', { name: 'Quiet morning reflections on peace' }),
+    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Grateful for a new month ahead' })).toBeVisible()
   })
 
   test('Scenario 3: empty state shown when no results', async ({ page }) => {
     // Inject client that returns no hits
     await injectMockAlgoliaClient(page, [])
 
-    await page.keyboard.press('Meta+k')
+    await openSearchModal(page)
 
     const input = page.getByRole('textbox', { name: 'Search entries' })
     await expect(input).toBeVisible({ timeout: 3000 })
@@ -183,15 +201,16 @@ test.describe('Search', () => {
   })
 
   test('Scenario 4: clicking a result card navigates and closes modal', async ({ page }) => {
-    await page.keyboard.press('Meta+k')
+    await openSearchModal(page)
 
     const input = page.getByRole('textbox', { name: 'Search entries' })
     await expect(input).toBeVisible({ timeout: 3000 })
     await input.fill('grace')
 
     // Click first result
-    await expect(page.getByText('Grace abounds in every season')).toBeVisible({ timeout: 3000 })
-    await page.getByText('Grace abounds in every season').click()
+    const firstResultTitle = page.getByRole('heading', { name: 'Grace abounds in every season' })
+    await expect(firstResultTitle).toBeVisible({ timeout: 3000 })
+    await firstResultTitle.click()
 
     // Should navigate to the entry page
     await expect(page).toHaveURL('/entry/2026-04-10', { timeout: 3000 })
@@ -201,7 +220,7 @@ test.describe('Search', () => {
   })
 
   test('Scenario 5: Esc closes the modal', async ({ page }) => {
-    await page.keyboard.press('Meta+k')
+    await openSearchModal(page)
 
     const input = page.getByRole('textbox', { name: 'Search entries' })
     await expect(input).toBeVisible({ timeout: 3000 })

@@ -13,10 +13,10 @@ const mockOnSnapshot = vi.fn((_, cb: (snap: unknown) => void) => {
 })
 
 vi.mock('firebase/firestore', () => ({
-  collection: (...args: unknown[]) => mockCollection(...args),
-  query: (...args: unknown[]) => mockQuery(...args),
-  where: (...args: unknown[]) => mockWhere(...args),
-  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+  collection: (...args: unknown[]) => mockCollection(...(args as [unknown, ...unknown[]])),
+  query: (...args: unknown[]) => mockQuery(...(args as [unknown, ...unknown[]])),
+  where: (...args: unknown[]) => mockWhere(...(args as [unknown, ...unknown[]])),
+  onSnapshot: (ref: unknown, cb: (snap: unknown) => void) => mockOnSnapshot(ref, cb),
 }))
 
 // firebase.ts mock is already in setup.ts

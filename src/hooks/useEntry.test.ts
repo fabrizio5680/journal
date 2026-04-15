@@ -12,9 +12,9 @@ const mockOnSnapshot = vi.fn((_, cb: (snap: unknown) => void) => {
 })
 
 vi.mock('firebase/firestore', () => ({
-  doc: (...args: unknown[]) => mockDoc(...args),
-  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
-  setDoc: (...args: unknown[]) => mockSetDoc(...args),
+  doc: (...args: unknown[]) => mockDoc(...(args as [unknown, ...unknown[]])),
+  onSnapshot: (ref: unknown, cb: (snap: unknown) => void) => mockOnSnapshot(ref, cb),
+  setDoc: (...args: unknown[]) => mockSetDoc(...(args as [unknown, ...unknown[]])),
   serverTimestamp: vi.fn(() => 'SERVER_TIMESTAMP'),
 }))
 
@@ -32,7 +32,7 @@ import { useEntry } from './useEntry'
 
 function fireAuth(uid: string | null = 'test-uid') {
   act(() => {
-    authCallback?.(({ uid } as { uid: string } | null) ?? null)
+    authCallback?.(uid ? { uid } : null)
   })
 }
 

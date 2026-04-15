@@ -16,9 +16,9 @@ describe('MetadataChips', () => {
     onNewTag: vi.fn(),
   }
 
-  it('renders "Add mood" slot when mood is null', () => {
+  it('renders mood chip placeholder when mood is null', () => {
     render(<MetadataChips {...defaultProps} />)
-    expect(screen.getByText('Add mood')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+ mood' })).toBeInTheDocument()
   })
 
   it('renders mood emoji and label when mood is set', () => {
@@ -40,14 +40,14 @@ describe('MetadataChips', () => {
   it('calls onMoodClick when mood chip is clicked', () => {
     const onMoodClick = vi.fn()
     render(<MetadataChips {...defaultProps} onMoodClick={onMoodClick} />)
-    fireEvent.click(screen.getByText('Add mood'))
+    fireEvent.click(screen.getByRole('button', { name: '+ mood' }))
     expect(onMoodClick).toHaveBeenCalledOnce()
   })
 
   it('calls onTagClick when add tag button is clicked', () => {
     const onTagClick = vi.fn()
     render(<MetadataChips {...defaultProps} onTagClick={onTagClick} />)
-    fireEvent.click(screen.getByText('+ Add tag'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add tag' }))
     expect(onTagClick).toHaveBeenCalledOnce()
   })
 })

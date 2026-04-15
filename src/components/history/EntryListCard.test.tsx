@@ -38,7 +38,8 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
 describe('EntryListCard', () => {
   it('renders the date label formatted correctly', () => {
     renderWithProviders(<EntryListCard entry={makeEntry()} />)
-    expect(screen.getByText('Friday, April 10, 2026')).toBeTruthy()
+    expect(screen.getByText('Friday')).toBeTruthy()
+    expect(screen.getByText('Apr 10, 2026')).toBeTruthy()
   })
 
   it('renders title derived from first H2 node in Tiptap JSON', () => {
@@ -74,8 +75,8 @@ describe('EntryListCard', () => {
     const longText = 'a'.repeat(200)
     const entry = makeEntry({ contentText: longText })
     renderWithProviders(<EntryListCard entry={entry} />)
-    // The excerpt element should contain only the first 120 chars
-    const excerpt = screen.getByText('a'.repeat(120))
+    // The excerpt element should contain only the first 130 chars
+    const excerpt = screen.getByText('a'.repeat(130))
     expect(excerpt).toBeTruthy()
     expect(excerpt.className).toContain('line-clamp-2')
   })

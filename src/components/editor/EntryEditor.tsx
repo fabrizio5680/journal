@@ -54,7 +54,7 @@ export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryE
 
   return (
     <div className="relative">
-      <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+      <BubbleMenu editor={editor}>
         <div className="bg-surface-container-lowest border-outline-variant/15 flex gap-0.5 rounded-xl border p-1 shadow-xl">
           <BubbleButton
             onClick={() => editor.chain().focus().toggleBold().run()}

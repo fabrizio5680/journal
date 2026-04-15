@@ -1,5 +1,36 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+interface SpeechRecognitionAlternativeLike {
+  transcript: string
+}
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean
+  [index: number]: SpeechRecognitionAlternativeLike
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number
+  results: ArrayLike<SpeechRecognitionResultLike>
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start: () => void
+  stop: () => void
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
+  onend: (() => void) | null
+}
+
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike
+
 export type DictationState = 'idle' | 'listening' | 'error'
 
 export interface UseDictationReturn {
@@ -15,9 +46,8 @@ const MAX_SILENT_RESTARTS = 5
 export function useDictation(onTranscript: (text: string) => void): UseDictationReturn {
   const SpeechRecognitionClass =
     typeof window !== 'undefined'
-      ? ((window as typeof window & { SpeechRecognition?: typeof SpeechRecognition })
-          .SpeechRecognition ??
-        (window as typeof window & { webkitSpeechRecognition?: typeof SpeechRecognition })
+      ? ((window as Window & { SpeechRecognition?: SpeechRecognitionCtor }).SpeechRecognition ??
+        (window as Window & { webkitSpeechRecognition?: SpeechRecognitionCtor })
           .webkitSpeechRecognition)
       : undefined
 
@@ -26,7 +56,7 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
   const [state, setState] = useState<DictationState>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const stateRef = useRef<DictationState>('idle')
   const silentRestartCountRef = useRef(0)
   const onTranscriptRef = useRef(onTranscript)
@@ -36,7 +66,7 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
     onTranscriptRef.current = onTranscript
   }, [onTranscript])
 
-  const createRecognition = useCallback((): SpeechRecognition | null => {
+  const createRecognition = useCallback((): SpeechRecognitionLike | null => {
     if (!SpeechRecognitionClass) return null
 
     const recognition = new SpeechRecognitionClass()
@@ -44,7 +74,7 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
     recognition.interimResults = true
     recognition.lang = navigator.language || 'en-US'
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
         if (result.isFinal) {
@@ -56,7 +86,7 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
       }
     }
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
       if (event.error === 'not-allowed') {
         stateRef.current = 'error'
         setState('error')

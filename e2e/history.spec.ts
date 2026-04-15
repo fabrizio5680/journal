@@ -55,18 +55,25 @@ async function createEmulatorUser(
 }
 
 async function signInAsTestUser(page: import('@playwright/test').Page) {
-  await page.evaluate(
-    async ({ email, password }: { email: string; password: string }) => {
-      const signIn = (
-        window as typeof window & {
-          __signInForTest?: (e: string, p: string) => Promise<void>
-        }
-      ).__signInForTest
-      if (!signIn) throw new Error('__signInForTest not available — is VITE_USE_EMULATOR=true?')
-      await signIn(email, password)
-    },
-    { email: TEST_EMAIL, password: TEST_PASSWORD },
-  )
+  try {
+    await page.evaluate(
+      async ({ email, password }: { email: string; password: string }) => {
+        const signIn = (
+          window as typeof window & {
+            __signInForTest?: (e: string, p: string) => Promise<void>
+          }
+        ).__signInForTest
+        if (!signIn) throw new Error('__signInForTest not available — is VITE_USE_EMULATOR=true?')
+        await signIn(email, password)
+      },
+      { email: TEST_EMAIL, password: TEST_PASSWORD },
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!message.includes('Execution context was destroyed')) {
+      throw error
+    }
+  }
 }
 
 async function seedEntry(
@@ -148,20 +155,21 @@ test.describe('History', () => {
   test('Scenario 1: calendar shows dots on dates with entries', async ({ page }) => {
     const now = new Date()
     const year = now.getFullYear()
+    const monthName = now.toLocaleString('en-US', { month: 'long' })
 
     // Entry dot should be present on the 1st
     const day1Button = page.getByRole('button', {
-      name: new RegExp(`\\w+ 1, ${year}`),
+      name: `${monthName} 1, ${year}`,
     })
     await expect(day1Button).toBeVisible({ timeout: 5000 })
-    // The dot is a span with bg-primary rounded-full inside the button
-    await expect(day1Button.locator('.rounded-full.bg-primary')).toBeVisible()
+    // The dot is the absolute rounded span inside the calendar date button
+    await expect(day1Button.locator('span.absolute.rounded-full')).toBeVisible()
 
     // Verify the 5th also has a dot
     const day5Button = page.getByRole('button', {
-      name: new RegExp(`\\w+ 5, ${year}`),
+      name: `${monthName} 5, ${year}`,
     })
-    await expect(day5Button.locator('.rounded-full.bg-primary')).toBeVisible()
+    await expect(day5Button.locator('span.absolute.rounded-full')).toBeVisible()
   })
 
   test('Scenario 2: clicking a calendar date navigates to /entry/{YYYY-MM-DD}', async ({
@@ -170,18 +178,21 @@ test.describe('History', () => {
     const now = new Date()
     const month = String(now.getMonth() + 1).padStart(2, '0')
     const year = now.getFullYear()
+    const monthName = now.toLocaleString('en-US', { month: 'long' })
 
     const day1Button = page.getByRole('button', {
-      name: new RegExp(`\\w+ 1, ${year}`),
+      name: `${monthName} 1, ${year}`,
     })
     await day1Button.click()
     await expect(page).toHaveURL(`/entry/${year}-${month}-01`, { timeout: 5000 })
   })
 
   test('Scenario 3: entry cards render title and excerpt correctly', async ({ page }) => {
-    await expect(page.getByText('First entry of the month')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText('Mid month reflection')).toBeVisible()
-    await expect(page.getByText('Another quiet day of writing')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'First entry of the month' })).toBeVisible({
+      timeout: 5000,
+    })
+    await expect(page.getByRole('heading', { name: 'Mid month reflection' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Another quiet day of writing' })).toBeVisible()
   })
 
   test('Scenario 4: month navigation updates dots correctly', async ({ page }) => {
@@ -192,7 +203,7 @@ test.describe('History', () => {
     // Previous month should show no dots (no seeded entries)
     const allButtons = await page
       .locator('button[aria-label*="2026"]')
-      .filter({ has: page.locator('.bg-primary.rounded-full') })
+      .filter({ has: page.locator('span.absolute.rounded-full') })
       .count()
     expect(allButtons).toBe(0)
 
@@ -203,9 +214,10 @@ test.describe('History', () => {
     // Current month should show dots again
     const now = new Date()
     const year = now.getFullYear()
+    const monthName = now.toLocaleString('en-US', { month: 'long' })
     const day1Button = page.getByRole('button', {
-      name: new RegExp(`\\w+ 1, ${year}`),
+      name: `${monthName} 1, ${year}`,
     })
-    await expect(day1Button.locator('.rounded-full.bg-primary')).toBeVisible({ timeout: 5000 })
+    await expect(day1Button.locator('span.absolute.rounded-full')).toBeVisible({ timeout: 5000 })
   })
 })

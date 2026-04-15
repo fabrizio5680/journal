@@ -161,7 +161,7 @@ export default function DailyScripture({ translation = 'NLT' }: DailyScripturePr
 
     // Wrap in Promise so setState is not called synchronously in the effect body
     Promise.resolve().then(() => setIsLoading(true))
-    const apiKey = import.meta.env.VITE_BIBLE_API_KEY as string | undefined
+    const apiKey = (import.meta.env.VITE_BIBLE_API_KEY as string | undefined)?.trim()
     if (!apiKey) {
       Promise.resolve(getFallbackVerse()).then((v) => {
         setVerse(v)
@@ -173,10 +173,14 @@ export default function DailyScripture({ translation = 'NLT' }: DailyScripturePr
     const bibleId = BIBLE_IDS[translation] ?? BIBLE_IDS.NLT
     const verseId = getWeeklyVerseId()
     const url =
-      `https://api.scripture.api.bible/v1/bibles/${bibleId}/verses/${verseId}` +
+      `https://rest.api.bible/v1/bibles/${bibleId}/verses/${encodeURIComponent(verseId)}` +
       '?content-type=text&include-verse-numbers=false'
 
-    fetch(url, { headers: { 'api-key': apiKey } })
+    fetch(url, {
+      headers: {
+        'api-key': apiKey,
+      },
+    })
       .then((res) => {
         if (!res.ok) throw new Error(`API ${res.status}`)
         return res.json() as Promise<{ data: { content: string; reference: string } }>
