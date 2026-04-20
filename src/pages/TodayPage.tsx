@@ -93,8 +93,8 @@ export default function TodayPage() {
     [save],
   )
 
-  const handleDeleteConfirm = useCallback(() => {
-    void deleteEntry()
+  const handleDeleteConfirm = useCallback(async () => {
+    await deleteEntry()
     setShowDeleteConfirm(false)
     navigate('/history')
   }, [deleteEntry, navigate])
@@ -199,7 +199,7 @@ export default function TodayPage() {
                 Cancel
               </button>
               <button
-                onClick={handleDeleteConfirm}
+                onClick={() => void handleDeleteConfirm()}
                 className="bg-error text-on-error rounded-full px-5 py-2.5 text-sm font-semibold transition-colors hover:brightness-95"
               >
                 Move to Trash

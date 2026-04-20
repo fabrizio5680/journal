@@ -102,8 +102,8 @@ function EntryEditorView({ date }: { date: string }) {
     [save],
   )
 
-  const handleDeleteConfirm = useCallback(() => {
-    void deleteEntry()
+  const handleDeleteConfirm = useCallback(async () => {
+    await deleteEntry()
     setShowDeleteConfirm(false)
     navigate('/history')
   }, [deleteEntry, navigate])
@@ -204,7 +204,7 @@ function EntryEditorView({ date }: { date: string }) {
                 Cancel
               </button>
               <button
-                onClick={handleDeleteConfirm}
+                onClick={() => void handleDeleteConfirm()}
                 className="bg-error text-on-error rounded-full px-6 py-3 text-sm font-bold transition-colors hover:brightness-95"
               >
                 Move to Trash
