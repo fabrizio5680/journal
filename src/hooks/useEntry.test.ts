@@ -222,6 +222,49 @@ describe('useEntry', () => {
     expect(result.current.entry).toBe(null)
   })
 
+  it('snapshot arriving immediately after save is suppressed (echo skip)', async () => {
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+
+    const original = { date: '2026-04-13', contentText: 'original', wordCount: 1 }
+    fireSnapshot(original)
+    await waitFor(() => expect(result.current.entry?.contentText).toBe('original'))
+
+    // User types, then save fires
+    act(() => result.current.markDirty())
+    await act(async () => {
+      await result.current.save({ contentText: 'updated', wordCount: 1 })
+    })
+
+    // The Firestore echo arrives right after save clears isDirty
+    fireSnapshot({ date: '2026-04-13', contentText: 'updated', wordCount: 1 })
+
+    // Entry state must NOT change — the echo is suppressed
+    expect(result.current.entry?.contentText).toBe('original')
+  })
+
+  it('genuine remote snapshot after echo is applied', async () => {
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+
+    fireSnapshot({ date: '2026-04-13', contentText: 'original', wordCount: 1 })
+    await waitFor(() => expect(result.current.entry?.contentText).toBe('original'))
+
+    act(() => result.current.markDirty())
+    await act(async () => {
+      await result.current.save({ contentText: 'updated', wordCount: 1 })
+    })
+
+    // First snapshot = echo, suppressed
+    fireSnapshot({ date: '2026-04-13', contentText: 'updated', wordCount: 1 })
+    // Second snapshot = genuine remote update (e.g. another device)
+    fireSnapshot({ date: '2026-04-13', contentText: 'from another device', wordCount: 3 })
+
+    await waitFor(() => {
+      expect(result.current.entry?.contentText).toBe('from another device')
+    })
+  })
+
   it('save() ignores caller-provided date and writes requested date', async () => {
     const { result } = renderHook(() => useEntry('2026-04-13'))
     fireAuth()

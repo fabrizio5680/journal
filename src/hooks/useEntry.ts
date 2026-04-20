@@ -32,6 +32,10 @@ export function useEntry(date: string): UseEntryReturn {
   // Use a ref so the snapshot callback always reads the latest isDirty value
   // without causing the effect to re-subscribe.
   const isDirtyRef = useRef(false)
+  // Counts how many save echoes to suppress. Each save increments this before
+  // clearing isDirty; the snapshot listener decrements and skips setEntry once
+  // per echo so our own writes never cause a setContent / cursor reset.
+  const expectingEchoRef = useRef(0)
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -62,6 +66,10 @@ export function useEntry(date: string): UseEntryReturn {
           // Ignore remote updates while the user is typing.
           // Also treat soft-deleted entries as non-existent so the editor stays empty.
           if (!isDirtyRef.current) {
+            if (expectingEchoRef.current > 0) {
+              expectingEchoRef.current -= 1
+              return
+            }
             setEntry(data.deleted ? null : data)
           }
         } else {
@@ -116,6 +124,7 @@ export function useEntry(date: string): UseEntryReturn {
         { merge: true },
       )
 
+      expectingEchoRef.current += 1
       setIsDirty(false)
       isDirtyRef.current = false
     },

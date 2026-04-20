@@ -56,7 +56,13 @@ export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryE
 
     const currentContent = editor.getJSON()
     if (JSON.stringify(currentContent) !== JSON.stringify(content)) {
+      const { from, to } = editor.state.selection
       editor.commands.setContent(content, { emitUpdate: false })
+      const docSize = editor.state.doc.content.size
+      editor.commands.setTextSelection({
+        from: Math.min(from, docSize),
+        to: Math.min(to, docSize),
+      })
     }
   }, [editor, content])
 

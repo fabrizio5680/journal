@@ -20,7 +20,7 @@
 ## Key Architectural Decisions
 
 - **One entry per day** — document ID is `YYYY-MM-DD` under `users/{userId}/entries/{YYYY-MM-DD}`
-- **Cross-device sync** — `useEntry` uses `onSnapshot`; `isDirty` flag prevents remote snapshot overwriting in-progress typing
+- **Cross-device sync** — `useEntry` uses `onSnapshot`; `isDirty` flag prevents remote snapshot overwriting in-progress typing; `expectingEchoRef` counter suppresses the Firestore echo snapshot from our own saves (prevents cursor reset and content revert)
 - **`contentText`** — extracted client-side via Tiptap `getText()` at save time; stored alongside `content` (Tiptap JSON) in Firestore
 - **Auth** — Google Sign-In only; `signInWithPopup` on desktop, `signInWithRedirect` on mobile (userAgent detect); `getRedirectResult()` called on mount
 - **Soft delete** — `deleted: true` + `deletedAt: Timestamp`; 30-day hard delete via Firestore TTL policy on `deletedAt` field (configured in Firestore console, no code)

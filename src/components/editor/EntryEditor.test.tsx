@@ -33,13 +33,16 @@ vi.mock('@tiptap/extension-heading', () => ({
 
 describe('EntryEditor', () => {
   const setContent = vi.fn()
+  const setTextSelection = vi.fn()
   const getJSON = vi.fn()
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-
-    mockUseEditor.mockReturnValue({
-      commands: { setContent },
+  function makeEditor(selectionFrom = 5, docSize = 20) {
+    return {
+      commands: { setContent, setTextSelection },
+      state: {
+        selection: { from: selectionFrom, to: selectionFrom },
+        doc: { content: { size: docSize } },
+      },
       getJSON,
       isEmpty: false,
       isActive: vi.fn(() => false),
@@ -51,7 +54,12 @@ describe('EntryEditor', () => {
         toggleHeading: vi.fn().mockReturnThis(),
         run: vi.fn(),
       })),
-    })
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUseEditor.mockReturnValue(makeEditor())
   })
 
   it('hydrates editor when incoming content differs', () => {
@@ -64,6 +72,33 @@ describe('EntryEditor', () => {
     render(<EntryEditor content={incoming} onUpdate={vi.fn()} />)
 
     expect(setContent).toHaveBeenCalledWith(incoming, { emitUpdate: false })
+  })
+
+  it('restores cursor position after setContent', () => {
+    mockUseEditor.mockReturnValue(makeEditor(8, 20))
+    getJSON.mockReturnValue({ type: 'doc', content: [] })
+    const incoming = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello world' }] }],
+    }
+
+    render(<EntryEditor content={incoming} onUpdate={vi.fn()} />)
+
+    expect(setContent).toHaveBeenCalledWith(incoming, { emitUpdate: false })
+    expect(setTextSelection).toHaveBeenCalledWith({ from: 8, to: 8 })
+  })
+
+  it('clamps cursor to doc size when content shrinks', () => {
+    mockUseEditor.mockReturnValue(makeEditor(50, 10))
+    getJSON.mockReturnValue({ type: 'doc', content: [] })
+    const incoming = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hi' }] }],
+    }
+
+    render(<EntryEditor content={incoming} onUpdate={vi.fn()} />)
+
+    expect(setTextSelection).toHaveBeenCalledWith({ from: 10, to: 10 })
   })
 
   it('clears editor when incoming content is null', () => {
