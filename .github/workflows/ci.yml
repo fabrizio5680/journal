@@ -85,11 +85,11 @@ jobs:
           key: firebase-emulators-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Start Firebase Emulators
-        run: npx firebase emulators:start --only auth,firestore &
+        run: npx firebase emulators:start --only auth,firestore --project journal-manna &
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
       - name: Wait for emulators
-        run: npx wait-on http://localhost:8080 http://localhost:9099 --timeout 60000
+        run: npx wait-on tcp:localhost:8080 tcp:localhost:9099 --timeout 60000
       - name: Run E2E tests
         run: npm run test:e2e
         env:
