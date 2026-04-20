@@ -3,8 +3,12 @@ import { test, expect } from '@playwright/test'
 const EMULATOR_AUTH_URL = 'http://localhost:9099'
 const FAKE_API_KEY = 'fake-api-key'
 
-const TEST_EMAIL = 'search-test@example.com'
+const TEST_EMAIL_BASE = 'search-test'
 const TEST_PASSWORD = 'password123'
+
+function testEmailForProject(projectName: string) {
+  return `${TEST_EMAIL_BASE}+${projectName}@example.com`
+}
 
 // Fake Algolia search client injected via window.__mockAlgoliaClient
 // Returns a fixed list of hits that mirror the seeded entries.
@@ -44,7 +48,7 @@ const MOCK_HITS = [
   },
 ]
 
-async function clearTestUser() {
+async function clearTestUser(email: string) {
   try {
     const signInRes = await fetch(
       `${EMULATOR_AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FAKE_API_KEY}`,
@@ -52,7 +56,7 @@ async function clearTestUser() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: TEST_EMAIL,
+          email,
           password: TEST_PASSWORD,
           returnSecureToken: true,
         }),
@@ -87,7 +91,7 @@ async function createEmulatorUser(email: string, password: string): Promise<stri
   return data.localId as string
 }
 
-async function signInAsTestUser(page: import('@playwright/test').Page) {
+async function signInAsTestUser(page: import('@playwright/test').Page, email: string) {
   try {
     await page.evaluate(
       async ({ email, password }: { email: string; password: string }) => {
@@ -99,7 +103,7 @@ async function signInAsTestUser(page: import('@playwright/test').Page) {
         if (!signIn) throw new Error('__signInForTest not available — is VITE_USE_EMULATOR=true?')
         await signIn(email, password)
       },
-      { email: TEST_EMAIL, password: TEST_PASSWORD },
+      { email, password: TEST_PASSWORD },
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -152,12 +156,13 @@ async function openSearchModal(page: import('@playwright/test').Page) {
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Search', () => {
-  test.beforeEach(async ({ page }) => {
-    await clearTestUser()
-    await createEmulatorUser(TEST_EMAIL, TEST_PASSWORD)
+  test.beforeEach(async ({ page }, testInfo) => {
+    const testEmail = testEmailForProject(testInfo.project.name)
+    await clearTestUser(testEmail)
+    await createEmulatorUser(testEmail, TEST_PASSWORD)
 
     await page.goto('/login')
-    await signInAsTestUser(page)
+    await signInAsTestUser(page, testEmail)
     await expect(page).toHaveURL('/', { timeout: 5000 })
 
     // Inject mock client before any search interaction
