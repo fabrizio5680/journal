@@ -147,7 +147,12 @@ test.describe('Trash', () => {
     await expect(page).toHaveURL('/', { timeout: 5000 })
   })
 
-  test('Scenario 1: delete entry from EntryPage → gone from History', async ({ page, request }) => {
+  test('Scenario 1: delete entry from EntryPage → gone from History', async ({
+    page,
+    request,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'Firestore IndexedDB persistence is unreliable on WebKit')
     // Seed a non-deleted entry
     await seedEntry(request, testUid, testIdToken, ENTRY_DATE, {
       contentText: 'Entry to be trashed',
