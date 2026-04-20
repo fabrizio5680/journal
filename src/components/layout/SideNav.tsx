@@ -32,34 +32,34 @@ export default function SideNav() {
   return (
     <nav
       className={clsx(
-        'bg-surface-container-low fixed top-0 left-0 z-30 hidden h-screen w-64 flex-col border-r border-outline-variant/20 px-5 py-8 transition-all duration-500 md:flex',
+        'bg-surface-container-low border-outline-variant/20 fixed top-0 left-0 z-30 hidden h-screen w-64 flex-col border-r px-5 py-8 transition-all duration-500 md:flex',
         isFocused && 'md:pointer-events-none md:-translate-x-full md:opacity-0',
       )}
     >
       {/* Brand */}
       <div className="mb-8 px-1">
-        <div className="flex items-center gap-2.5 mb-1">
+        <div className="mb-1 flex items-center gap-2.5">
           <div className="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
             <span className="material-symbols-outlined text-primary text-[18px]">edit_note</span>
           </div>
-          <span className="font-display text-on-surface text-2xl font-semibold tracking-tight leading-none">
+          <span className="font-display text-on-surface text-2xl leading-none font-semibold tracking-tight">
             Reflect
           </span>
         </div>
-        <p className="text-on-surface-variant/60 text-[10px] tracking-[0.18em] uppercase pl-10">
+        <p className="text-on-surface-variant/60 pl-10 text-[10px] tracking-[0.18em] uppercase">
           The Quiet Sanctuary
         </p>
       </div>
 
       {/* Today's date — editorial feature */}
-      <div className="mb-6 px-1 pb-6 border-b border-outline-variant/25">
-        <p className="text-on-surface-variant text-[10px] tracking-[0.2em] uppercase mb-0.5">
+      <div className="border-outline-variant/25 mb-6 border-b px-1 pb-6">
+        <p className="text-on-surface-variant mb-0.5 text-[10px] tracking-[0.2em] uppercase">
           {format(now, 'EEEE')}
         </p>
-        <p className="font-display text-primary text-3xl font-light leading-none">
+        <p className="font-display text-primary text-3xl leading-none font-light">
           {format(now, 'MMMM d')}
         </p>
-        <p className="text-on-surface-variant/50 text-[10px] mt-0.5">{format(now, 'yyyy')}</p>
+        <p className="text-on-surface-variant/50 mt-0.5 text-[10px]">{format(now, 'yyyy')}</p>
       </div>
 
       {/* Nav items */}
@@ -110,18 +110,18 @@ export default function SideNav() {
       <div className="mt-auto flex flex-col gap-4">
         <button
           onClick={() => navigate('/')}
-          className="bg-primary hover:bg-primary-dim text-on-primary w-full rounded-full px-4 py-2.5 text-sm font-semibold transition-colors shadow-sm"
+          className="bg-primary hover:bg-primary-dim text-on-primary w-full rounded-full px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors"
         >
           New Entry
         </button>
 
         {user && (
-          <div className="flex items-center gap-3 px-1 pt-1 border-t border-outline-variant/20">
+          <div className="border-outline-variant/20 flex items-center gap-3 border-t px-1 pt-1">
             {user.photoURL ? (
               <img
                 src={user.photoURL}
                 alt={user.displayName ?? 'User'}
-                className="h-7 w-7 shrink-0 rounded-full ring-1 ring-outline-variant/30"
+                className="ring-outline-variant/30 h-7 w-7 shrink-0 rounded-full ring-1"
               />
             ) : (
               <div className="bg-primary-container flex h-7 w-7 shrink-0 items-center justify-center rounded-full">

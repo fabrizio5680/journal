@@ -23,7 +23,7 @@ export default function NotFoundPage() {
   }, [navigate])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 text-center px-6">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
       <span className="material-symbols-outlined text-on-surface-variant text-[72px] opacity-30">
         search_off
       </span>

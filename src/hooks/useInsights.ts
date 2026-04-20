@@ -33,12 +33,7 @@ export function useInsights(): InsightsData {
       }
 
       const entriesRef = collection(db, 'users', user.uid, 'entries')
-      const q = query(
-        entriesRef,
-        where('deleted', '==', false),
-        orderBy('date', 'desc'),
-        limit(90),
-      )
+      const q = query(entriesRef, where('deleted', '==', false), orderBy('date', 'desc'), limit(90))
 
       try {
         const snapshot = await getDocs(q)

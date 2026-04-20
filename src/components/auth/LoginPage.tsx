@@ -76,7 +76,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="bg-background flex h-screen">
       {/* Left panel */}
       <div className="z-10 flex w-full flex-col justify-between px-10 py-12 md:w-[44%] md:px-14">
         {/* Top: Logo */}
@@ -85,10 +85,10 @@ export default function LoginPage() {
             <span className="material-symbols-outlined text-primary text-[18px]">edit_note</span>
           </div>
           <div>
-            <span className="font-display text-on-surface text-2xl font-semibold leading-none tracking-tight">
+            <span className="font-display text-on-surface text-2xl leading-none font-semibold tracking-tight">
               Reflect
             </span>
-            <p className="text-on-surface-variant/50 text-[9px] tracking-[0.2em] uppercase leading-none mt-0.5">
+            <p className="text-on-surface-variant/50 mt-0.5 text-[9px] leading-none tracking-[0.2em] uppercase">
               The Quiet Sanctuary
             </p>
           </div>
@@ -100,14 +100,14 @@ export default function LoginPage() {
             <p className="text-on-surface-variant/60 text-xs tracking-[0.2em] uppercase">
               Your private journal
             </p>
-            <h1 className="font-display text-on-surface text-5xl font-light leading-[1.15] tracking-tight">
+            <h1 className="font-display text-on-surface text-5xl leading-[1.15] font-light tracking-tight">
               A place to reflect,
               <br />
               <em>find peace,</em>
               <br />
               and grow.
             </h1>
-            <p className="text-on-surface-variant text-base leading-relaxed max-w-xs">
+            <p className="text-on-surface-variant max-w-xs text-base leading-relaxed">
               Write freely. Think clearly. Return to what matters.
             </p>
           </div>
@@ -116,7 +116,7 @@ export default function LoginPage() {
           <div className="flex flex-col gap-3">
             <button
               onClick={handleSignIn}
-              className="bg-surface-container-lowest border-outline-variant/30 hover:border-outline-variant/50 hover:shadow-sm flex w-full items-center gap-3 rounded-full border px-6 py-3.5 text-sm font-medium transition-all"
+              className="bg-surface-container-lowest border-outline-variant/30 hover:border-outline-variant/50 flex w-full items-center gap-3 rounded-full border px-6 py-3.5 text-sm font-medium transition-all hover:shadow-sm"
             >
               <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
                 <path
@@ -156,14 +156,14 @@ export default function LoginPage() {
           aria-hidden="true"
         />
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-background/30 to-transparent" />
+        <div className="from-background/30 absolute inset-0 bg-gradient-to-r to-transparent" />
 
         {/* Scripture card */}
-        <div className="absolute right-10 bottom-10 left-10 rounded-[2rem] bg-surface-container-lowest/80 p-8 backdrop-blur-2xl border border-white/30 shadow-xl">
-          <p className="text-on-surface-variant/50 text-[9px] tracking-[0.25em] uppercase mb-3">
+        <div className="bg-surface-container-lowest/80 absolute right-10 bottom-10 left-10 rounded-[2rem] border border-white/30 p-8 shadow-xl backdrop-blur-2xl">
+          <p className="text-on-surface-variant/50 mb-3 text-[9px] tracking-[0.25em] uppercase">
             Today's Word
           </p>
-          <p className="font-display text-on-surface text-2xl font-light italic leading-relaxed mb-4">
+          <p className="font-display text-on-surface mb-4 text-2xl leading-relaxed font-light italic">
             "{FALLBACK_VERSE.text}"
           </p>
           <p className="text-primary text-[10px] font-semibold tracking-[0.2em] uppercase">

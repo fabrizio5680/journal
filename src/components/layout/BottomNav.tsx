@@ -16,7 +16,7 @@ export default function BottomNav() {
   return (
     <nav
       className={clsx(
-        'bg-surface/80 fixed bottom-0 left-0 z-40 flex w-full items-center justify-around border-t border-outline-variant/15 px-2 pt-2 pb-7 backdrop-blur-xl transition-all duration-500 md:hidden',
+        'bg-surface/80 border-outline-variant/15 fixed bottom-0 left-0 z-40 flex w-full items-center justify-around border-t px-2 pt-2 pb-7 backdrop-blur-xl transition-all duration-500 md:hidden',
         isFocused && 'pointer-events-none translate-y-full opacity-0',
       )}
     >
@@ -45,7 +45,12 @@ export default function BottomNav() {
               >
                 {icon}
               </span>
-              <span className={clsx('text-[9px] font-medium tracking-wide', isActive && 'font-semibold')}>
+              <span
+                className={clsx(
+                  'text-[9px] font-medium tracking-wide',
+                  isActive && 'font-semibold',
+                )}
+              >
                 {label}
               </span>
             </>

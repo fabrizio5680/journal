@@ -57,7 +57,7 @@ export default function MetadataChips({
         <button
           type="button"
           onClick={handleMoodClick}
-          className="bg-secondary-container/70 text-on-secondary-container flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary-container"
+          className="bg-secondary-container/70 text-on-secondary-container hover:bg-secondary-container flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
         >
           {moodEntry ? (
             <span className="inline-flex items-center gap-1.5">

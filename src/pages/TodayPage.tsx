@@ -137,7 +137,7 @@ export default function TodayPage() {
         {/* First-time welcome — shown when no entry exists yet today */}
         {!entry && (
           <div className="mb-10 py-4">
-            <p className="font-display text-on-surface/80 text-3xl font-light italic leading-relaxed">
+            <p className="font-display text-on-surface/80 text-3xl leading-relaxed font-light italic">
               Welcome to your sanctuary.
             </p>
             <p className="text-on-surface-variant/50 mt-2 text-sm">
@@ -180,8 +180,10 @@ export default function TodayPage() {
       {/* Delete confirmation dialog */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm">
-          <div className="bg-surface-container-lowest w-full max-w-sm rounded-[2rem] p-8 shadow-2xl border border-outline-variant/10">
-            <h2 className="font-display text-on-surface mb-2 text-2xl font-semibold">Move to Trash?</h2>
+          <div className="bg-surface-container-lowest border-outline-variant/10 w-full max-w-sm rounded-[2rem] border p-8 shadow-2xl">
+            <h2 className="font-display text-on-surface mb-2 text-2xl font-semibold">
+              Move to Trash?
+            </h2>
             <p className="text-on-surface-variant/70 mb-8 text-sm leading-relaxed">
               This entry will be permanently deleted after 30 days.
             </p>

@@ -51,7 +51,11 @@ async function clearTestUser() {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD, returnSecureToken: true }),
+        body: JSON.stringify({
+          email: TEST_EMAIL,
+          password: TEST_PASSWORD,
+          returnSecureToken: true,
+        }),
       },
     )
     const { idToken } = (await signInRes.json()) as { idToken?: string }
@@ -183,7 +187,9 @@ test.describe('Search', () => {
     await expect(
       page.getByRole('heading', { name: 'Quiet morning reflections on peace' }),
     ).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Grateful for a new month ahead' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Grateful for a new month ahead' }),
+    ).toBeVisible()
   })
 
   test('Scenario 3: empty state shown when no results', async ({ page }) => {

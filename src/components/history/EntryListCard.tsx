@@ -56,10 +56,10 @@ export default function EntryListCard({ entry }: EntryListCardProps) {
       tabIndex={0}
       onClick={handleClick}
       onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-      className="group bg-surface-container-lowest hover:shadow-[0_8px_48px_rgba(27,30,24,0.07)] cursor-pointer rounded-[2rem] border border-transparent hover:border-outline-variant/15 p-6 transition-all duration-500"
+      className="group bg-surface-container-lowest hover:border-outline-variant/15 cursor-pointer rounded-[2rem] border border-transparent p-6 transition-all duration-500 hover:shadow-[0_8px_48px_rgba(27,30,24,0.07)]"
     >
       {/* Date + mood row */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-on-surface-variant/60 text-[10px] font-medium tracking-[0.18em] uppercase">
             {format(parsedDate, 'EEEE')}
@@ -77,7 +77,7 @@ export default function EntryListCard({ entry }: EntryListCardProps) {
       </div>
 
       {/* Title */}
-      <h3 className="font-display text-on-surface text-[1.6rem] leading-tight font-semibold mb-2 tracking-tight">
+      <h3 className="font-display text-on-surface mb-2 text-[1.6rem] leading-tight font-semibold tracking-tight">
         {title}
       </h3>
 
@@ -86,7 +86,7 @@ export default function EntryListCard({ entry }: EntryListCardProps) {
         <p className="text-on-surface-variant/70 line-clamp-2 flex-1 text-sm leading-relaxed">
           {excerpt}
         </p>
-        <span className="material-symbols-outlined text-outline-variant/60 shrink-0 text-[18px] transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary">
+        <span className="material-symbols-outlined text-outline-variant/60 group-hover:text-primary shrink-0 text-[18px] transition-all duration-300 group-hover:translate-x-1">
           arrow_forward
         </span>
       </div>

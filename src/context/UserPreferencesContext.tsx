@@ -56,9 +56,7 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  return (
-    <UserPreferencesContext.Provider value={prefs}>{children}</UserPreferencesContext.Provider>
-  )
+  return <UserPreferencesContext.Provider value={prefs}>{children}</UserPreferencesContext.Provider>
 }
 
 // Context files legitimately export both a provider component and a consumer hook.

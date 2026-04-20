@@ -17,11 +17,7 @@ if (getApps().length === 0) {
   initializeApp()
 }
 
-const {
-  ALGOLIA_APP_ID,
-  ALGOLIA_SEARCH_ONLY_KEY,
-  ALGOLIA_INDEX_NAME,
-} = process.env
+const { ALGOLIA_APP_ID, ALGOLIA_SEARCH_ONLY_KEY, ALGOLIA_INDEX_NAME } = process.env
 
 const FUNCTIONS_REGION = 'europe-west2'
 const SEARCH_INDEX_NAME = ALGOLIA_INDEX_NAME || 'journal_entries'
@@ -98,12 +94,7 @@ export const sendDailyReminders = onSchedule(
       const [rHH, rMM] = user.reminderTime.split(':').map(Number)
       const [cHH, cMM] = currentHHMM.split(':').map(Number)
 
-      if (
-        Number.isNaN(rHH) ||
-        Number.isNaN(rMM) ||
-        Number.isNaN(cHH) ||
-        Number.isNaN(cMM)
-      ) {
+      if (Number.isNaN(rHH) || Number.isNaN(rMM) || Number.isNaN(cHH) || Number.isNaN(cMM)) {
         return
       }
 

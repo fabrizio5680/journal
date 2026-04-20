@@ -22,7 +22,7 @@ export default function MoodSparkline({ data, days }: Props) {
 
   if (filtered.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[200px] text-on-surface-variant text-sm">
+      <div className="text-on-surface-variant flex h-[200px] items-center justify-center text-sm">
         No mood data for this period
       </div>
     )

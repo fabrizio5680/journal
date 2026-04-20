@@ -67,10 +67,10 @@ export default function TrashPage() {
     <div className="mx-auto max-w-2xl px-6 pt-8 md:pt-16">
       {/* Header */}
       <div className="mb-10">
-        <p className="text-on-surface-variant/50 text-[10px] tracking-[0.25em] uppercase mb-2">
+        <p className="text-on-surface-variant/50 mb-2 text-[10px] tracking-[0.25em] uppercase">
           Deleted entries
         </p>
-        <h1 className="font-display text-on-surface text-[3rem] font-light leading-none tracking-tight">
+        <h1 className="font-display text-on-surface text-[3rem] leading-none font-light tracking-tight">
           Trash
         </h1>
         <p className="text-on-surface-variant/60 mt-2 text-sm">
@@ -108,7 +108,7 @@ export default function TrashPage() {
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 backdrop-blur-sm"
         >
-          <div className="bg-surface-container-lowest w-full max-w-sm rounded-[2rem] p-8 shadow-2xl border border-outline-variant/10">
+          <div className="bg-surface-container-lowest border-outline-variant/10 w-full max-w-sm rounded-[2rem] border p-8 shadow-2xl">
             <h2 className="font-display text-on-surface mb-2 text-2xl font-semibold">
               Permanently delete?
             </h2>

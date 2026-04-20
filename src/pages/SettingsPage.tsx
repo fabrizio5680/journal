@@ -33,7 +33,7 @@ function Toggle({
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 mt-1 ${
+        className={`mt-1 inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
           enabled ? 'translate-x-6' : 'translate-x-1'
         }`}
       />
@@ -42,9 +42,7 @@ function Toggle({
 }
 
 function SettingsSection({ children }: { children: ReactNode }) {
-  return (
-    <div className="bg-surface-container-lowest rounded-[1.75rem] p-6 mb-3">{children}</div>
-  )
+  return <div className="bg-surface-container-lowest mb-3 rounded-[1.75rem] p-6">{children}</div>
 }
 
 function SettingsRow({
@@ -179,7 +177,7 @@ export default function SettingsPage() {
           <img
             src={user.photoURL}
             alt={user.displayName ?? 'User'}
-            className="h-16 w-16 rounded-full object-cover ring-2 ring-outline-variant/20"
+            className="ring-outline-variant/20 h-16 w-16 rounded-full object-cover ring-2"
           />
         ) : (
           <div className="bg-primary-container flex h-16 w-16 shrink-0 items-center justify-center rounded-full">
@@ -208,7 +206,7 @@ export default function SettingsPage() {
         {notifError && <p className="text-error mt-3 text-xs">{notifError}</p>}
 
         {reminderEnabled && (
-          <div className="mt-4 border-t border-outline-variant/20 pt-4">
+          <div className="border-outline-variant/20 mt-4 border-t pt-4">
             <label
               htmlFor="reminder-time"
               className="text-on-surface-variant/60 mb-2 block text-xs font-medium tracking-wide"
@@ -249,7 +247,7 @@ export default function SettingsPage() {
                 className={
                   scriptureTranslation === t
                     ? 'bg-primary text-on-primary rounded-full px-3 py-1.5 text-xs font-semibold'
-                    : 'bg-surface-container text-on-surface-variant/70 rounded-full px-3 py-1.5 text-xs hover:text-on-surface-variant transition-colors'
+                    : 'bg-surface-container text-on-surface-variant/70 hover:text-on-surface-variant rounded-full px-3 py-1.5 text-xs transition-colors'
                 }
               >
                 {t}

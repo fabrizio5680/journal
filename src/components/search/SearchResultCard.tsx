@@ -22,9 +22,7 @@ interface SearchResultCardProps {
 export default function SearchResultCard({ hit, onSelect }: SearchResultCardProps) {
   const mood = hit.mood != null ? MOODS.find((m) => m.value === hit.mood) : null
   const parsedDate = parseISO(hit.date)
-  const formattedDate = isValid(parsedDate)
-    ? format(parsedDate, 'EEEE, MMMM d, yyyy')
-    : hit.date
+  const formattedDate = isValid(parsedDate) ? format(parsedDate, 'EEEE, MMMM d, yyyy') : hit.date
   const sourceText = hit.excerpt ?? hit.contentText ?? ''
   const title = sourceText.slice(0, 60) || 'Untitled'
   const excerpt = sourceText.slice(0, 120)

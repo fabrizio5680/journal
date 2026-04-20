@@ -34,7 +34,7 @@ export default function TopBar() {
     >
       {/* Left: brand mark + date */}
       <div className="flex flex-col">
-        <span className="font-display text-primary text-xl font-semibold leading-none">
+        <span className="font-display text-primary text-xl leading-none font-semibold">
           {format(now, 'MMMM d')}
         </span>
         <span className="text-on-surface-variant/70 text-[10px] tracking-[0.15em] uppercase">
@@ -63,7 +63,7 @@ export default function TopBar() {
           <img
             src={user.photoURL}
             alt={user.displayName ?? 'User'}
-            className="h-8 w-8 rounded-full ring-1 ring-outline-variant/30"
+            className="ring-outline-variant/30 h-8 w-8 rounded-full ring-1"
           />
         ) : (
           <div className="bg-primary-container flex h-8 w-8 items-center justify-center rounded-full">

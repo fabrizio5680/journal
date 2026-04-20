@@ -110,7 +110,7 @@ export default function MiniCalendar({
         {DAY_LABELS.map((day) => (
           <div
             key={day}
-            className="text-on-surface-variant/40 flex items-center justify-center text-[10px] font-semibold tracking-widest uppercase py-1"
+            className="text-on-surface-variant/40 flex items-center justify-center py-1 text-[10px] font-semibold tracking-widest uppercase"
           >
             {day}
           </div>
@@ -134,9 +134,12 @@ export default function MiniCalendar({
               aria-label={format(day, 'MMMM d, yyyy')}
               aria-pressed={isSelected}
               className={clsx(
-                'relative flex h-9 w-9 flex-col items-center justify-center rounded-full text-sm transition-all duration-200 mx-auto',
+                'relative mx-auto flex h-9 w-9 flex-col items-center justify-center rounded-full text-sm transition-all duration-200',
                 !inMonth && 'cursor-default opacity-20',
-                inMonth && !today && !isSelected && 'hover:bg-primary-container/30 cursor-pointer text-on-surface',
+                inMonth &&
+                  !today &&
+                  !isSelected &&
+                  'hover:bg-primary-container/30 text-on-surface cursor-pointer',
                 today && !isSelected && 'bg-primary-container/50 text-primary font-semibold',
                 isSelected && 'bg-primary text-on-primary font-semibold shadow-sm',
               )}
@@ -145,7 +148,7 @@ export default function MiniCalendar({
               {hasEntry && inMonth && (
                 <span
                   className={clsx(
-                    'absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full',
+                    'absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full',
                     isSelected ? 'bg-on-primary/60' : 'bg-primary/50',
                   )}
                 />
