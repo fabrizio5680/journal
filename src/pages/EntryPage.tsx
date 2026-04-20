@@ -100,8 +100,8 @@ function EntryEditorView({ date }: { date: string }) {
     [save],
   )
 
-  const handleDeleteConfirm = useCallback(async () => {
-    await deleteEntry()
+  const handleDeleteConfirm = useCallback(() => {
+    void deleteEntry()
     setShowDeleteConfirm(false)
     navigate('/history')
   }, [deleteEntry, navigate])

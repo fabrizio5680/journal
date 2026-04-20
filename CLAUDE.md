@@ -160,7 +160,14 @@ npm run typecheck      tsc --noEmit
 npm run test           vitest run
 npm run test:coverage  vitest run --coverage
 npm run test:e2e       playwright test
+npm run precommit      format + lint + typecheck (manual run; also invoked by Husky)
 ```
+
+## Pre-commit Hook
+
+- **Husky v9** — `.husky/pre-commit` runs on every `git commit`
+- Hook runs `npx lint-staged` (prettier + eslint on staged `.ts/.tsx/.css/.json/.md` files only) then `npm run typecheck` (full project — type-checking can't be scoped to staged files)
+- `lint-staged` config lives in `package.json` under `"lint-staged"`
 
 ## E2E Testing Conventions
 

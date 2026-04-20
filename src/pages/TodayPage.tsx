@@ -91,8 +91,8 @@ export default function TodayPage() {
     [save],
   )
 
-  const handleDeleteConfirm = useCallback(async () => {
-    await deleteEntry()
+  const handleDeleteConfirm = useCallback(() => {
+    void deleteEntry()
     setShowDeleteConfirm(false)
     navigate('/history')
   }, [deleteEntry, navigate])
