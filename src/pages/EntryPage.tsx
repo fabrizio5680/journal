@@ -28,7 +28,7 @@ function EntryEditorView({ date }: { date: string }) {
   const navigate = useNavigate()
   const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
-  const { setDirty, setLastSaved } = useSaveStatus()
+  const { isDirty, setDirty, setLastSaved } = useSaveStatus()
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
@@ -75,7 +75,7 @@ function EntryEditorView({ date }: { date: string }) {
   )
 
   const handleSave = useCallback(async () => {
-    if (!editorInstance) return
+    if (!editorInstance || !isDirty) return
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     await save({
       content: editorInstance.getJSON(),
@@ -84,7 +84,7 @@ function EntryEditorView({ date }: { date: string }) {
     })
     setDirty(false)
     setLastSaved(new Date())
-  }, [editorInstance, save, setDirty, setLastSaved])
+  }, [editorInstance, isDirty, save, setDirty, setLastSaved])
 
   const handleMoodChange = useCallback(
     async (mood: number | null, moodLabel: string | null) => {
@@ -100,8 +100,8 @@ function EntryEditorView({ date }: { date: string }) {
     [save],
   )
 
-  const handleDeleteConfirm = useCallback(async () => {
-    await deleteEntry()
+  const handleDeleteConfirm = useCallback(() => {
+    void deleteEntry()
     setShowDeleteConfirm(false)
     navigate('/history')
   }, [deleteEntry, navigate])
@@ -160,6 +160,7 @@ function EntryEditorView({ date }: { date: string }) {
         />
 
         <EntryEditor
+          key={date}
           content={entry?.content ?? null}
           onUpdate={handleUpdate}
           onEditorReady={setEditorInstance}
@@ -168,6 +169,7 @@ function EntryEditorView({ date }: { date: string }) {
 
       <FloatingActionBar
         wordCount={liveWordCount}
+        isDirty={isDirty}
         onSave={handleSave}
         dictation={{
           isSupported,

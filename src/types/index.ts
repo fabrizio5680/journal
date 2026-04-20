@@ -1,5 +1,7 @@
 export interface Entry {
+  userId?: string
   date: string
+  dateTimestamp?: number
   content: object // Tiptap JSON
   contentText: string
   mood: 1 | 2 | 3 | 4 | 5 | null

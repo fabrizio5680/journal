@@ -5,10 +5,14 @@ const FIRESTORE_EMULATOR_URL = 'http://localhost:8080'
 const PROJECT_ID = 'journal-manna'
 const FAKE_API_KEY = 'fake-api-key'
 
-const TEST_EMAIL = 'history-test@example.com'
+const TEST_EMAIL_BASE = 'history-test'
 const TEST_PASSWORD = 'password123'
 
-async function clearTestUser() {
+function testEmailForProject(projectName: string) {
+  return `${TEST_EMAIL_BASE}+${projectName}@example.com`
+}
+
+async function clearTestUser(email: string) {
   try {
     const signInRes = await fetch(
       `${EMULATOR_AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FAKE_API_KEY}`,
@@ -16,7 +20,7 @@ async function clearTestUser() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: TEST_EMAIL,
+          email,
           password: TEST_PASSWORD,
           returnSecureToken: true,
         }),
@@ -54,7 +58,7 @@ async function createEmulatorUser(
   return { uid: data.localId as string, idToken: data.idToken as string }
 }
 
-async function signInAsTestUser(page: import('@playwright/test').Page) {
+async function signInAsTestUser(page: import('@playwright/test').Page, email: string) {
   try {
     await page.evaluate(
       async ({ email, password }: { email: string; password: string }) => {
@@ -66,7 +70,7 @@ async function signInAsTestUser(page: import('@playwright/test').Page) {
         if (!signIn) throw new Error('__signInForTest not available — is VITE_USE_EMULATOR=true?')
         await signIn(email, password)
       },
-      { email: TEST_EMAIL, password: TEST_PASSWORD },
+      { email, password: TEST_PASSWORD },
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -117,10 +121,12 @@ test.describe.configure({ mode: 'serial' })
 test.describe('History', () => {
   let testUid: string
   let testIdToken: string
+  let testEmail: string
 
-  test.beforeEach(async ({ page, request }) => {
-    await clearTestUser()
-    const user = await createEmulatorUser(TEST_EMAIL, TEST_PASSWORD)
+  test.beforeEach(async ({ page, request }, testInfo) => {
+    testEmail = testEmailForProject(testInfo.project.name)
+    await clearTestUser(testEmail)
+    const user = await createEmulatorUser(testEmail, TEST_PASSWORD)
     testUid = user.uid
     testIdToken = user.idToken
 
@@ -146,7 +152,7 @@ test.describe('History', () => {
     })
 
     await page.goto('/login')
-    await signInAsTestUser(page)
+    await signInAsTestUser(page, testEmail)
     await expect(page).toHaveURL('/', { timeout: 5000 })
     await page.goto('/history')
     await expect(page.getByText('Past Chapters')).toBeVisible({ timeout: 5000 })

@@ -8,8 +8,8 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 
 function StatCard({ value, label }: { value: string; label: string }) {
   return (
-    <div className="bg-surface-container-lowest rounded-[1.75rem] p-6 flex flex-col gap-1">
-      <div className="font-display text-on-surface text-3xl font-light leading-none">{value}</div>
+    <div className="bg-surface-container-lowest flex flex-col gap-1 rounded-[1.75rem] p-6">
+      <div className="font-display text-on-surface text-3xl leading-none font-light">{value}</div>
       <div className="text-on-surface-variant/60 text-xs tracking-wide">{label}</div>
     </div>
   )
@@ -61,10 +61,10 @@ export default function InsightsPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:pt-16">
       {/* Header */}
-      <p className="text-on-surface-variant/50 text-[10px] tracking-[0.25em] uppercase mb-2">
+      <p className="text-on-surface-variant/50 mb-2 text-[10px] tracking-[0.25em] uppercase">
         Reflections
       </p>
-      <h1 className="font-display text-on-surface mb-10 text-[3.5rem] font-light leading-none tracking-tight">
+      <h1 className="font-display text-on-surface mb-10 text-[3.5rem] leading-none font-light tracking-tight">
         Your Journey
       </h1>
 
@@ -101,7 +101,7 @@ export default function InsightsPage() {
                   className={
                     moodDays === 30
                       ? 'bg-primary-container text-primary rounded-full px-3 py-1 text-xs font-semibold'
-                      : 'text-on-surface-variant/60 px-3 py-1 text-xs hover:text-on-surface-variant'
+                      : 'text-on-surface-variant/60 hover:text-on-surface-variant px-3 py-1 text-xs'
                   }
                 >
                   30d
@@ -111,7 +111,7 @@ export default function InsightsPage() {
                   className={
                     moodDays === 90
                       ? 'bg-primary-container text-primary rounded-full px-3 py-1 text-xs font-semibold'
-                      : 'text-on-surface-variant/60 px-3 py-1 text-xs hover:text-on-surface-variant'
+                      : 'text-on-surface-variant/60 hover:text-on-surface-variant px-3 py-1 text-xs'
                   }
                 >
                   90d

@@ -48,13 +48,20 @@ export default function HistoryPage() {
     )
 
     Promise.resolve().then(() => setEntriesLoading(true))
-    return onSnapshot(q, (snap) => {
-      const list: Entry[] = []
-      snap.forEach((doc) => list.push(doc.data() as Entry))
-      list.sort((a, b) => b.date.localeCompare(a.date))
-      setEntries(list)
-      setEntriesLoading(false)
-    })
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list: Entry[] = []
+        snap.forEach((doc) => list.push(doc.data() as Entry))
+        list.sort((a, b) => b.date.localeCompare(a.date))
+        setEntries(list)
+        setEntriesLoading(false)
+      },
+      () => {
+        setEntries([])
+        setEntriesLoading(false)
+      },
+    )
   }, [uid, selectedMonth.year, selectedMonth.month])
 
   const handleDateSelect = (date: string) => {
@@ -73,7 +80,7 @@ export default function HistoryPage() {
       {/* Header */}
       <div className="mb-12 flex items-end justify-between">
         <div>
-          <p className="text-on-surface-variant/50 text-[10px] tracking-[0.25em] uppercase mb-2">
+          <p className="text-on-surface-variant/50 mb-2 text-[10px] tracking-[0.25em] uppercase">
             {format(now, 'yyyy')}
           </p>
           <h1 className="font-display text-on-surface text-[3.5rem] leading-none font-light tracking-tight">

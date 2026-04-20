@@ -19,7 +19,7 @@ export default function TodayPage() {
   const navigate = useNavigate()
   const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(today)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
-  const { setDirty, setLastSaved } = useSaveStatus()
+  const { isDirty, setDirty, setLastSaved } = useSaveStatus()
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
@@ -66,7 +66,7 @@ export default function TodayPage() {
   )
 
   const handleSave = useCallback(async () => {
-    if (!editorInstance) return
+    if (!editorInstance || !isDirty) return
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     await save({
       content: editorInstance.getJSON(),
@@ -75,7 +75,7 @@ export default function TodayPage() {
     })
     setDirty(false)
     setLastSaved(new Date())
-  }, [editorInstance, save, setDirty, setLastSaved])
+  }, [editorInstance, isDirty, save, setDirty, setLastSaved])
 
   const handleMoodChange = useCallback(
     async (mood: number | null, moodLabel: string | null) => {
@@ -91,8 +91,8 @@ export default function TodayPage() {
     [save],
   )
 
-  const handleDeleteConfirm = useCallback(async () => {
-    await deleteEntry()
+  const handleDeleteConfirm = useCallback(() => {
+    void deleteEntry()
     setShowDeleteConfirm(false)
     navigate('/history')
   }, [deleteEntry, navigate])
@@ -137,7 +137,7 @@ export default function TodayPage() {
         {/* First-time welcome — shown when no entry exists yet today */}
         {!entry && (
           <div className="mb-10 py-4">
-            <p className="font-display text-on-surface/80 text-3xl font-light italic leading-relaxed">
+            <p className="font-display text-on-surface/80 text-3xl leading-relaxed font-light italic">
               Welcome to your sanctuary.
             </p>
             <p className="text-on-surface-variant/50 mt-2 text-sm">
@@ -157,6 +157,7 @@ export default function TodayPage() {
         />
 
         <EntryEditor
+          key={today}
           content={entry?.content ?? null}
           onUpdate={handleUpdate}
           onEditorReady={setEditorInstance}
@@ -165,6 +166,7 @@ export default function TodayPage() {
 
       <FloatingActionBar
         wordCount={liveWordCount}
+        isDirty={isDirty}
         onSave={handleSave}
         dictation={{
           isSupported,
@@ -178,8 +180,10 @@ export default function TodayPage() {
       {/* Delete confirmation dialog */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm">
-          <div className="bg-surface-container-lowest w-full max-w-sm rounded-[2rem] p-8 shadow-2xl border border-outline-variant/10">
-            <h2 className="font-display text-on-surface mb-2 text-2xl font-semibold">Move to Trash?</h2>
+          <div className="bg-surface-container-lowest border-outline-variant/10 w-full max-w-sm rounded-[2rem] border p-8 shadow-2xl">
+            <h2 className="font-display text-on-surface mb-2 text-2xl font-semibold">
+              Move to Trash?
+            </h2>
             <p className="text-on-surface-variant/70 mb-8 text-sm leading-relaxed">
               This entry will be permanently deleted after 30 days.
             </p>

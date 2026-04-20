@@ -7,7 +7,7 @@ interface Props {
 export default function TopTags({ data }: Props) {
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[100px] text-on-surface-variant text-sm">
+      <div className="text-on-surface-variant flex h-[100px] items-center justify-center text-sm">
         No tags yet
       </div>
     )

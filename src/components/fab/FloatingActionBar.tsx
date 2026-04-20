@@ -10,12 +10,14 @@ interface DictationProps {
 
 interface FloatingActionBarProps {
   wordCount: number
+  isDirty: boolean
   onSave: () => void
   dictation?: DictationProps
 }
 
 export default function FloatingActionBar({
   wordCount,
+  isDirty,
   onSave,
   dictation,
 }: FloatingActionBarProps) {
@@ -36,8 +38,10 @@ export default function FloatingActionBar({
             <button
               onClick={isListening ? dictation.onStop : dictation.onStart}
               aria-label={isListening ? 'Stop dictation' : 'Dictate'}
-              className={`bg-surface-container-lowest text-on-surface-variant flex h-12 w-12 items-center justify-center rounded-full shadow-md border border-outline-variant/20 transition-all ${
-                isListening ? 'ring-primary/50 animate-pulse ring-2 ring-offset-2 text-primary' : 'hover:text-primary hover:border-primary/20'
+              className={`bg-surface-container-lowest text-on-surface-variant border-outline-variant/20 flex h-12 w-12 items-center justify-center rounded-full border shadow-md transition-all ${
+                isListening
+                  ? 'ring-primary/50 text-primary animate-pulse ring-2 ring-offset-2'
+                  : 'hover:text-primary hover:border-primary/20'
               }`}
             >
               <span className="material-symbols-outlined text-[20px]">
@@ -55,11 +59,16 @@ export default function FloatingActionBar({
         {/* Save button */}
         <button
           onClick={onSave}
-          aria-label="Save Entry"
-          className="bg-primary hover:bg-primary-dim text-on-primary flex h-12 items-center gap-2 rounded-full px-7 text-sm font-semibold shadow-[0_8px_32px_rgba(61,84,49,0.25)] transition-all hover:shadow-[0_12px_40px_rgba(61,84,49,0.3)] hover:-translate-y-0.5"
+          aria-label="Save changes"
+          disabled={!isDirty}
+          className={`text-on-primary flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold transition-all ${
+            isDirty
+              ? 'bg-primary hover:bg-primary-dim shadow-[0_8px_32px_rgba(61,84,49,0.25)] hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(61,84,49,0.3)]'
+              : 'bg-outline-variant/40 cursor-not-allowed shadow-none'
+          } md:h-12 md:w-auto md:gap-2 md:px-7`}
         >
           <span className="material-symbols-outlined text-[18px]">check</span>
-          Save Entry
+          <span className="hidden md:inline">Save</span>
         </button>
       </div>
     </div>

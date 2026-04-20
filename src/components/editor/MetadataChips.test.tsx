@@ -23,12 +23,14 @@ describe('MetadataChips', () => {
 
   it('renders mood emoji and label when mood is set', () => {
     render(<MetadataChips {...defaultProps} mood={3} moodLabel="Calm" />)
-    expect(screen.getByText('🙂 Calm')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Calm' })).toBeInTheDocument()
+    expect(screen.getByText('🙂')).toBeInTheDocument()
   })
 
   it('renders mood emoji with default label when moodLabel is null', () => {
     render(<MetadataChips {...defaultProps} mood={5} moodLabel={null} />)
-    expect(screen.getByText('🥳 Radiant')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Radiant' })).toBeInTheDocument()
+    expect(screen.getByText('🥳')).toBeInTheDocument()
   })
 
   it('renders tag chips for each tag', () => {

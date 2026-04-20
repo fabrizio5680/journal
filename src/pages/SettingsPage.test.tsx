@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act } from 'react'
 import { BrowserRouter } from 'react-router-dom'
 
@@ -21,20 +21,21 @@ vi.mock('firebase/firestore', () => ({
 }))
 
 // --- Auth mocks ---
-let authCallback: ((user: {
-  uid: string
-  displayName: string
-  email: string
-  photoURL: string | null
-} | null) => void) | null = null
+let authCallback:
+  | ((
+      user: {
+        uid: string
+        displayName: string
+        email: string
+        photoURL: string | null
+      } | null,
+    ) => void)
+  | null = null
 
 const mockSignOut = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('firebase/auth', () => ({
-  onAuthStateChanged: (
-    _: unknown,
-    cb: typeof authCallback,
-  ) => {
+  onAuthStateChanged: (_: unknown, cb: typeof authCallback) => {
     authCallback = cb
     return vi.fn()
   },
@@ -100,12 +101,17 @@ function renderPage() {
 describe('SettingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubEnv('VITE_FIREBASE_VAPID_KEY', 'test-vapid-key')
     snapshotCallback = null
     authCallback = null
     mockUpdateDoc.mockResolvedValue(undefined)
     mockGetToken.mockResolvedValue('mock-fcm-token')
     mockPrefs.grainEnabled = true
     mockPrefs.scriptureTranslation = 'NLT'
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('renders user name and email after auth', () => {
@@ -213,7 +219,10 @@ describe('SettingsPage', () => {
 
   it('changing translation saves scriptureTranslation and clears localStorage cache', async () => {
     const today = new Date().toISOString().slice(0, 10)
-    localStorage.setItem(`scripture_NLT_${today}`, JSON.stringify({ text: 'test', reference: 'Ps 1:1' }))
+    localStorage.setItem(
+      `scripture_NLT_${today}`,
+      JSON.stringify({ text: 'test', reference: 'Ps 1:1' }),
+    )
 
     renderPage()
     fireAuth()

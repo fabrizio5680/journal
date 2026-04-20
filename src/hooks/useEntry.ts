@@ -5,6 +5,10 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
 import type { Entry } from '@/types'
 
+function toDateTimestamp(date: string): number {
+  return Math.floor(new Date(`${date}T00:00:00Z`).getTime() / 1000)
+}
+
 export interface UseEntryReturn {
   entry: Entry | null
   isLoading: boolean
@@ -28,6 +32,10 @@ export function useEntry(date: string): UseEntryReturn {
   // Use a ref so the snapshot callback always reads the latest isDirty value
   // without causing the effect to re-subscribe.
   const isDirtyRef = useRef(false)
+  // Counts how many save echoes to suppress. Each save increments this before
+  // clearing isDirty; the snapshot listener decrements and skips setEntry once
+  // per echo so our own writes never cause a setContent / cursor reset.
+  const expectingEchoRef = useRef(0)
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -41,20 +49,39 @@ export function useEntry(date: string): UseEntryReturn {
     const entryRef = doc(db, 'users', uid, 'entries', date)
     const currentKey = `${uid}/${date}`
 
-    const unsub = onSnapshot(entryRef, (snap) => {
-      // Mark this key as loaded (in callback — not synchronous in effect body)
-      setLoadedKey(currentKey)
-      if (snap.exists()) {
-        const data = snap.data() as Entry
-        // Ignore remote updates while the user is typing.
-        // Also treat soft-deleted entries as non-existent so the editor stays empty.
-        if (!isDirtyRef.current) {
-          setEntry(data.deleted ? null : data)
+    const unsub = onSnapshot(
+      entryRef,
+      (snap) => {
+        // Mark this key as loaded (in callback — not synchronous in effect body)
+        setLoadedKey(currentKey)
+        if (snap.exists()) {
+          const data = snap.data() as Entry
+
+          // Guard invariant: entry payload date must match the document day key.
+          if (data.date !== date) {
+            if (!isDirtyRef.current) setEntry(null)
+            return
+          }
+
+          // Ignore remote updates while the user is typing.
+          // Also treat soft-deleted entries as non-existent so the editor stays empty.
+          if (!isDirtyRef.current) {
+            if (expectingEchoRef.current > 0) {
+              expectingEchoRef.current -= 1
+              return
+            }
+            setEntry(data.deleted ? null : data)
+          }
+        } else {
+          if (!isDirtyRef.current) setEntry(null)
         }
-      } else {
+      },
+      () => {
+        // Avoid uncaught listener errors from bubbling to the console.
+        setLoadedKey(currentKey)
         if (!isDirtyRef.current) setEntry(null)
-      }
-    })
+      },
+    )
 
     return unsub
   }, [uid, date])
@@ -71,20 +98,33 @@ export function useEntry(date: string): UseEntryReturn {
     async (data: Partial<Entry>) => {
       if (!uid) return
 
+      // Explicitly ignore caller-provided date to keep doc id/date 1:1.
+      const entryPatch: Partial<Entry> = { ...data }
+      delete entryPatch.date
+
       const entryRef = doc(db, 'users', uid, 'entries', date)
       const isNew = entry === null
 
       await setDoc(
         entryRef,
         {
-          ...data,
+          ...entryPatch,
+          userId: uid,
           date,
+          dateTimestamp: toDateTimestamp(date),
           updatedAt: serverTimestamp(),
-          ...(isNew ? { createdAt: serverTimestamp() } : {}),
+          ...(isNew
+            ? {
+                createdAt: serverTimestamp(),
+                deleted: false,
+                deletedAt: null,
+              }
+            : {}),
         },
         { merge: true },
       )
 
+      expectingEchoRef.current += 1
       setIsDirty(false)
       isDirtyRef.current = false
     },

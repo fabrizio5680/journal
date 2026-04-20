@@ -20,7 +20,7 @@
 ## Key Architectural Decisions
 
 - **One entry per day** — document ID is `YYYY-MM-DD` under `users/{userId}/entries/{YYYY-MM-DD}`
-- **Cross-device sync** — `useEntry` uses `onSnapshot`; `isDirty` flag prevents remote snapshot overwriting in-progress typing
+- **Cross-device sync** — `useEntry` uses `onSnapshot`; `isDirty` flag prevents remote snapshot overwriting in-progress typing; `expectingEchoRef` counter suppresses the Firestore echo snapshot from our own saves (prevents cursor reset and content revert)
 - **`contentText`** — extracted client-side via Tiptap `getText()` at save time; stored alongside `content` (Tiptap JSON) in Firestore
 - **Auth** — Google Sign-In only; `signInWithPopup` on desktop, `signInWithRedirect` on mobile (userAgent detect); `getRedirectResult()` called on mount
 - **Soft delete** — `deleted: true` + `deletedAt: Timestamp`; 30-day hard delete via Firestore TTL policy on `deletedAt` field (configured in Firestore console, no code)
@@ -160,7 +160,14 @@ npm run typecheck      tsc --noEmit
 npm run test           vitest run
 npm run test:coverage  vitest run --coverage
 npm run test:e2e       playwright test
+npm run precommit      format + lint + typecheck (manual run; also invoked by Husky)
 ```
+
+## Pre-commit Hook
+
+- **Husky v9** — `.husky/pre-commit` runs on every `git commit`
+- Hook runs `npx lint-staged` (prettier + eslint on staged `.ts/.tsx/.css/.json/.md` files only) then `npm run typecheck` (full project — type-checking can't be scoped to staged files)
+- `lint-staged` config lives in `package.json` under `"lint-staged"`
 
 ## E2E Testing Conventions
 

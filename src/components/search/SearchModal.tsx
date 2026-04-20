@@ -10,7 +10,7 @@ import { getAlgoliaClient } from '@/lib/algolia'
 import { useSearch } from '@/context/SearchContext'
 
 function dateToTimestamp(dateStr: string): number {
-  return Math.floor(new Date(dateStr).getTime() / 1000)
+  return Math.floor(new Date(`${dateStr}T00:00:00Z`).getTime() / 1000)
 }
 
 // Inner component: lives inside InstantSearch context
@@ -19,10 +19,30 @@ interface ResultsProps {
   onSelect: (date: string) => void
 }
 
+function resolveHitDate(hit: SearchHit): string | null {
+  if (typeof hit.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(hit.date)) {
+    return hit.date
+  }
+
+  if (typeof hit.objectID === 'string') {
+    const match = hit.objectID.match(/(\d{4}-\d{2}-\d{2})$/)
+    if (match) return match[1]
+  }
+
+  return null
+}
+
 function Results({ query, onSelect }: ResultsProps) {
   const { hits } = useHits<SearchHit>()
+  const normalizedHits: SearchHit[] = []
 
-  if (hits.length === 0 && query.trim()) {
+  for (const hit of hits) {
+    const date = resolveHitDate(hit)
+    if (!date) continue
+    normalizedHits.push({ ...hit, date })
+  }
+
+  if (normalizedHits.length === 0 && query.trim()) {
     return (
       <div className="py-16 text-center">
         <p className="text-on-surface-variant text-base">
@@ -34,7 +54,7 @@ function Results({ query, onSelect }: ResultsProps) {
 
   return (
     <div className="flex flex-col gap-2 px-4 py-3">
-      {hits.map((hit) => (
+      {normalizedHits.map((hit) => (
         <SearchResultCard key={hit.objectID} hit={hit} onSelect={onSelect} />
       ))}
     </div>
@@ -47,10 +67,12 @@ export default function SearchModal() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [client, setClient] = useState<SearchClient | null>(null)
+  const [indexName, setIndexName] = useState<string | null>(null)
   const [clientError, setClientError] = useState(false)
   const [query, setQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [selectedMoods, setSelectedMoods] = useState<number[]>([])
 
   // Fetch secured Algolia client when modal opens; reset state when it closes
   useEffect(() => {
@@ -60,7 +82,9 @@ export default function SearchModal() {
         setQuery('')
         setDateFrom('')
         setDateTo('')
+        setSelectedMoods([])
         setClient(null)
+        setIndexName(null)
       }, 0)
       return () => clearTimeout(t)
     }
@@ -69,10 +93,11 @@ export default function SearchModal() {
     const t = setTimeout(() => inputRef.current?.focus(), 50)
 
     getAlgoliaClient()
-      .then((c) => {
+      .then(({ client: searchClient, indexName: runtimeIndexName }) => {
         if (!cancelled) {
           setClientError(false)
-          setClient(c as unknown as SearchClient)
+          setClient(searchClient as unknown as SearchClient)
+          setIndexName(runtimeIndexName)
         }
       })
       .catch(() => {
@@ -108,10 +133,21 @@ export default function SearchModal() {
     setDateTo(to)
   }, [])
 
+  const handleToggleMood = useCallback((value: number) => {
+    setSelectedMoods((prev) =>
+      prev.includes(value) ? prev.filter((mood) => mood !== value) : [...prev, value],
+    )
+  }, [])
+
   // Build numeric filter for date range
-  const numericFilters: string[] = []
+  const numericFilters: Array<string | string[]> = []
   if (dateFrom) numericFilters.push(`dateTimestamp >= ${dateToTimestamp(dateFrom)}`)
   if (dateTo) numericFilters.push(`dateTimestamp <= ${dateToTimestamp(dateTo)}`)
+  if (selectedMoods.length === 1) {
+    numericFilters.push(`mood = ${selectedMoods[0]}`)
+  } else if (selectedMoods.length > 1) {
+    numericFilters.push(selectedMoods.map((mood) => `mood = ${mood}`))
+  }
 
   if (!isSearchOpen) return null
 
@@ -149,15 +185,21 @@ export default function SearchModal() {
         </div>
 
         {/* Algolia-powered filters + results */}
-        {client && (
-          <InstantSearch searchClient={client} indexName="journal_entries">
+        {client && indexName && (
+          <InstantSearch searchClient={client} indexName={indexName}>
             <Configure
               hitsPerPage={20}
               query={query}
               numericFilters={numericFilters.length > 0 ? numericFilters : undefined}
             />
 
-            <SearchFilters dateFrom={dateFrom} dateTo={dateTo} onDateChange={handleDateChange} />
+            <SearchFilters
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateChange={handleDateChange}
+              selectedMoods={selectedMoods}
+              onToggleMood={handleToggleMood}
+            />
 
             <div className="max-h-[70vh] overflow-y-auto">
               <Results query={query} onSelect={handleSelect} />

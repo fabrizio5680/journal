@@ -21,13 +21,19 @@ export function useEntryDates(userId: string, year: number, month: number): Set<
       where('date', '<=', endDate),
     )
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      const dateSet = new Set<string>()
-      snapshot.forEach((doc) => {
-        dateSet.add(doc.id)
-      })
-      setDates(dateSet)
-    })
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        const dateSet = new Set<string>()
+        snapshot.forEach((doc) => {
+          dateSet.add(doc.id)
+        })
+        setDates(dateSet)
+      },
+      () => {
+        setDates(new Set())
+      },
+    )
 
     return unsub
   }, [userId, year, month])

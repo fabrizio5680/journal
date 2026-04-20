@@ -147,10 +147,7 @@ test.describe('Trash', () => {
     await expect(page).toHaveURL('/', { timeout: 5000 })
   })
 
-  test('Scenario 1: delete entry from EntryPage → gone from History', async ({
-    page,
-    request,
-  }) => {
+  test('Scenario 1: delete entry from EntryPage → gone from History', async ({ page, request }) => {
     // Seed a non-deleted entry
     await seedEntry(request, testUid, testIdToken, ENTRY_DATE, {
       contentText: 'Entry to be trashed',
@@ -245,7 +242,11 @@ test.describe('Trash', () => {
       .toBe(false)
   })
 
-  test('Scenario 4: delete forever → entry removed from Trash', async ({ page, request, browserName }) => {
+  test('Scenario 4: delete forever → entry removed from Trash', async ({
+    page,
+    request,
+    browserName,
+  }) => {
     test.skip(browserName !== 'chromium', 'Advanced trash flow is unstable on WebKit projects')
 
     // Seed a normal entry, then soft-delete through the UI flow
@@ -284,7 +285,11 @@ test.describe('Trash', () => {
     await expect(page.getByText('Your trash is empty.')).toBeVisible({ timeout: 5000 })
   })
 
-  test('Scenario 6: cancel delete confirmation → entry stays', async ({ page, request, browserName }) => {
+  test('Scenario 6: cancel delete confirmation → entry stays', async ({
+    page,
+    request,
+    browserName,
+  }) => {
     test.skip(browserName !== 'chromium', 'Advanced trash flow is unstable on WebKit projects')
 
     await seedEntry(request, testUid, testIdToken, ENTRY_DATE, {

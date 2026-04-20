@@ -43,10 +43,26 @@ export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryE
 
   // Load initial content from Firestore once editor is ready
   useEffect(() => {
-    if (!editor || !content) return
-    // Only set if editor is empty (avoid overwriting in-progress typing)
-    if (editor.isEmpty) {
-      editor.commands.setContent(content)
+    if (!editor) return
+
+    // Keep the editor in sync when the loaded entry changes.
+    // Use emitUpdate=false so hydrating content doesn't trigger autosave.
+    if (content === null) {
+      if (!editor.isEmpty) {
+        editor.commands.setContent('', { emitUpdate: false })
+      }
+      return
+    }
+
+    const currentContent = editor.getJSON()
+    if (JSON.stringify(currentContent) !== JSON.stringify(content)) {
+      const { from, to } = editor.state.selection
+      editor.commands.setContent(content, { emitUpdate: false })
+      const docSize = editor.state.doc.content.size
+      editor.commands.setTextSelection({
+        from: Math.min(from, docSize),
+        to: Math.min(to, docSize),
+      })
     }
   }, [editor, content])
 

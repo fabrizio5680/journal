@@ -34,14 +34,20 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
       }
 
       const userRef = doc(db, 'users', user.uid)
-      unsubscribeSnapshot = onSnapshot(userRef, (snap) => {
-        const data = snap.data()
-        if (!data) return
-        setPrefs({
-          grainEnabled: data.grainEnabled ?? true,
-          scriptureTranslation: (data.scriptureTranslation as Translation) ?? 'NLT',
-        })
-      })
+      unsubscribeSnapshot = onSnapshot(
+        userRef,
+        (snap) => {
+          const data = snap.data()
+          if (!data) return
+          setPrefs({
+            grainEnabled: data.grainEnabled ?? true,
+            scriptureTranslation: (data.scriptureTranslation as Translation) ?? 'NLT',
+          })
+        },
+        () => {
+          setPrefs(defaultPreferences)
+        },
+      )
     })
 
     return () => {
@@ -50,9 +56,7 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  return (
-    <UserPreferencesContext.Provider value={prefs}>{children}</UserPreferencesContext.Provider>
-  )
+  return <UserPreferencesContext.Provider value={prefs}>{children}</UserPreferencesContext.Provider>
 }
 
 // Context files legitimately export both a provider component and a consumer hook.

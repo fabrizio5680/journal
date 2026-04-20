@@ -133,7 +133,7 @@ interface DailyScriptureProps {
 export function DailyScriptureSkeleton() {
   return (
     <div className="animate-pulse">
-      <div className="bg-surface-container h-6 w-6 rounded-full mb-4" />
+      <div className="bg-surface-container mb-4 h-6 w-6 rounded-full" />
       <div className="bg-surface-container mb-2 h-3 w-full rounded-lg" />
       <div className="bg-surface-container mb-2 h-3 w-5/6 rounded-lg" />
       <div className="bg-surface-container mb-4 h-3 w-4/6 rounded-lg" />
@@ -212,26 +212,24 @@ export default function DailyScripture({ translation = 'NLT' }: DailyScripturePr
       </p>
 
       {/* Large opening quote */}
-      <div className="font-display text-primary/20 text-7xl leading-none select-none -mb-4">
-        "
-      </div>
+      <div className="font-display text-primary/20 -mb-4 text-7xl leading-none select-none">"</div>
 
       {/* Verse text */}
-      <p className="font-display text-on-surface text-lg font-light italic leading-relaxed">
+      <p className="font-display text-on-surface text-lg leading-relaxed font-light italic">
         {display.text}
       </p>
 
       {/* Reference */}
       <div className="flex items-center gap-2 pt-1">
-        <div className="h-px flex-1 bg-outline-variant/30" />
+        <div className="bg-outline-variant/30 h-px flex-1" />
         <p className="text-primary text-[10px] font-semibold tracking-[0.2em] uppercase">
           {display.reference}
         </p>
-        <div className="h-px flex-1 bg-outline-variant/30" />
+        <div className="bg-outline-variant/30 h-px flex-1" />
       </div>
 
       {/* Translation badge */}
-      <p className="text-on-surface-variant/40 text-[9px] tracking-[0.15em] uppercase text-center">
+      <p className="text-on-surface-variant/40 text-center text-[9px] tracking-[0.15em] uppercase">
         {translation}
       </p>
     </div>

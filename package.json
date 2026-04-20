@@ -16,9 +16,20 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "check:deploy": "npm run lint && npm run typecheck && npm run test && npm run build && npm --prefix functions run build",
-    "deploy:firebase": "npm run check:deploy && firebase deploy --only hosting,functions",
+    "deploy:firebase": "npm run check:deploy && firebase deploy --only hosting,functions,firestore:rules,firestore:indexes",
     "verify:all": "npm run lint && npm run typecheck && npm run test && npm run test:e2e && npm run build && npm --prefix functions run build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "precommit": "npm run format && npm run lint && npm run typecheck",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{css,json,md}": [
+      "prettier --write"
+    ]
   },
   "overrides": {
     "vite-plugin-pwa": {
@@ -65,8 +76,10 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "firebase-tools": "^15.14.0",
     "globals": "^17.5.0",
+    "husky": "^9.1.7",
     "jiti": "^2.6.1",
     "jsdom": "^29.0.2",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "typescript": "^6.0.2",

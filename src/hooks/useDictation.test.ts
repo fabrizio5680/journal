@@ -149,6 +149,46 @@ describe('useDictation', () => {
     expect(onTranscript).not.toHaveBeenCalled()
   })
 
+  it('emits only new words when final transcripts are cumulative', () => {
+    installMockSpeechRecognition()
+
+    const onTranscript = vi.fn()
+    const { result } = renderHook(() => useDictation(onTranscript))
+
+    act(() => {
+      result.current.start()
+    })
+
+    act(() => {
+      fireResult(mockRecognitionInstance!, 'hello', true)
+      fireResult(mockRecognitionInstance!, 'hello world', true)
+    })
+
+    expect(onTranscript).toHaveBeenNthCalledWith(1, 'hello')
+    expect(onTranscript).toHaveBeenNthCalledWith(2, 'world')
+    expect(onTranscript).toHaveBeenCalledTimes(2)
+  })
+
+  it('emits only non-overlapping suffix for overlapping final transcripts', () => {
+    installMockSpeechRecognition()
+
+    const onTranscript = vi.fn()
+    const { result } = renderHook(() => useDictation(onTranscript))
+
+    act(() => {
+      result.current.start()
+    })
+
+    act(() => {
+      fireResult(mockRecognitionInstance!, 'we can do this', true)
+      fireResult(mockRecognitionInstance!, 'do this together', true)
+    })
+
+    expect(onTranscript).toHaveBeenNthCalledWith(1, 'we can do this')
+    expect(onTranscript).toHaveBeenNthCalledWith(2, 'together')
+    expect(onTranscript).toHaveBeenCalledTimes(2)
+  })
+
   it('state = error and errorMessage set when not-allowed error fires', () => {
     installMockSpeechRecognition()
 
