@@ -57,7 +57,13 @@ vi.mock('@/lib/firebase', () => ({
 }))
 
 // --- UserPreferencesContext mock ---
-const mockPrefs = { grainEnabled: true, scriptureTranslation: 'NLT' as const }
+const mockUpdateEditorFontSize = vi.fn().mockResolvedValue(undefined)
+const mockPrefs = {
+  grainEnabled: true,
+  scriptureTranslation: 'NLT' as const,
+  editorFontSize: 'medium' as const,
+  updateEditorFontSize: mockUpdateEditorFontSize,
+}
 vi.mock('@/context/UserPreferencesContext', () => ({
   useUserPreferences: () => mockPrefs,
 }))
@@ -106,8 +112,10 @@ describe('SettingsPage', () => {
     authCallback = null
     mockUpdateDoc.mockResolvedValue(undefined)
     mockGetToken.mockResolvedValue('mock-fcm-token')
+    mockUpdateEditorFontSize.mockResolvedValue(undefined)
     mockPrefs.grainEnabled = true
     mockPrefs.scriptureTranslation = 'NLT'
+    mockPrefs.editorFontSize = 'medium'
   })
 
   afterEach(() => {
@@ -239,6 +247,18 @@ describe('SettingsPage', () => {
 
     // Old translation cache cleared
     expect(localStorage.getItem(`scripture_NLT_${today}`)).toBeNull()
+  })
+
+  it('clicking a font size button calls updateEditorFontSize', async () => {
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false })
+
+    await userEvent.click(screen.getByRole('button', { name: /large/i }))
+
+    await waitFor(() => {
+      expect(mockUpdateEditorFontSize).toHaveBeenCalledWith('large')
+    })
   })
 
   it('sign out calls signOut and navigates to /login', async () => {

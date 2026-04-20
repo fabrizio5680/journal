@@ -8,6 +8,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { useTagVocabulary } from '@/hooks/useTagVocabulary'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
+import { useUserPreferences } from '@/context/UserPreferencesContext'
 import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
@@ -29,6 +30,7 @@ function EntryEditorView({ date }: { date: string }) {
   const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { isDirty, setDirty, setLastSaved } = useSaveStatus()
+  const { editorFontSize, updateEditorFontSize } = useUserPreferences()
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
@@ -100,8 +102,8 @@ function EntryEditorView({ date }: { date: string }) {
     [save],
   )
 
-  const handleDeleteConfirm = useCallback(() => {
-    void deleteEntry()
+  const handleDeleteConfirm = useCallback(async () => {
+    await deleteEntry()
     setShowDeleteConfirm(false)
     navigate('/history')
   }, [deleteEntry, navigate])
@@ -178,6 +180,8 @@ function EntryEditorView({ date }: { date: string }) {
           onStart: start,
           onStop: stop,
         }}
+        fontSize={editorFontSize}
+        onFontSizeChange={updateEditorFontSize}
       />
 
       {/* Delete confirmation dialog */}
@@ -200,7 +204,7 @@ function EntryEditorView({ date }: { date: string }) {
                 Cancel
               </button>
               <button
-                onClick={handleDeleteConfirm}
+                onClick={() => void handleDeleteConfirm()}
                 className="bg-error text-on-error rounded-full px-6 py-3 text-sm font-bold transition-colors hover:brightness-95"
               >
                 Move to Trash

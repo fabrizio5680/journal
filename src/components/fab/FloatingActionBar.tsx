@@ -1,4 +1,5 @@
 import type { DictationState } from '@/hooks/useDictation'
+import type { EditorFontSize } from '@/context/UserPreferencesContext'
 
 interface DictationProps {
   isSupported: boolean
@@ -13,16 +14,34 @@ interface FloatingActionBarProps {
   isDirty: boolean
   onSave: () => void
   dictation?: DictationProps
+  fontSize?: EditorFontSize
+  onFontSizeChange?: (size: EditorFontSize) => void
 }
+
+const FONT_SIZE_STEPS: EditorFontSize[] = ['small', 'medium', 'large']
 
 export default function FloatingActionBar({
   wordCount,
   isDirty,
   onSave,
   dictation,
+  fontSize = 'medium',
+  onFontSizeChange,
 }: FloatingActionBarProps) {
   const isListening = dictation?.state === 'listening'
   const hasError = dictation?.state === 'error'
+
+  const currentIndex = FONT_SIZE_STEPS.indexOf(fontSize)
+  const canDecrease = currentIndex > 0
+  const canIncrease = currentIndex < FONT_SIZE_STEPS.length - 1
+
+  function handleDecrease() {
+    if (canDecrease) onFontSizeChange?.(FONT_SIZE_STEPS[currentIndex - 1])
+  }
+
+  function handleIncrease() {
+    if (canIncrease) onFontSizeChange?.(FONT_SIZE_STEPS[currentIndex + 1])
+  }
 
   return (
     <div className="fixed bottom-24 left-1/2 z-40 -translate-x-1/2 md:right-10 md:bottom-10 md:left-auto md:translate-x-0">
@@ -47,6 +66,36 @@ export default function FloatingActionBar({
               <span className="material-symbols-outlined text-[20px]">
                 {isListening ? 'mic_off' : 'mic'}
               </span>
+            </button>
+          </div>
+        )}
+
+        {/* Font size controls */}
+        {onFontSizeChange && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleDecrease}
+              disabled={!canDecrease}
+              aria-label="Decrease text size"
+              className={`bg-surface-container-lowest border-outline-variant/20 flex h-8 w-8 items-center justify-center rounded-full border shadow-md transition-all ${
+                canDecrease
+                  ? 'text-on-surface-variant hover:text-primary hover:border-primary/20'
+                  : 'text-on-surface-variant/30 cursor-not-allowed'
+              }`}
+            >
+              <span className="text-[11px] leading-none font-semibold">A−</span>
+            </button>
+            <button
+              onClick={handleIncrease}
+              disabled={!canIncrease}
+              aria-label="Increase text size"
+              className={`bg-surface-container-lowest border-outline-variant/20 flex h-8 w-8 items-center justify-center rounded-full border shadow-md transition-all ${
+                canIncrease
+                  ? 'text-on-surface-variant hover:text-primary hover:border-primary/20'
+                  : 'text-on-surface-variant/30 cursor-not-allowed'
+              }`}
+            >
+              <span className="text-[13px] leading-none font-semibold">A+</span>
             </button>
           </div>
         )}
