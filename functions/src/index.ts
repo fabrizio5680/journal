@@ -17,18 +17,8 @@ if (getApps().length === 0) {
   initializeApp()
 }
 
-const { ALGOLIA_APP_ID, ALGOLIA_SEARCH_ONLY_KEY, ALGOLIA_INDEX_NAME } = process.env
-
 const FUNCTIONS_REGION = 'europe-west2'
-const SEARCH_INDEX_NAME = ALGOLIA_INDEX_NAME || 'journal_entries'
-
-if (!ALGOLIA_APP_ID) {
-  throw new Error('Missing ALGOLIA_APP_ID')
-}
-
-if (!ALGOLIA_SEARCH_ONLY_KEY) {
-  throw new Error('Missing ALGOLIA_SEARCH_ONLY_KEY')
-}
+const SEARCH_INDEX_NAME = process.env.ALGOLIA_INDEX_NAME || 'journal_entries'
 
 function generateSecuredApiKey(
   parentApiKey: string,
@@ -49,11 +39,17 @@ export const getSearchKey = onCall({ region: FUNCTIONS_REGION }, async (request)
     throw new HttpsError('unauthenticated', 'Login required')
   }
 
+  const algoliaAppId = process.env.ALGOLIA_APP_ID
+  const algoliaSearchOnlyKey = process.env.ALGOLIA_SEARCH_ONLY_KEY
+  if (!algoliaAppId || !algoliaSearchOnlyKey) {
+    throw new HttpsError('internal', 'Search is not configured')
+  }
+
   const escapedUid = uid.replace(/[\\"]/g, '\\$&')
 
   const validUntil = Math.floor(Date.now() / 1000) + 60 * 60
 
-  const key = generateSecuredApiKey(ALGOLIA_SEARCH_ONLY_KEY, {
+  const key = generateSecuredApiKey(algoliaSearchOnlyKey, {
     // Keep non-deleted records even if older docs are missing the `deleted` field.
     filters: `userId:"${escapedUid}" AND NOT deleted:true`,
     restrictIndices: SEARCH_INDEX_NAME,
@@ -61,7 +57,7 @@ export const getSearchKey = onCall({ region: FUNCTIONS_REGION }, async (request)
     userToken: uid,
   })
 
-  return { key, appId: ALGOLIA_APP_ID, indexName: SEARCH_INDEX_NAME }
+  return { key, appId: algoliaAppId, indexName: SEARCH_INDEX_NAME }
 })
 
 export const sendDailyReminders = onSchedule(
