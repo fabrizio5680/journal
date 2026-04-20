@@ -29,7 +29,7 @@
 - **Focus mode** — `FocusModeContext` (`src/context/FocusModeContext.tsx`) provides `{ isFocused, toggle, exit }`; wrapped around `AppShell` in `App.tsx`; each layout component (SideNav, TopBar, BottomNav, RightPanel) reads the context and applies `transition-all duration-500` + translate/opacity classes to slide off-screen; `BottomNav` Focus button is a `<button>` (not a NavLink) that calls `toggle()`; exit button appears `fixed top-4 right-4 z-50` when focused
 - **Offline** — Firestore IndexedDB persistence enabled in `firebase.ts`; sync status indicator watches `navigator.onLine`
 - **Notifications** — `sendDailyReminders` Cloud Function (Cloud Scheduler, every 5 min); fires FCM push only if user hasn't written today; reminder time stored as `"HH:MM"` + IANA timezone on user doc. FCM token obtained via `getToken(messaging, { vapidKey })` from `VITE_FIREBASE_VAPID_KEY`; `messagingPromise` in `firebase.ts` resolves to `null` in emulator mode and unsupported browsers. `public/firebase-messaging-sw.js` is a stub — full SW config deferred to Phase 12.
-- **User preferences** — `UserPreferencesContext` (`src/context/UserPreferencesContext.tsx`) provides `{ grainEnabled, scriptureTranslation }` from the user doc via `onSnapshot`; wrapped inside `RequireAuth` in `App.tsx`; consumed by `AppShell` (grain class), `RightPanel` (translation), and `SettingsPage`.
+- **User preferences** — `UserPreferencesContext` (`src/context/UserPreferencesContext.tsx`) provides `{ grainEnabled, scriptureTranslation, editorFontSize, updateEditorFontSize }` from the user doc via `onSnapshot`; wrapped inside `RequireAuth` in `App.tsx`; consumed by `AppShell` (grain class), `RightPanel` (translation), `EntryEditor` (font size class), `FloatingActionBar` (A-/A+ buttons), and `SettingsPage`. The context exposes `updateEditorFontSize(size)` to write directly to Firestore.
 - **Grain texture** — `.grain-enabled::before` pseudo-element in `globals.css` overlays `/textures/natural-paper.png` at 4% opacity; `AppShell` adds the class when `grainEnabled` is true.
 - **Daily Scripture** — fetched from scripture.api.bible (free key); cached per translation per day in localStorage (`scripture_{translation}_{yyyy-MM-dd}`); fallback hardcoded array; NLT/MSG/ESV toggle per user preference; changing translation clears all cached keys for today so it re-fetches immediately.
 
@@ -48,6 +48,7 @@
   reminderTimezone: string       // IANA, e.g. "Europe/London"
   grainEnabled: boolean          // default true
   scriptureTranslation: 'NLT' | 'MSG' | 'ESV'  // default 'NLT'
+  editorFontSize: 'small' | 'medium' | 'large'  // default 'medium'
   fcmToken: string | null
   createdAt: Timestamp
 }

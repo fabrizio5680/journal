@@ -4,6 +4,10 @@ import React from 'react'
 
 import EntryEditor from './EntryEditor'
 
+vi.mock('@/context/UserPreferencesContext', () => ({
+  useUserPreferences: () => ({ editorFontSize: 'medium' }),
+}))
+
 const mockUseEditor = vi.fn()
 
 vi.mock('@tiptap/react', () => ({

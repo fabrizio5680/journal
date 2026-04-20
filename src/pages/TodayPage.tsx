@@ -8,6 +8,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { useTagVocabulary } from '@/hooks/useTagVocabulary'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
+import { useUserPreferences } from '@/context/UserPreferencesContext'
 import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
@@ -20,6 +21,7 @@ export default function TodayPage() {
   const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(today)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { isDirty, setDirty, setLastSaved } = useSaveStatus()
+  const { editorFontSize, updateEditorFontSize } = useUserPreferences()
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
@@ -175,6 +177,8 @@ export default function TodayPage() {
           onStart: start,
           onStop: stop,
         }}
+        fontSize={editorFontSize}
+        onFontSizeChange={updateEditorFontSize}
       />
 
       {/* Delete confirmation dialog */}

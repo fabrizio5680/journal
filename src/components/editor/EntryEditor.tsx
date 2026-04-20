@@ -7,6 +7,14 @@ import CharacterCount from '@tiptap/extension-character-count'
 import Heading from '@tiptap/extension-heading'
 import type { Editor } from '@tiptap/core'
 
+import { useUserPreferences } from '@/context/UserPreferencesContext'
+
+const FONT_SIZE_CLASS: Record<string, string> = {
+  small: 'text-[1.1rem]',
+  medium: 'text-[1.35rem]',
+  large: 'text-[1.6rem]',
+}
+
 interface EntryEditorProps {
   content: object | null
   onUpdate: (editor: Editor) => void
@@ -14,6 +22,9 @@ interface EntryEditorProps {
 }
 
 export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryEditorProps) {
+  const { editorFontSize } = useUserPreferences()
+  const fontSizeClass = FONT_SIZE_CLASS[editorFontSize] ?? FONT_SIZE_CLASS.medium
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: false }),
@@ -26,7 +37,7 @@ export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryE
     editorProps: {
       attributes: {
         class:
-          'outline-none bg-transparent text-[1.35rem] leading-[1.9] font-light text-on-surface min-h-[60vh] w-full font-display',
+          'outline-none bg-transparent leading-[1.9] font-light text-on-surface min-h-[60vh] w-full font-display',
       },
     },
     onUpdate({ editor }) {
@@ -69,7 +80,7 @@ export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryE
   if (!editor) return null
 
   return (
-    <div className="relative">
+    <div className={`relative ${fontSizeClass}`}>
       <BubbleMenu editor={editor}>
         <div className="bg-surface-container-lowest border-outline-variant/15 flex gap-0.5 rounded-xl border p-1 shadow-xl">
           <BubbleButton

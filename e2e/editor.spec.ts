@@ -249,4 +249,44 @@ test.describe('Editor', () => {
     await page.getByRole('button', { name: /stop dictation/i }).click()
     await expect(page.getByRole('button', { name: /dictate/i })).toBeVisible({ timeout: 3000 })
   })
+
+  test('Scenario 5: A+ increases font size, A- decreases it, persisted to Firestore', async ({
+    page,
+    request,
+  }) => {
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 5000 })
+
+    const decreaseBtn = page.getByRole('button', { name: /decrease text size/i })
+    const increaseBtn = page.getByRole('button', { name: /increase text size/i })
+
+    // Default is medium: both buttons should be enabled
+    await expect(decreaseBtn).toBeEnabled({ timeout: 3000 })
+    await expect(increaseBtn).toBeEnabled()
+
+    // Increase to large → A+ becomes disabled
+    await increaseBtn.click()
+    await expect(increaseBtn).toBeDisabled({ timeout: 3000 })
+    await expect(decreaseBtn).toBeEnabled()
+
+    // Decrease back to medium → both enabled again
+    await decreaseBtn.click()
+    await expect(increaseBtn).toBeEnabled({ timeout: 3000 })
+
+    // Decrease to small → A− becomes disabled
+    await decreaseBtn.click()
+    await expect(decreaseBtn).toBeDisabled({ timeout: 3000 })
+
+    // Confirm final state persisted to Firestore user doc
+    await page.waitForTimeout(500)
+    const userDocUrl = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${testUid}`
+    const res = await request.get(userDocUrl, {
+      headers: { Authorization: `Bearer ${testIdToken}` },
+    })
+    expect(res.ok()).toBeTruthy()
+    const body = (await res.json()) as {
+      fields?: { editorFontSize?: { stringValue?: string } }
+    }
+    expect(body.fields?.editorFontSize?.stringValue).toBe('small')
+  })
 })

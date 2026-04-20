@@ -6,6 +6,7 @@ import { getToken } from 'firebase/messaging'
 
 import { auth, db, messagingPromise } from '@/lib/firebase'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
+import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
 
 type Translation = 'NLT' | 'MSG' | 'ESV'
@@ -69,7 +70,8 @@ export default function SettingsPage() {
   usePageTitle('Settings')
   const [user, setUser] = useState<User | null>(null)
   const navigate = useNavigate()
-  const { grainEnabled, scriptureTranslation } = useUserPreferences()
+  const { grainEnabled, scriptureTranslation, editorFontSize, updateEditorFontSize } =
+    useUserPreferences()
 
   const [reminderEnabled, setReminderEnabled] = useState(false)
   const [reminderTime, setReminderTime] = useState('20:00')
@@ -234,6 +236,25 @@ export default function SettingsPage() {
             onChange={handleGrainToggle}
           />
         </SettingsRow>
+        <div className="border-outline-variant/20 mt-4 border-t pt-4">
+          <SettingsRow icon="format_size" label="Editor Text Size">
+            <div className="flex gap-1.5">
+              {(['small', 'medium', 'large'] as EditorFontSize[]).map((size) => (
+                <button
+                  key={size}
+                  onClick={() => updateEditorFontSize(size)}
+                  className={
+                    editorFontSize === size
+                      ? 'bg-primary text-on-primary rounded-full px-3 py-1.5 text-xs font-semibold capitalize'
+                      : 'bg-surface-container text-on-surface-variant/70 hover:text-on-surface-variant rounded-full px-3 py-1.5 text-xs capitalize transition-colors'
+                  }
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </SettingsRow>
+        </div>
       </SettingsSection>
 
       {/* Scripture */}
