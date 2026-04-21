@@ -7,6 +7,7 @@ import { SaveStatusProvider } from '@/context/SaveStatusContext'
 import { FocusModeProvider } from '@/context/FocusModeContext'
 import { SearchProvider } from '@/context/SearchContext'
 import { UserPreferencesProvider } from '@/context/UserPreferencesContext'
+import { EditorControlsProvider } from '@/context/EditorControlsContext'
 import AppShell from '@/components/layout/AppShell'
 import LoginPage from '@/components/auth/LoginPage'
 import TodayPage from '@/pages/TodayPage'
@@ -47,7 +48,9 @@ export default function App() {
                 <SearchProvider>
                   <FocusModeProvider>
                     <SaveStatusProvider>
-                      <AppShell />
+                      <EditorControlsProvider>
+                        <AppShell />
+                      </EditorControlsProvider>
                     </SaveStatusProvider>
                   </FocusModeProvider>
                 </SearchProvider>

@@ -2,16 +2,22 @@ import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
 
 import { useFocusMode } from '@/context/FocusModeContext'
+import { useEditorControls } from '@/context/EditorControlsContext'
+import type { EditorFontSize } from '@/context/UserPreferencesContext'
 
-const NAV_ITEMS = [
-  { label: 'Entry', icon: 'edit_note', to: '/' },
-  { label: 'History', icon: 'calendar_month', to: '/history' },
-  { label: 'Insights', icon: 'bar_chart', to: '/insights' },
-  { label: 'Settings', icon: 'settings', to: '/settings' },
-]
+const FONT_SIZE_STEPS: EditorFontSize[] = ['small', 'medium', 'large']
 
 export default function BottomNav() {
   const { isFocused, toggle } = useFocusMode()
+  const { isEditorActive, dictation, fontSize, onFontSizeChange } = useEditorControls()
+
+  const isListening = dictation?.state === 'listening'
+  const currentIndex = FONT_SIZE_STEPS.indexOf(fontSize)
+  const nextSize = FONT_SIZE_STEPS[(currentIndex + 1) % FONT_SIZE_STEPS.length]
+
+  function handleFontCycle() {
+    onFontSizeChange?.(nextSize)
+  }
 
   return (
     <nav
@@ -20,43 +26,74 @@ export default function BottomNav() {
         isFocused && 'pointer-events-none translate-y-full opacity-0',
       )}
     >
-      {NAV_ITEMS.map(({ label, icon, to }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={to === '/'}
-          className={({ isActive }) =>
-            clsx(
-              'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-200',
-              isActive
-                ? 'text-primary'
-                : 'text-on-surface-variant/60 hover:text-on-surface-variant',
-            )
-          }
-        >
-          {({ isActive }) => (
-            <>
+      {/* Today */}
+      <NavLink
+        to="/"
+        end
+        className={({ isActive }) =>
+          clsx(
+            'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-200',
+            isActive ? 'text-primary' : 'text-on-surface-variant/60 hover:text-on-surface-variant',
+          )
+        }
+      >
+        {({ isActive }) => (
+          <>
+            <span
+              className="material-symbols-outlined text-[22px] transition-all duration-200"
+              style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
+            >
+              edit_note
+            </span>
+            <span
+              className={clsx('text-[9px] font-medium tracking-wide', isActive && 'font-semibold')}
+            >
+              Today
+            </span>
+          </>
+        )}
+      </NavLink>
+
+      {/* Editor controls — only on editing pages */}
+      {isEditorActive && (
+        <>
+          {/* Voice */}
+          {dictation?.isSupported && (
+            <button
+              onClick={isListening ? dictation.onStop : dictation.onStart}
+              aria-label={isListening ? 'Stop dictation' : 'Dictate'}
+              className={clsx(
+                'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-200',
+                isListening
+                  ? 'text-primary'
+                  : 'text-on-surface-variant/60 hover:text-on-surface-variant',
+              )}
+            >
               <span
                 className={clsx(
-                  'material-symbols-outlined transition-all duration-200',
-                  isActive ? 'text-[22px]' : 'text-[22px]',
-                )}
-                style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
-              >
-                {icon}
-              </span>
-              <span
-                className={clsx(
-                  'text-[9px] font-medium tracking-wide',
-                  isActive && 'font-semibold',
+                  'material-symbols-outlined text-[22px] transition-all duration-200',
+                  isListening && 'animate-pulse',
                 )}
               >
-                {label}
+                {isListening ? 'mic_off' : 'mic'}
               </span>
-            </>
+              <span className="text-[9px] font-medium tracking-wide">Voice</span>
+            </button>
           )}
-        </NavLink>
-      ))}
+
+          {/* Font size cycle */}
+          {onFontSizeChange && (
+            <button
+              onClick={handleFontCycle}
+              aria-label={`Text size: ${fontSize}. Tap to change`}
+              className="text-on-surface-variant/60 hover:text-on-surface-variant flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-200"
+            >
+              <span className="text-[20px] leading-none font-bold">Aa</span>
+              <span className="text-[9px] font-medium tracking-wide">Text</span>
+            </button>
+          )}
+        </>
+      )}
 
       {/* Focus toggle */}
       <button

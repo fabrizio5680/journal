@@ -118,7 +118,7 @@ test.describe('Editor', () => {
     await expect(page.getByText(/6 words/i)).toBeVisible({ timeout: 3000 })
   })
 
-  test('Scenario 2: type text → click Save → Firestore emulator has entry doc', async ({
+  test('Scenario 2: type text → auto-save → Firestore emulator has entry doc', async ({
     page,
     request,
   }) => {
@@ -128,13 +128,10 @@ test.describe('Editor', () => {
     await expect(editor).toBeVisible({ timeout: 5000 })
 
     await editor.click()
-    await page.keyboard.type('Saved via button')
+    await page.keyboard.type('Auto-saved entry')
 
-    // Click Save Entry button
-    await page.getByRole('button', { name: /Save Entry/i }).click()
-
-    // Give Firestore a moment to persist
-    await page.waitForTimeout(1000)
+    // Auto-save fires after 1.5s debounce; wait for it
+    await page.waitForTimeout(2500)
 
     // Query Firestore emulator REST API for the doc (auth token required by security rules)
     const docUrl = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${testUid}/entries/${today}`
@@ -250,32 +247,28 @@ test.describe('Editor', () => {
     await expect(page.getByRole('button', { name: /dictate/i })).toBeVisible({ timeout: 3000 })
   })
 
-  test('Scenario 5: A+ increases font size, A- decreases it, persisted to Firestore', async ({
+  test('Scenario 5: font size cycle button cycles small→medium→large→small, persisted to Firestore', async ({
     page,
     request,
   }) => {
     const editor = await getEditorOrSkip(page)
     await expect(editor).toBeVisible({ timeout: 5000 })
 
-    const decreaseBtn = page.getByRole('button', { name: /decrease text size/i })
-    const increaseBtn = page.getByRole('button', { name: /increase text size/i })
+    // Default is medium — cycle button shows current size
+    const cycleBtn = page.getByRole('button', { name: /text size: medium/i })
+    await expect(cycleBtn).toBeVisible({ timeout: 3000 })
 
-    // Default is medium: both buttons should be enabled
-    await expect(decreaseBtn).toBeEnabled({ timeout: 3000 })
-    await expect(increaseBtn).toBeEnabled()
+    // Click once → large
+    await cycleBtn.click()
+    await expect(page.getByRole('button', { name: /text size: large/i })).toBeVisible({
+      timeout: 3000,
+    })
 
-    // Increase to large → A+ becomes disabled
-    await increaseBtn.click()
-    await expect(increaseBtn).toBeDisabled({ timeout: 3000 })
-    await expect(decreaseBtn).toBeEnabled()
-
-    // Decrease back to medium → both enabled again
-    await decreaseBtn.click()
-    await expect(increaseBtn).toBeEnabled({ timeout: 3000 })
-
-    // Decrease to small → A− becomes disabled
-    await decreaseBtn.click()
-    await expect(decreaseBtn).toBeDisabled({ timeout: 3000 })
+    // Click again → small
+    await page.getByRole('button', { name: /text size: large/i }).click()
+    await expect(page.getByRole('button', { name: /text size: small/i })).toBeVisible({
+      timeout: 3000,
+    })
 
     // Confirm final state persisted to Firestore user doc
     await page.waitForTimeout(500)

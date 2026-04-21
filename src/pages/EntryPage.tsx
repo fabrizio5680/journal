@@ -9,6 +9,7 @@ import { useTagVocabulary } from '@/hooks/useTagVocabulary'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
+import { useEditorControls } from '@/context/EditorControlsContext'
 import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
@@ -29,8 +30,9 @@ function EntryEditorView({ date }: { date: string }) {
   const navigate = useNavigate()
   const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
-  const { isDirty, setDirty, setLastSaved } = useSaveStatus()
+  const { setDirty, setLastSaved } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize } = useUserPreferences()
+  const { register, unregister } = useEditorControls()
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
@@ -56,6 +58,26 @@ function EntryEditorView({ date }: { date: string }) {
     ),
   )
 
+  // Register editor controls with BottomNav via context
+  useEffect(() => {
+    register({
+      dictation: { isSupported, state: dictationState, errorMessage, onStart: start, onStop: stop },
+      fontSize: editorFontSize,
+      onFontSizeChange: updateEditorFontSize,
+    })
+  }, [
+    isSupported,
+    dictationState,
+    errorMessage,
+    editorFontSize,
+    register,
+    start,
+    stop,
+    updateEditorFontSize,
+  ])
+
+  useEffect(() => () => unregister(), [unregister])
+
   const handleUpdate = useCallback(
     (editor: Editor) => {
       markDirty()
@@ -75,18 +97,6 @@ function EntryEditorView({ date }: { date: string }) {
     },
     [markDirty, save, setDirty, setLastSaved],
   )
-
-  const handleSave = useCallback(async () => {
-    if (!editorInstance || !isDirty) return
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    await save({
-      content: editorInstance.getJSON(),
-      contentText: editorInstance.getText(),
-      wordCount: editorInstance.storage.characterCount.words(),
-    })
-    setDirty(false)
-    setLastSaved(new Date())
-  }, [editorInstance, isDirty, save, setDirty, setLastSaved])
 
   const handleMoodChange = useCallback(
     async (mood: number | null, moodLabel: string | null) => {
@@ -127,7 +137,6 @@ function EntryEditorView({ date }: { date: string }) {
       <EditorToolbar editor={editorInstance} />
 
       <div className="mx-auto max-w-2xl px-6 pt-4 md:pt-14">
-        {/* Back button + historical date + overflow menu */}
         <div className="mb-6 flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
@@ -169,10 +178,14 @@ function EntryEditorView({ date }: { date: string }) {
         />
       </div>
 
+      {/* Word count — above bottom nav, mobile only */}
+      <div className="text-on-surface-variant/40 pointer-events-none fixed bottom-[4.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden">
+        {liveWordCount} {liveWordCount === 1 ? 'word' : 'words'}
+      </div>
+
+      {/* Desktop FAB — voice, font cycle, word count */}
       <FloatingActionBar
         wordCount={liveWordCount}
-        isDirty={isDirty}
-        onSave={handleSave}
         dictation={{
           isSupported,
           state: dictationState,
@@ -184,7 +197,6 @@ function EntryEditorView({ date }: { date: string }) {
         onFontSizeChange={updateEditorFontSize}
       />
 
-      {/* Delete confirmation dialog */}
       {showDeleteConfirm && (
         <div
           role="dialog"
