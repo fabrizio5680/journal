@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { defineSecret } from 'firebase-functions/params'
 import { initializeApp, getApps } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
@@ -16,6 +17,9 @@ dotenvConfig({ path: resolve(__dirname, '../.env') })
 if (getApps().length === 0) {
   initializeApp()
 }
+
+const ALGOLIA_APP_ID = defineSecret('ALGOLIA_APP_ID')
+const ALGOLIA_SEARCH_ONLY_KEY = defineSecret('ALGOLIA_SEARCH_ONLY_KEY')
 
 const FUNCTIONS_REGION = 'europe-west2'
 const SEARCH_INDEX_NAME = process.env.ALGOLIA_INDEX_NAME || 'journal_entries'
@@ -33,32 +37,35 @@ function generateSecuredApiKey(
   return Buffer.from(`${signature}${queryParameters}`).toString('base64')
 }
 
-export const getSearchKey = onCall({ region: FUNCTIONS_REGION }, async (request) => {
-  const uid = request.auth?.uid
-  if (!uid) {
-    throw new HttpsError('unauthenticated', 'Login required')
-  }
+export const getSearchKey = onCall(
+  { region: FUNCTIONS_REGION, secrets: [ALGOLIA_APP_ID, ALGOLIA_SEARCH_ONLY_KEY] },
+  async (request) => {
+    const uid = request.auth?.uid
+    if (!uid) {
+      throw new HttpsError('unauthenticated', 'Login required')
+    }
 
-  const algoliaAppId = process.env.ALGOLIA_APP_ID
-  const algoliaSearchOnlyKey = process.env.ALGOLIA_SEARCH_ONLY_KEY
-  if (!algoliaAppId || !algoliaSearchOnlyKey) {
-    throw new HttpsError('internal', 'Search is not configured')
-  }
+    const appId = ALGOLIA_APP_ID.value()
+    const searchKey = ALGOLIA_SEARCH_ONLY_KEY.value()
+    if (!appId || !searchKey) {
+      throw new HttpsError('internal', 'Search is not configured')
+    }
 
-  const escapedUid = uid.replace(/[\\"]/g, '\\$&')
+    const escapedUid = uid.replace(/[\\"]/g, '\\$&')
 
-  const validUntil = Math.floor(Date.now() / 1000) + 60 * 60
+    const validUntil = Math.floor(Date.now() / 1000) + 60 * 60
 
-  const key = generateSecuredApiKey(algoliaSearchOnlyKey, {
-    // Keep non-deleted records even if older docs are missing the `deleted` field.
-    filters: `userId:"${escapedUid}" AND NOT deleted:true`,
-    restrictIndices: SEARCH_INDEX_NAME,
-    validUntil,
-    userToken: uid,
-  })
+    const key = generateSecuredApiKey(searchKey, {
+      // Keep non-deleted records even if older docs are missing the `deleted` field.
+      filters: `userId:"${escapedUid}" AND NOT deleted:true`,
+      restrictIndices: SEARCH_INDEX_NAME,
+      validUntil,
+      userToken: uid,
+    })
 
-  return { key, appId: algoliaAppId, indexName: SEARCH_INDEX_NAME }
-})
+    return { key, appId, indexName: SEARCH_INDEX_NAME }
+  },
+)
 
 export const sendDailyReminders = onSchedule(
   { schedule: 'every 5 minutes', region: FUNCTIONS_REGION },

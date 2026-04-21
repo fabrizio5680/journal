@@ -37,7 +37,8 @@
       "Bash(curl -s \"http://localhost:8080/v1/projects/journal-manna/databases/\\(default\\)/documents/users\")",
       "Bash(grep -l \"seedEntry\\\\|createEmulatorUser\" /Users/fabrizio/github/journal/e2e/*.spec.ts)",
       "Bash(grep -E \"\\\\.ts$|\\\\.tsx$\")",
-      "Bash(git ls-files *)"
+      "Bash(git ls-files *)",
+      "Bash(sed *)"
     ]
   }
 }
