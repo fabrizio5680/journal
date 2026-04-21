@@ -9,6 +9,7 @@ import { useTagVocabulary } from '@/hooks/useTagVocabulary'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
+import { useEditorControls } from '@/context/EditorControlsContext'
 import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
@@ -20,8 +21,9 @@ export default function TodayPage() {
   const navigate = useNavigate()
   const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(today)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
-  const { isDirty, setDirty, setLastSaved } = useSaveStatus()
+  const { setDirty, setLastSaved } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize } = useUserPreferences()
+  const { register, unregister } = useEditorControls()
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
@@ -47,6 +49,26 @@ export default function TodayPage() {
     ),
   )
 
+  // Register editor controls with BottomNav via context
+  useEffect(() => {
+    register({
+      dictation: { isSupported, state: dictationState, errorMessage, onStart: start, onStop: stop },
+      fontSize: editorFontSize,
+      onFontSizeChange: updateEditorFontSize,
+    })
+  }, [
+    isSupported,
+    dictationState,
+    errorMessage,
+    editorFontSize,
+    register,
+    start,
+    stop,
+    updateEditorFontSize,
+  ])
+
+  useEffect(() => () => unregister(), [unregister])
+
   const handleUpdate = useCallback(
     (editor: Editor) => {
       markDirty()
@@ -66,18 +88,6 @@ export default function TodayPage() {
     },
     [markDirty, save, setDirty, setLastSaved],
   )
-
-  const handleSave = useCallback(async () => {
-    if (!editorInstance || !isDirty) return
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    await save({
-      content: editorInstance.getJSON(),
-      contentText: editorInstance.getText(),
-      wordCount: editorInstance.storage.characterCount.words(),
-    })
-    setDirty(false)
-    setLastSaved(new Date())
-  }, [editorInstance, isDirty, save, setDirty, setLastSaved])
 
   const handleMoodChange = useCallback(
     async (mood: number | null, moodLabel: string | null) => {
@@ -99,7 +109,6 @@ export default function TodayPage() {
     navigate('/history')
   }, [deleteEntry, navigate])
 
-  // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
@@ -123,7 +132,6 @@ export default function TodayPage() {
       <EditorToolbar editor={editorInstance} />
 
       <div className="mx-auto max-w-2xl px-6 pt-4 md:pt-14">
-        {/* Delete button — only show when an entry exists */}
         {entry && (
           <div className="mb-2 flex justify-end">
             <button
@@ -136,7 +144,6 @@ export default function TodayPage() {
           </div>
         )}
 
-        {/* First-time welcome — shown when no entry exists yet today */}
         {!entry && (
           <div className="mb-10 py-4">
             <p className="font-display text-on-surface/80 text-3xl leading-relaxed font-light italic">
@@ -166,10 +173,14 @@ export default function TodayPage() {
         />
       </div>
 
+      {/* Word count — above bottom nav, mobile only */}
+      <div className="text-on-surface-variant/40 pointer-events-none fixed bottom-[4.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden">
+        {liveWordCount} {liveWordCount === 1 ? 'word' : 'words'}
+      </div>
+
+      {/* Desktop FAB — voice, font cycle, word count */}
       <FloatingActionBar
         wordCount={liveWordCount}
-        isDirty={isDirty}
-        onSave={handleSave}
         dictation={{
           isSupported,
           state: dictationState,
@@ -181,7 +192,6 @@ export default function TodayPage() {
         onFontSizeChange={updateEditorFontSize}
       />
 
-      {/* Delete confirmation dialog */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm">
           <div className="bg-surface-container-lowest border-outline-variant/10 w-full max-w-sm rounded-[2rem] border p-8 shadow-2xl">
