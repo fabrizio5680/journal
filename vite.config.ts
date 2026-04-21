@@ -10,7 +10,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       workbox: {
         navigateFallbackDenylist: [/^\/__\/auth\/.*/],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],

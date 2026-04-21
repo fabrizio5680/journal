@@ -16,6 +16,7 @@ import SettingsPage from '@/pages/SettingsPage'
 import TrashPage from '@/pages/TrashPage'
 import EntryPage from '@/pages/EntryPage'
 import NotFoundPage from '@/pages/NotFoundPage'
+import UpdateBanner from '@/components/ui/UpdateBanner'
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined)
@@ -34,34 +35,37 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
+    <>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
 
-      {/* All authenticated routes share the AppShell layout */}
-      <Route
-        element={
-          <RequireAuth>
-            <UserPreferencesProvider>
-              <SearchProvider>
-                <FocusModeProvider>
-                  <SaveStatusProvider>
-                    <AppShell />
-                  </SaveStatusProvider>
-                </FocusModeProvider>
-              </SearchProvider>
-            </UserPreferencesProvider>
-          </RequireAuth>
-        }
-      >
-        <Route path="/" element={<TodayPage />} />
-        <Route path="/entry/:date" element={<EntryPage />} />
-        <Route path="/history" element={<HistoryPage />} />
-        <Route path="/insights" element={<InsightsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/trash" element={<TrashPage />} />
-      </Route>
+        {/* All authenticated routes share the AppShell layout */}
+        <Route
+          element={
+            <RequireAuth>
+              <UserPreferencesProvider>
+                <SearchProvider>
+                  <FocusModeProvider>
+                    <SaveStatusProvider>
+                      <AppShell />
+                    </SaveStatusProvider>
+                  </FocusModeProvider>
+                </SearchProvider>
+              </UserPreferencesProvider>
+            </RequireAuth>
+          }
+        >
+          <Route path="/" element={<TodayPage />} />
+          <Route path="/entry/:date" element={<EntryPage />} />
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/insights" element={<InsightsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/trash" element={<TrashPage />} />
+        </Route>
 
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+      <UpdateBanner />
+    </>
   )
 }
