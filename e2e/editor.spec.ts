@@ -247,6 +247,26 @@ test.describe('Editor', () => {
     await expect(page.getByRole('button', { name: /dictate/i })).toBeVisible({ timeout: 3000 })
   })
 
+  test('Scenario 6: scroll-padding-bottom keeps cursor above BottomNav on mobile', async ({
+    page,
+    viewport,
+  }) => {
+    // The CSS rule only applies below md breakpoint (767px)
+    const isMobile = (viewport?.width ?? 1280) < 767
+
+    const scrollPaddingBottom = await page.evaluate(
+      () => getComputedStyle(document.documentElement).scrollPaddingBottom,
+    )
+
+    if (isMobile) {
+      // 5rem at default 16px root = 80px
+      expect(scrollPaddingBottom).toBe('80px')
+    } else {
+      // Desktop / tablet — rule must not fire
+      expect(scrollPaddingBottom).toBe('0px')
+    }
+  })
+
   test('Scenario 5: font size cycle button cycles small→medium→large→small, persisted to Firestore', async ({
     page,
     request,
