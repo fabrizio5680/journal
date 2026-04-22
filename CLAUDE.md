@@ -1,5 +1,10 @@
 # The Quiet Sanctuary — Project Bible
 
+## Approach
+
+Skip files over 100KB unless explicitly required.
+Suggest running /cost when a session is running long to monitor cache ratio.
+
 ## Identity
 
 - App name: "The Quiet Sanctuary" | Brand mark: "Reflect"

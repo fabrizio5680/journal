@@ -139,4 +139,13 @@ describe('EntryEditor', () => {
 
     expect(setContent).not.toHaveBeenCalled()
   })
+
+  it('applies bottom padding to the wrapper for scroll clearance', () => {
+    getJSON.mockReturnValue({ type: 'doc', content: [] })
+    const { container } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+
+    const wrapper = container.firstChild as HTMLElement
+    expect(wrapper.className).toContain('pb-40')
+    expect(wrapper.className).toContain('md:pb-32')
+  })
 })
