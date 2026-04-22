@@ -92,6 +92,13 @@ html {
   scroll-behavior: smooth;
 }
 
+/* On mobile, keep the cursor above the fixed BottomNav when the iOS keyboard scrolls it into view */
+@media (max-width: 767px) {
+  html {
+    scroll-padding-bottom: 5rem;
+  }
+}
+
 body {
   font-family: 'DM Sans', system-ui, sans-serif;
   background-color: var(--color-background);

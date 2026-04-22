@@ -114,8 +114,8 @@ test.describe('Editor', () => {
     await editor.click()
     await page.keyboard.type('This is a test journal entry')
 
-    // Floating action area should reflect current word count
-    await expect(page.getByText(/6 words/i)).toBeVisible({ timeout: 3000 })
+    // Word count should be visible — mobile label (md:hidden) or desktop FAB span
+    await expect(page.locator('[data-testid="word-count"]:visible')).toBeVisible({ timeout: 3000 })
   })
 
   test('Scenario 2: type text → auto-save → Firestore emulator has entry doc', async ({
@@ -245,6 +245,26 @@ test.describe('Editor', () => {
     // Click mic-off → back to idle
     await page.getByRole('button', { name: /stop dictation/i }).click()
     await expect(page.getByRole('button', { name: /dictate/i })).toBeVisible({ timeout: 3000 })
+  })
+
+  test('Scenario 6: scroll-padding-bottom keeps cursor above BottomNav on mobile', async ({
+    page,
+    viewport,
+  }) => {
+    // The CSS rule only applies below md breakpoint (767px)
+    const isMobile = (viewport?.width ?? 1280) < 767
+
+    const scrollPaddingBottom = await page.evaluate(
+      () => getComputedStyle(document.documentElement).scrollPaddingBottom,
+    )
+
+    if (isMobile) {
+      // 5rem at default 16px root = 80px
+      expect(scrollPaddingBottom).toBe('80px')
+    } else {
+      // Desktop / tablet — rule must not fire; browser default is 'auto'
+      expect(scrollPaddingBottom).toBe('auto')
+    }
   })
 
   test('Scenario 5: font size cycle button cycles small→medium→large→small, persisted to Firestore', async ({

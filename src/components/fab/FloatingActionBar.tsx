@@ -70,7 +70,10 @@ export default function FloatingActionBar({
         )}
 
         {/* Word count */}
-        <span className="text-on-surface-variant/50 min-w-[4rem] text-center text-[11px] tracking-wide">
+        <span
+          data-testid="word-count"
+          className="text-on-surface-variant/50 min-w-[4rem] text-center text-[11px] tracking-wide"
+        >
           {wordCount} {wordCount === 1 ? 'word' : 'words'}
         </span>
       </div>
