@@ -247,24 +247,30 @@ test.describe('Editor', () => {
     await expect(page.getByRole('button', { name: /dictate/i })).toBeVisible({ timeout: 3000 })
   })
 
-  test('Scenario 6: scroll-padding-bottom keeps cursor above BottomNav on mobile', async ({
+  test('Scenario 6: ProseMirror scrollMargin keeps cursor above BottomNav when typing', async ({
     page,
-    viewport,
   }) => {
-    // The CSS rule only applies below md breakpoint (767px)
-    const isMobile = (viewport?.width ?? 1280) < 767
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 5000 })
 
-    const scrollPaddingBottom = await page.evaluate(
-      () => getComputedStyle(document.documentElement).scrollPaddingBottom,
-    )
+    // Type enough lines to push the cursor near the bottom of the viewport
+    await editor.click()
+    const longText = Array(30).fill('A line of journal text that wraps.').join('\n')
+    await page.keyboard.type(longText)
 
-    if (isMobile) {
-      // calc(5rem + env(safe-area-inset-bottom)); env() = 0px in Playwright → 80px
-      expect(scrollPaddingBottom).toBe('80px')
-    } else {
-      // Desktop / tablet — rule must not fire; browser default is 'auto'
-      expect(scrollPaddingBottom).toBe('auto')
-    }
+    // After typing, the cursor (last caret position) must not be obscured by the BottomNav.
+    // We verify this by checking that the cursor's bounding rect bottom is at least
+    // 72px (BottomNav height) above the visual viewport bottom.
+    const cursorClear = await page.evaluate(() => {
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return true
+      const range = sel.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      const vpHeight = window.visualViewport?.height ?? window.innerHeight
+      return vpHeight - rect.bottom >= 72
+    })
+
+    expect(cursorClear).toBe(true)
   })
 
   test('Scenario 5: font size cycle button cycles small→medium→large→small, persisted to Firestore', async ({
