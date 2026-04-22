@@ -259,7 +259,7 @@ test.describe('Editor', () => {
     )
 
     if (isMobile) {
-      // 5rem at default 16px root = 80px
+      // calc(5rem + env(safe-area-inset-bottom)); env() = 0px in Playwright → 80px
       expect(scrollPaddingBottom).toBe('80px')
     } else {
       // Desktop / tablet — rule must not fire; browser default is 'auto'

@@ -92,10 +92,11 @@ html {
   scroll-behavior: smooth;
 }
 
-/* On mobile, keep the cursor above the fixed BottomNav when the iOS keyboard scrolls it into view */
+/* On mobile, keep the cursor above the fixed BottomNav when the iOS keyboard scrolls it into view.
+   5rem covers the nav's visible content; env(safe-area-inset-bottom) covers the home indicator. */
 @media (max-width: 767px) {
   html {
-    scroll-padding-bottom: 5rem;
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
   }
 }
 
