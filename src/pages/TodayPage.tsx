@@ -174,7 +174,10 @@ export default function TodayPage() {
       </div>
 
       {/* Word count — above bottom nav, mobile only */}
-      <div className="text-on-surface-variant/40 pointer-events-none fixed bottom-[4.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden">
+      <div
+        data-testid="word-count"
+        className="text-on-surface-variant/40 pointer-events-none fixed bottom-[4.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden"
+      >
         {liveWordCount} {liveWordCount === 1 ? 'word' : 'words'}
       </div>
 

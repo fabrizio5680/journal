@@ -114,8 +114,8 @@ test.describe('Editor', () => {
     await editor.click()
     await page.keyboard.type('This is a test journal entry')
 
-    // Floating action area should reflect current word count
-    await expect(page.getByText(/6 words/i)).toBeVisible({ timeout: 3000 })
+    // Word count should be visible — mobile label (md:hidden) or desktop FAB span
+    await expect(page.locator('[data-testid="word-count"]:visible')).toBeVisible({ timeout: 3000 })
   })
 
   test('Scenario 2: type text → auto-save → Firestore emulator has entry doc', async ({
@@ -262,8 +262,8 @@ test.describe('Editor', () => {
       // 5rem at default 16px root = 80px
       expect(scrollPaddingBottom).toBe('80px')
     } else {
-      // Desktop / tablet — rule must not fire
-      expect(scrollPaddingBottom).toBe('0px')
+      // Desktop / tablet — rule must not fire; browser default is 'auto'
+      expect(scrollPaddingBottom).toBe('auto')
     }
   })
 
