@@ -80,7 +80,7 @@ export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryE
   if (!editor) return null
 
   return (
-    <div className={`relative ${fontSizeClass}`}>
+    <div className={`relative pb-40 md:pb-32 ${fontSizeClass}`}>
       <BubbleMenu editor={editor}>
         <div className="bg-surface-container-lowest border-outline-variant/15 flex gap-0.5 rounded-xl border p-1 shadow-xl">
           <BubbleButton
