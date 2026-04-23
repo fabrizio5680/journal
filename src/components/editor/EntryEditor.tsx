@@ -9,31 +9,41 @@ import type { Editor } from '@tiptap/core'
 
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 
+const DEFAULT_PLACEHOLDER = 'The silence this morning feels different...'
+
 const FONT_SIZE_CLASS: Record<string, string> = {
   small: 'text-[1.1rem]',
   medium: 'text-[1.35rem]',
   large: 'text-[1.6rem]',
 }
 
+function buildExtensions(placeholderText: string) {
+  return [
+    StarterKit.configure({ heading: false }),
+    Placeholder.configure({ placeholder: placeholderText }),
+    CharacterCount,
+    Heading.configure({ levels: [2] }),
+  ]
+}
+
 interface EntryEditorProps {
   content: object | null
   onUpdate: (editor: Editor) => void
   onEditorReady?: (editor: Editor) => void
+  placeholder?: string
 }
 
-export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryEditorProps) {
+export default function EntryEditor({
+  content,
+  onUpdate,
+  onEditorReady,
+  placeholder,
+}: EntryEditorProps) {
   const { editorFontSize } = useUserPreferences()
   const fontSizeClass = FONT_SIZE_CLASS[editorFontSize] ?? FONT_SIZE_CLASS.medium
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ heading: false }),
-      Placeholder.configure({
-        placeholder: 'The silence this morning feels different...',
-      }),
-      CharacterCount,
-      Heading.configure({ levels: [2] }),
-    ],
+    extensions: buildExtensions(placeholder ?? DEFAULT_PLACEHOLDER),
     editorProps: {
       attributes: {
         class:
@@ -56,6 +66,12 @@ export default function EntryEditor({ content, onUpdate, onEditorReady }: EntryE
       onEditorReady(editor)
     }
   }, [editor, onEditorReady])
+
+  // Update placeholder when the verse loads async
+  useEffect(() => {
+    if (!editor) return
+    editor.setOptions({ extensions: buildExtensions(placeholder ?? DEFAULT_PLACEHOLDER) })
+  }, [editor, placeholder])
 
   // Load initial content from Firestore once editor is ready
   useEffect(() => {

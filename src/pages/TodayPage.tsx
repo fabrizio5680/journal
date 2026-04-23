@@ -10,10 +10,12 @@ import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
+import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
+import { VerseBlock } from '@/components/editor/VerseBlock'
 
 export default function TodayPage() {
   usePageTitle("Today's Entry")
@@ -22,8 +24,10 @@ export default function TodayPage() {
   const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(today)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved } = useSaveStatus()
-  const { editorFontSize, updateEditorFontSize } = useUserPreferences()
+  const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
   const { register, unregister } = useEditorControls()
+  const { verse, isLoading: verseLoading } = useDailyVerse(scriptureTranslation)
+  const placeholder = verse ? `${verse.text} — ${verse.reference}` : undefined
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
@@ -144,16 +148,7 @@ export default function TodayPage() {
           </div>
         )}
 
-        {!entry && (
-          <div className="mb-10 py-4">
-            <p className="font-display text-on-surface/80 text-3xl leading-relaxed font-light italic">
-              Welcome to your sanctuary.
-            </p>
-            <p className="text-on-surface-variant/50 mt-2 text-sm">
-              This space is yours — start writing.
-            </p>
-          </div>
-        )}
+        <VerseBlock verse={verse} isLoading={verseLoading} />
 
         <MetadataChips
           mood={entry?.mood ?? null}
@@ -170,6 +165,7 @@ export default function TodayPage() {
           content={entry?.content ?? null}
           onUpdate={handleUpdate}
           onEditorReady={setEditorInstance}
+          placeholder={placeholder}
         />
       </div>
 
