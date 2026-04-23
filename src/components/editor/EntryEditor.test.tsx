@@ -143,6 +143,25 @@ describe('EntryEditor', () => {
     expect(setContent).not.toHaveBeenCalled()
   })
 
+  it('calls onEditorReady after content is loaded so parent reads correct word count', () => {
+    const callOrder: string[] = []
+    setContent.mockImplementation(() => {
+      callOrder.push('setContent')
+    })
+    const onEditorReady = vi.fn(() => {
+      callOrder.push('onEditorReady')
+    })
+    getJSON.mockReturnValue({ type: 'doc', content: [] })
+    const incoming = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] }],
+    }
+
+    render(<EntryEditor content={incoming} onUpdate={vi.fn()} onEditorReady={onEditorReady} />)
+
+    expect(callOrder).toEqual(['setContent', 'onEditorReady'])
+  })
+
   it('passes custom placeholder to Placeholder extension', () => {
     getJSON.mockReturnValue({ type: 'doc', content: [] })
     const customPlaceholder = 'He gives strength to the weary — Isaiah 40:29'

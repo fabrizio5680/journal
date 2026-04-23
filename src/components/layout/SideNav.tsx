@@ -112,7 +112,7 @@ export default function SideNav() {
           onClick={() => navigate('/')}
           className="bg-primary hover:bg-primary-dim text-on-primary w-full rounded-full px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors"
         >
-          New Entry
+          Today
         </button>
 
         {user && (

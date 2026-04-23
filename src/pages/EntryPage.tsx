@@ -40,6 +40,11 @@ function EntryEditorView({ date }: { date: string }) {
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
+
+  const handleEditorReady = useCallback((editor: Editor) => {
+    setEditorInstance(editor)
+    setLiveWordCount(editor.storage.characterCount.words())
+  }, [])
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -180,7 +185,7 @@ function EntryEditorView({ date }: { date: string }) {
           key={date}
           content={entry?.content ?? null}
           onUpdate={handleUpdate}
-          onEditorReady={setEditorInstance}
+          onEditorReady={handleEditorReady}
           placeholder={placeholder}
         />
       </div>

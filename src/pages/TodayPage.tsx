@@ -31,6 +31,11 @@ export default function TodayPage() {
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
+
+  const handleEditorReady = useCallback((editor: Editor) => {
+    setEditorInstance(editor)
+    setLiveWordCount(editor.storage.characterCount.words())
+  }, [])
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -164,7 +169,7 @@ export default function TodayPage() {
           key={today}
           content={entry?.content ?? null}
           onUpdate={handleUpdate}
-          onEditorReady={setEditorInstance}
+          onEditorReady={handleEditorReady}
           placeholder={placeholder}
         />
       </div>
