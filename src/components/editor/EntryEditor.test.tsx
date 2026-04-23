@@ -23,8 +23,10 @@ vi.mock('@tiptap/starter-kit', () => ({
   default: { configure: vi.fn(() => ({})) },
 }))
 
+const mockPlaceholderConfigure = vi.hoisted(() => vi.fn(() => ({})))
+
 vi.mock('@tiptap/extension-placeholder', () => ({
-  default: { configure: vi.fn(() => ({})) },
+  default: { configure: mockPlaceholderConfigure },
 }))
 
 vi.mock('@tiptap/extension-character-count', () => ({
@@ -49,6 +51,7 @@ describe('EntryEditor', () => {
       },
       getJSON,
       isEmpty: false,
+      setOptions: vi.fn(),
       isActive: vi.fn(() => false),
       chain: vi.fn(() => ({
         focus: vi.fn().mockReturnThis(),
@@ -138,6 +141,27 @@ describe('EntryEditor', () => {
     render(<EntryEditor content={sameContent} onUpdate={vi.fn()} />)
 
     expect(setContent).not.toHaveBeenCalled()
+  })
+
+  it('passes custom placeholder to Placeholder extension', () => {
+    getJSON.mockReturnValue({ type: 'doc', content: [] })
+    const customPlaceholder = 'He gives strength to the weary — Isaiah 40:29'
+
+    render(<EntryEditor content={null} onUpdate={vi.fn()} placeholder={customPlaceholder} />)
+
+    expect(mockPlaceholderConfigure).toHaveBeenCalledWith(
+      expect.objectContaining({ placeholder: customPlaceholder }),
+    )
+  })
+
+  it('uses default placeholder when none provided', () => {
+    getJSON.mockReturnValue({ type: 'doc', content: [] })
+
+    render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+
+    expect(mockPlaceholderConfigure).toHaveBeenCalledWith(
+      expect.objectContaining({ placeholder: 'The silence this morning feels different...' }),
+    )
   })
 
   it('applies bottom padding to the wrapper for scroll clearance', () => {

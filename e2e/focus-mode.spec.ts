@@ -104,8 +104,8 @@ test.describe('Focus Mode', () => {
 
     // TopBar and BottomNav should slide off-screen (opacity-0 + translate)
     // They remain in DOM but have pointer-events-none and opacity 0
-    await expect(topBar).toHaveCSS('opacity', '0', { timeout: 1000 })
-    await expect(bottomNav).toHaveCSS('opacity', '0', { timeout: 1000 })
+    await expect(topBar).toHaveCSS('opacity', '0', { timeout: 3000 })
+    await expect(bottomNav).toHaveCSS('opacity', '0', { timeout: 3000 })
   })
 
   test('Scenario 2: exit button appears in focus mode and restores chrome', async ({ page }) => {

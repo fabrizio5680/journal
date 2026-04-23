@@ -10,10 +10,12 @@ import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
+import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
+import { VerseBlock } from '@/components/editor/VerseBlock'
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
@@ -31,8 +33,10 @@ function EntryEditorView({ date }: { date: string }) {
   const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved } = useSaveStatus()
-  const { editorFontSize, updateEditorFontSize } = useUserPreferences()
+  const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
   const { register, unregister } = useEditorControls()
+  const { verse, isLoading: verseLoading } = useDailyVerse(scriptureTranslation, parseISO(date))
+  const placeholder = verse ? `${verse.text} — ${verse.reference}` : undefined
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
@@ -160,6 +164,8 @@ function EntryEditorView({ date }: { date: string }) {
           )}
         </div>
 
+        <VerseBlock verse={verse} isLoading={verseLoading} />
+
         <MetadataChips
           mood={entry?.mood ?? null}
           moodLabel={entry?.moodLabel ?? null}
@@ -175,6 +181,7 @@ function EntryEditorView({ date }: { date: string }) {
           content={entry?.content ?? null}
           onUpdate={handleUpdate}
           onEditorReady={setEditorInstance}
+          placeholder={placeholder}
         />
       </div>
 
