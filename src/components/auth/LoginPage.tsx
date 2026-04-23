@@ -149,12 +149,12 @@ export default function LoginPage() {
 
       {/* Right panel — desktop only */}
       <div className="relative hidden flex-grow overflow-hidden md:flex">
-        <img
+        {/* <img
           src="https://images.unsplash.com/photo-1482192505345-5852ba2f6585?w=1200&q=80"
           alt=""
           className="h-full w-full object-cover"
           aria-hidden="true"
-        />
+        /> */}
         {/* Gradient overlay */}
         <div className="from-background/30 absolute inset-0 bg-gradient-to-r to-transparent" />
 

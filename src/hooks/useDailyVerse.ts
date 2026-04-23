@@ -435,7 +435,8 @@ export function getFallbackVerse(date: Date = new Date()): Verse {
 }
 
 export function useDailyVerse(translation: 'NLT' | 'MSG' | 'ESV' = 'NLT', date: Date = new Date()) {
-  const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+  const dateStr = format(date, 'yyyy-MM-dd')
+  const isToday = dateStr === format(new Date(), 'yyyy-MM-dd')
   const cached = readCache(translation, date)
   const [verse, setVerse] = useState<Verse | null>(cached)
   const [isLoading, setIsLoading] = useState(!cached && isToday)
@@ -490,7 +491,8 @@ export function useDailyVerse(translation: 'NLT' | 'MSG' | 'ESV' = 'NLT', date: 
         setVerse(getFallbackVerse(date))
         setIsLoading(false)
       })
-  }, [translation, isToday, date])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [translation, isToday, dateStr])
 
   return { verse: verse ?? getFallbackVerse(date), isLoading }
 }
