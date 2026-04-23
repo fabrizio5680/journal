@@ -161,7 +161,7 @@ test.describe('Trash', () => {
     // Navigate to the entry
     await page.goto(`/entry/${ENTRY_DATE}`)
     await expect(
-      page.locator('main [contenteditable="true"], main .ProseMirror, main p').first(),
+      page.locator('main [contenteditable="true"], main .ProseMirror').first(),
     ).toBeVisible({ timeout: 5000 })
 
     // Click more_vert
@@ -302,7 +302,7 @@ test.describe('Trash', () => {
     })
     await page.goto(`/entry/${ENTRY_DATE}`)
     await expect(
-      page.locator('main [contenteditable="true"], main .ProseMirror, main p').first(),
+      page.locator('main [contenteditable="true"], main .ProseMirror').first(),
     ).toBeVisible({ timeout: 5000 })
 
     await page.getByRole('button', { name: 'More options' }).click()
