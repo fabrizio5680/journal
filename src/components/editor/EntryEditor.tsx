@@ -60,14 +60,20 @@ export default function EntryEditor({
     },
   })
 
+  // Notify parent when editor is ready
+  useEffect(() => {
+    if (editor && onEditorReady) {
+      onEditorReady(editor)
+    }
+  }, [editor, onEditorReady])
+
   // Update placeholder when the verse loads async
   useEffect(() => {
     if (!editor) return
     editor.setOptions({ extensions: buildExtensions(placeholder ?? DEFAULT_PLACEHOLDER) })
   }, [editor, placeholder])
 
-  // Load initial content from Firestore once editor is ready.
-  // Must run before onEditorReady so the parent can read an accurate word count.
+  // Load initial content from Firestore once editor is ready
   useEffect(() => {
     if (!editor) return
 
@@ -91,13 +97,6 @@ export default function EntryEditor({
       })
     }
   }, [editor, content])
-
-  // Notify parent when editor is ready — runs after content is loaded above
-  useEffect(() => {
-    if (editor && onEditorReady) {
-      onEditorReady(editor)
-    }
-  }, [editor, onEditorReady])
 
   if (!editor) return null
 

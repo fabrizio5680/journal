@@ -40,11 +40,9 @@ function EntryEditorView({ date }: { date: string }) {
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
+  const [typingStarted, setTypingStarted] = useState(false)
 
-  const handleEditorReady = useCallback((editor: Editor) => {
-    setEditorInstance(editor)
-    setLiveWordCount(editor.storage.characterCount.words())
-  }, [])
+  const wordCount = typingStarted ? liveWordCount : (entry?.wordCount ?? 0)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -91,6 +89,7 @@ function EntryEditorView({ date }: { date: string }) {
     (editor: Editor) => {
       markDirty()
       setDirty(true)
+      setTypingStarted(true)
       setLiveWordCount(editor.storage.characterCount.words())
 
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
@@ -185,7 +184,7 @@ function EntryEditorView({ date }: { date: string }) {
           key={date}
           content={entry?.content ?? null}
           onUpdate={handleUpdate}
-          onEditorReady={handleEditorReady}
+          onEditorReady={setEditorInstance}
           placeholder={placeholder}
         />
       </div>
@@ -195,12 +194,12 @@ function EntryEditorView({ date }: { date: string }) {
         data-testid="word-count"
         className="text-on-surface-variant/40 pointer-events-none fixed bottom-[4.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden"
       >
-        {liveWordCount} {liveWordCount === 1 ? 'word' : 'words'}
+        {wordCount} {wordCount === 1 ? 'word' : 'words'}
       </div>
 
       {/* Desktop FAB — voice, font cycle, word count */}
       <FloatingActionBar
-        wordCount={liveWordCount}
+        wordCount={wordCount}
         dictation={{
           isSupported,
           state: dictationState,
