@@ -7,6 +7,7 @@ const mockUnsub = vi.fn()
 const mockCollection = vi.fn().mockReturnValue({ id: 'mock-collection' })
 const mockQuery = vi.fn().mockReturnValue({ id: 'mock-query' })
 const mockWhere = vi.fn().mockReturnValue({ id: 'mock-where' })
+const mockOrderBy = vi.fn().mockReturnValue({ id: 'mock-orderby' })
 const mockOnSnapshot = vi.fn((_, cb: (snap: unknown) => void, _errCb?: (err: unknown) => void) => {
   snapshotCallback = cb
   return mockUnsub
@@ -16,6 +17,7 @@ vi.mock('firebase/firestore', () => ({
   collection: (...args: unknown[]) => mockCollection(...(args as [unknown, ...unknown[]])),
   query: (...args: unknown[]) => mockQuery(...(args as [unknown, ...unknown[]])),
   where: (...args: unknown[]) => mockWhere(...(args as [unknown, ...unknown[]])),
+  orderBy: (...args: unknown[]) => mockOrderBy(...(args as [unknown, ...unknown[]])),
   onSnapshot: (ref: unknown, cb: (snap: unknown) => void, errCb?: (err: unknown) => void) =>
     mockOnSnapshot(ref, cb, errCb),
 }))
@@ -139,23 +141,26 @@ describe('useEntryDates', () => {
     expect(mockUnsub).toHaveBeenCalled()
   })
 
-  it('does not update dates when empty snapshot is from cache', async () => {
+  it('updates dates even when empty snapshot is from cache', async () => {
     const { result } = renderHook(() => useEntryDates('test-uid', 2026, 4))
 
     fireSnapshot([], true) // fromCache = true, empty
 
-    // Dates should remain the initial empty set (not "confirmed empty")
-    // because fromCache=true and size=0 means we skip the update
     await waitFor(() => {
       expect(result.current.size).toBe(0)
     })
-    // Confirm the set is still the initial state — hook should NOT have called setDates
-    // We verify by then firing a server snapshot and checking it resolves correctly
+
+    // Subsequent snapshot with entries still updates correctly
     fireSnapshot([makeDoc('2026-04-10')], false)
     await waitFor(() => {
       expect(result.current.size).toBe(1)
       expect(result.current.has('2026-04-10')).toBe(true)
     })
+  })
+
+  it('includes orderBy date desc in query to match composite index', () => {
+    renderHook(() => useEntryDates('test-uid', 2026, 4))
+    expect(mockOrderBy).toHaveBeenCalledWith('date', 'desc')
   })
 
   it('does update dates when from-cache snapshot has entries', async () => {
