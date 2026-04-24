@@ -49,10 +49,16 @@ vi.mock('firebase/messaging', () => ({
 }))
 
 // --- firebase.ts mock (overrides setup.ts) ---
+let mockMessagingPromise: Promise<{ name: string } | null> = Promise.resolve({
+  name: 'mock-messaging',
+})
+
 vi.mock('@/lib/firebase', () => ({
   auth: {},
   db: {},
-  messagingPromise: Promise.resolve({ name: 'mock-messaging' }),
+  get messagingPromise() {
+    return mockMessagingPromise
+  },
   default: {},
 }))
 
@@ -110,6 +116,7 @@ describe('SettingsPage', () => {
     vi.stubEnv('VITE_FIREBASE_VAPID_KEY', 'test-vapid-key')
     snapshotCallback = null
     authCallback = null
+    mockMessagingPromise = Promise.resolve({ name: 'mock-messaging' })
     mockUpdateDoc.mockResolvedValue(undefined)
     mockGetToken.mockResolvedValue('mock-fcm-token')
     mockUpdateEditorFontSize.mockResolvedValue(undefined)
@@ -190,6 +197,44 @@ describe('SettingsPage', () => {
     await userEvent.click(screen.getByRole('switch', { name: /reminder/i }))
 
     await screen.findByText(/permission denied/i)
+    expect(mockUpdateDoc).not.toHaveBeenCalled()
+  })
+
+  it('shows error when messaging is not supported (messagingPromise resolves null)', async () => {
+    mockMessagingPromise = Promise.resolve(null)
+
+    Object.defineProperty(window, 'Notification', {
+      value: { requestPermission: vi.fn().mockResolvedValue('granted') },
+      writable: true,
+      configurable: true,
+    })
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false, reminderTime: '20:00' })
+
+    await userEvent.click(screen.getByRole('switch', { name: /reminder/i }))
+
+    await screen.findByText(/not supported in this browser/i)
+    expect(mockUpdateDoc).not.toHaveBeenCalled()
+  })
+
+  it('shows error when getToken throws', async () => {
+    mockGetToken.mockRejectedValueOnce(new Error('token error'))
+
+    Object.defineProperty(window, 'Notification', {
+      value: { requestPermission: vi.fn().mockResolvedValue('granted') },
+      writable: true,
+      configurable: true,
+    })
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false, reminderTime: '20:00' })
+
+    await userEvent.click(screen.getByRole('switch', { name: /reminder/i }))
+
+    await screen.findByText(/failed to register/i)
     expect(mockUpdateDoc).not.toHaveBeenCalled()
   })
 

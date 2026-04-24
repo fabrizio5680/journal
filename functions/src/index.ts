@@ -1,18 +1,13 @@
 import { createHmac } from 'node:crypto'
-import { resolve } from 'node:path'
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
-import { defineSecret } from 'firebase-functions/params'
+import { defineSecret, defineString } from 'firebase-functions/params'
 import { initializeApp, getApps } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 import { format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
-import { config as dotenvConfig } from 'dotenv'
-
-dotenvConfig({ path: resolve(__dirname, '../.env.local') })
-dotenvConfig({ path: resolve(__dirname, '../.env') })
 
 if (getApps().length === 0) {
   initializeApp()
@@ -20,9 +15,10 @@ if (getApps().length === 0) {
 
 const ALGOLIA_APP_ID = defineSecret('ALGOLIA_APP_ID')
 const ALGOLIA_SEARCH_ONLY_KEY = defineSecret('ALGOLIA_SEARCH_ONLY_KEY')
+const APP_BASE_URL = defineString('APP_BASE_URL', { default: 'https://journal-manna.web.app' })
 
 const FUNCTIONS_REGION = 'europe-west2'
-const SEARCH_INDEX_NAME = process.env.ALGOLIA_INDEX_NAME || 'journal_entries'
+const SEARCH_INDEX_NAME = 'journal_entries'
 
 function generateSecuredApiKey(
   parentApiKey: string,
@@ -118,23 +114,28 @@ export const sendDailyReminders = onSchedule(
         return
       }
 
-      await messaging.send({
-        token: user.fcmToken,
-        notification: {
-          title: 'Time to reflect ✨',
-          body: 'Your sanctuary is waiting.',
-        },
-        webpush: {
+      try {
+        await messaging.send({
+          token: user.fcmToken,
           notification: {
-            icon: '/icons/icon-192.png',
+            title: 'Time to reflect ✨',
+            body: 'Your sanctuary is waiting.',
           },
-          fcmOptions: {
-            link: '/',
+          webpush: {
+            notification: {
+              icon: `${APP_BASE_URL.value()}/icons/web-app-manifest-192x192.png`,
+            },
+            fcmOptions: {
+              link: `${APP_BASE_URL.value()}/`,
+            },
           },
-        },
-      })
+        })
+        console.warn(`sendDailyReminders: sent to ${userDoc.id}`)
+      } catch (err) {
+        console.error(`sendDailyReminders: failed for ${userDoc.id}`, err)
+      }
     })
 
-    await Promise.allSettled(jobs)
+    await Promise.all(jobs)
   },
 )
