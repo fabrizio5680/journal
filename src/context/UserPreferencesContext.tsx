@@ -56,6 +56,11 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
             scriptureTranslation: (data.scriptureTranslation as Translation) ?? 'NLT',
             editorFontSize: (data.editorFontSize as EditorFontSize) ?? 'medium',
           })
+
+          const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+          if (data.reminderEnabled === true && data.reminderTimezone !== detectedTz) {
+            void updateDoc(userRef, { reminderTimezone: detectedTz })
+          }
         },
         () => {
           setPrefs(defaultPreferences)

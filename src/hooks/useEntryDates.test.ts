@@ -94,11 +94,39 @@ describe('useEntryDates', () => {
     expect(mockOnSnapshot).not.toHaveBeenCalled()
   })
 
-  it('queries correct date range for the given year and month', () => {
+  it('queries correct date range for a 31-day month (March)', () => {
     renderHook(() => useEntryDates('test-uid', 2026, 3))
 
     expect(mockWhere).toHaveBeenCalledWith('date', '>=', '2026-03-01')
     expect(mockWhere).toHaveBeenCalledWith('date', '<=', '2026-03-31')
+  })
+
+  it('queries correct date range for a 30-day month (April)', () => {
+    renderHook(() => useEntryDates('test-uid', 2026, 4))
+
+    expect(mockWhere).toHaveBeenCalledWith('date', '>=', '2026-04-01')
+    expect(mockWhere).toHaveBeenCalledWith('date', '<=', '2026-04-30')
+  })
+
+  it('queries correct date range for February in a non-leap year (2026)', () => {
+    renderHook(() => useEntryDates('test-uid', 2026, 2))
+
+    expect(mockWhere).toHaveBeenCalledWith('date', '>=', '2026-02-01')
+    expect(mockWhere).toHaveBeenCalledWith('date', '<=', '2026-02-28')
+  })
+
+  it('queries correct date range for February in a leap year (2028)', () => {
+    renderHook(() => useEntryDates('test-uid', 2028, 2))
+
+    expect(mockWhere).toHaveBeenCalledWith('date', '>=', '2028-02-01')
+    expect(mockWhere).toHaveBeenCalledWith('date', '<=', '2028-02-29')
+  })
+
+  it('queries correct date range for December (31 days)', () => {
+    renderHook(() => useEntryDates('test-uid', 2026, 12))
+
+    expect(mockWhere).toHaveBeenCalledWith('date', '>=', '2026-12-01')
+    expect(mockWhere).toHaveBeenCalledWith('date', '<=', '2026-12-31')
   })
 
   it('cleans up snapshot listener on unmount', () => {

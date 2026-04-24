@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { endOfMonth, format } from 'date-fns'
 
 import { db } from '@/lib/firebase'
 
@@ -11,7 +12,7 @@ export function useEntryDates(userId: string, year: number, month: number): Set<
 
     const monthStr = String(month).padStart(2, '0')
     const startDate = `${year}-${monthStr}-01`
-    const endDate = `${year}-${monthStr}-31`
+    const endDate = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd')
 
     const entriesRef = collection(db, 'users', userId, 'entries')
     const q = query(

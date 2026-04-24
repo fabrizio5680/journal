@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore'
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, db } from '@/lib/firebase'
@@ -33,7 +33,7 @@ export function useInsights(): InsightsData {
       }
 
       const entriesRef = collection(db, 'users', user.uid, 'entries')
-      const q = query(entriesRef, where('deleted', '==', false), orderBy('date', 'desc'), limit(90))
+      const q = query(entriesRef, where('deleted', '==', false), orderBy('date', 'desc'))
 
       try {
         const snapshot = await getDocs(q)
