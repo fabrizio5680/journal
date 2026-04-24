@@ -1,10 +1,31 @@
 /* eslint-disable no-undef */
-// Firebase Messaging Service Worker
-// Full implementation will be completed in Phase 12 alongside the rest of the PWA setup.
-// This stub is required for FCM token registration to succeed in the browser.
-
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js')
 
-// Firebase config is injected at build time via Phase 12 PWA setup.
-// Until then, the SW is registered but will not handle background messages.
+firebase.initializeApp({
+  apiKey: 'AIzaSyBP-vHBVpmyGQ0bKGpTOT6P1p_OdDpN4w4',
+  authDomain: 'journal-manna.firebaseapp.com',
+  projectId: 'journal-manna',
+  storageBucket: 'journal-manna.firebasestorage.app',
+  messagingSenderId: '630795114735',
+  appId: '1:630795114735:web:9cd0b235a1fea1dae6631a',
+})
+
+const messaging = firebase.messaging()
+
+messaging.onBackgroundMessage((payload) => {
+  const { title, body } = payload.notification ?? {}
+  if (!title) return
+  self.registration.showNotification(title, {
+    body: body ?? '',
+    icon: '/icons/web-app-manifest-192x192.png',
+    badge: '/icons/favicon-96x96.png',
+    data: { link: payload.fcmOptions?.link ?? '/' },
+  })
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const link = event.notification.data?.link ?? '/'
+  event.waitUntil(clients.openWindow(link))
+})

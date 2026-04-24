@@ -114,23 +114,28 @@ export const sendDailyReminders = onSchedule(
         return
       }
 
-      await messaging.send({
-        token: user.fcmToken,
-        notification: {
-          title: 'Time to reflect ✨',
-          body: 'Your sanctuary is waiting.',
-        },
-        webpush: {
+      try {
+        await messaging.send({
+          token: user.fcmToken,
           notification: {
-            icon: `${APP_BASE_URL.value()}/icons/web-app-manifest-192x192.png`,
+            title: 'Time to reflect ✨',
+            body: 'Your sanctuary is waiting.',
           },
-          fcmOptions: {
-            link: `${APP_BASE_URL.value()}/`,
+          webpush: {
+            notification: {
+              icon: `${APP_BASE_URL.value()}/icons/web-app-manifest-192x192.png`,
+            },
+            fcmOptions: {
+              link: `${APP_BASE_URL.value()}/`,
+            },
           },
-        },
-      })
+        })
+        console.warn(`sendDailyReminders: sent to ${userDoc.id}`)
+      } catch (err) {
+        console.error(`sendDailyReminders: failed for ${userDoc.id}`, err)
+      }
     })
 
-    await Promise.allSettled(jobs)
+    await Promise.all(jobs)
   },
 )
