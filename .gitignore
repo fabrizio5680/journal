@@ -13,6 +13,7 @@ functions/lib/
 # Environment
 .env.local
 .env.*.local
+*.secret.local
 service-account.json
 
 # Testing
