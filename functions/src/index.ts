@@ -20,6 +20,17 @@ const APP_BASE_URL = defineString('APP_BASE_URL', { default: 'https://journal-ma
 const FUNCTIONS_REGION = 'europe-west2'
 const SEARCH_INDEX_NAME = 'journal_entries'
 
+/** Returns true if currentHHMM falls within the 60-minute window starting at reminderHHMM. */
+export function isWithinReminderWindow(currentHHMM: string, reminderHHMM: string): boolean {
+  const [rHH, rMM] = reminderHHMM.split(':').map(Number)
+  const [cHH, cMM] = currentHHMM.split(':').map(Number)
+  if (Number.isNaN(rHH) || Number.isNaN(rMM) || Number.isNaN(cHH) || Number.isNaN(cMM)) {
+    return false
+  }
+  const minutesSinceReminder = cHH * 60 + cMM - (rHH * 60 + rMM)
+  return minutesSinceReminder >= 0 && minutesSinceReminder < 60
+}
+
 function generateSecuredApiKey(
   parentApiKey: string,
   restrictions: Record<string, string | number | boolean>,
@@ -64,7 +75,7 @@ export const getSearchKey = onCall(
 )
 
 export const sendDailyReminders = onSchedule(
-  { schedule: 'every 5 minutes', region: FUNCTIONS_REGION },
+  { schedule: '5 * * * *', region: FUNCTIONS_REGION },
   async () => {
     const db = getFirestore()
     const messaging = getMessaging()
@@ -90,15 +101,7 @@ export const sendDailyReminders = onSchedule(
       const zonedNow = toZonedTime(now, user.reminderTimezone)
       const currentHHMM = format(zonedNow, 'HH:mm')
 
-      const [rHH, rMM] = user.reminderTime.split(':').map(Number)
-      const [cHH, cMM] = currentHHMM.split(':').map(Number)
-
-      if (Number.isNaN(rHH) || Number.isNaN(rMM) || Number.isNaN(cHH) || Number.isNaN(cMM)) {
-        return
-      }
-
-      const minutesSinceReminder = cHH * 60 + cMM - (rHH * 60 + rMM)
-      if (minutesSinceReminder < 0 || minutesSinceReminder >= 5) {
+      if (!isWithinReminderWindow(currentHHMM, user.reminderTime)) {
         return
       }
 
