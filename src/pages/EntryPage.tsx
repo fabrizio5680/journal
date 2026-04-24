@@ -65,12 +65,13 @@ function EntryEditorView({ date }: { date: string }) {
     ),
   )
 
-  // Register editor controls with BottomNav via context
+  // Register editor controls with BottomNav and RightPanel via context
   useEffect(() => {
     register({
       dictation: { isSupported, state: dictationState, errorMessage, onStart: start, onStop: stop },
       fontSize: editorFontSize,
       onFontSizeChange: updateEditorFontSize,
+      wordCount,
     })
   }, [
     isSupported,
@@ -81,6 +82,7 @@ function EntryEditorView({ date }: { date: string }) {
     start,
     stop,
     updateEditorFontSize,
+    wordCount,
   ])
 
   useEffect(() => () => unregister(), [unregister])

@@ -56,12 +56,13 @@ export default function TodayPage() {
     ),
   )
 
-  // Register editor controls with BottomNav via context
+  // Register editor controls with BottomNav and RightPanel via context
   useEffect(() => {
     register({
       dictation: { isSupported, state: dictationState, errorMessage, onStart: start, onStop: stop },
       fontSize: editorFontSize,
       onFontSizeChange: updateEditorFontSize,
+      wordCount,
     })
   }, [
     isSupported,
@@ -72,6 +73,7 @@ export default function TodayPage() {
     start,
     stop,
     updateEditorFontSize,
+    wordCount,
   ])
 
   useEffect(() => () => unregister(), [unregister])
