@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 import { endOfMonth, format } from 'date-fns'
 
 import { db } from '@/lib/firebase'
@@ -20,6 +20,7 @@ export function useEntryDates(userId: string, year: number, month: number): Set<
       where('deleted', '==', false),
       where('date', '>=', startDate),
       where('date', '<=', endDate),
+      orderBy('date', 'desc'),
     )
 
     const unsub = onSnapshot(
@@ -29,11 +30,10 @@ export function useEntryDates(userId: string, year: number, month: number): Set<
         snapshot.forEach((doc) => {
           dateSet.add(doc.id)
         })
-        if (dateSet.size > 0 || !snapshot.metadata.fromCache) {
-          setDates(dateSet)
-        }
+        setDates(dateSet)
       },
-      () => {
+      (err) => {
+        console.error('[useEntryDates] onSnapshot error:', err)
         setDates(new Set())
       },
     )

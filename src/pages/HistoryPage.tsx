@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 import { endOfMonth, format } from 'date-fns'
 
 import { auth, db } from '@/lib/firebase'
@@ -48,6 +48,7 @@ export default function HistoryPage() {
       where('deleted', '==', false),
       where('date', '>=', startDate),
       where('date', '<=', endDate),
+      orderBy('date', 'desc'),
     )
 
     return onSnapshot(
@@ -55,13 +56,11 @@ export default function HistoryPage() {
       (snap) => {
         const list: Entry[] = []
         snap.forEach((doc) => list.push(doc.data() as Entry))
-        list.sort((a, b) => b.date.localeCompare(a.date))
         setEntries(list)
-        if (list.length > 0 || !snap.metadata.fromCache) {
-          setEntriesLoading(false)
-        }
+        setEntriesLoading(false)
       },
-      () => {
+      (err) => {
+        console.error('[HistoryPage] onSnapshot error:', err)
         setEntries([])
         setEntriesLoading(false)
       },

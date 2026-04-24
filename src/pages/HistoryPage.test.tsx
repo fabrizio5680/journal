@@ -17,6 +17,7 @@ const mockUnsub = vi.fn()
 const mockCollection = vi.fn().mockReturnValue({ id: 'mock-collection' })
 const mockQuery = vi.fn().mockReturnValue({ id: 'mock-query' })
 const mockWhere = vi.fn().mockReturnValue({ id: 'mock-where' })
+const mockOrderBy = vi.fn().mockReturnValue({ id: 'mock-orderby' })
 const mockOnSnapshot = vi.fn((_, cb: (snap: unknown) => void, _errCb?: (err: unknown) => void) => {
   snapshotCallback = cb
   return mockUnsub
@@ -26,6 +27,7 @@ vi.mock('firebase/firestore', () => ({
   collection: (...args: unknown[]) => mockCollection(...(args as [unknown, ...unknown[]])),
   query: (...args: unknown[]) => mockQuery(...(args as [unknown, ...unknown[]])),
   where: (...args: unknown[]) => mockWhere(...(args as [unknown, ...unknown[]])),
+  orderBy: (...args: unknown[]) => mockOrderBy(...(args as [unknown, ...unknown[]])),
   onSnapshot: (ref: unknown, cb: (snap: unknown) => void, errCb?: (err: unknown) => void) =>
     mockOnSnapshot(ref, cb, errCb),
   endOfMonth: vi.fn(),
@@ -87,7 +89,7 @@ function renderHistoryPage() {
   )
 }
 
-describe('HistoryPage — Firestore cache snapshot guard', () => {
+describe('HistoryPage — snapshot rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     snapshotCallback = null
@@ -100,31 +102,36 @@ describe('HistoryPage — Firestore cache snapshot guard', () => {
     )
   })
 
-  it('shows skeleton while empty cache snapshot is pending', async () => {
+  it('shows skeleton before any snapshot fires', async () => {
     renderHistoryPage()
     fireAuth()
 
-    // Fire an empty snapshot from cache
-    fireSnap([], true)
-
-    // Skeleton should still be visible (loading not cleared)
+    // No snapshot fired yet — skeleton should be visible
     await waitFor(() => {
       const skeletons = document.querySelectorAll('.animate-pulse')
       expect(skeletons.length).toBeGreaterThan(0)
     })
-
-    // Empty state should NOT be shown yet
-    expect(screen.queryByText(/No entries for this month/)).not.toBeInTheDocument()
   })
 
-  it('shows entries when server snapshot fires after empty cache snapshot', async () => {
+  it('shows empty state immediately when cache snapshot is empty', async () => {
     renderHistoryPage()
     fireAuth()
 
-    // First: empty cache snapshot — loading stays true
+    // Empty cache snapshot — loading clears, empty state shows
     fireSnap([], true)
 
-    // Then: server snapshot with entries
+    await waitFor(() => {
+      expect(screen.getByText(/No entries for this month/)).toBeInTheDocument()
+    })
+
+    const skeletons = document.querySelectorAll('.animate-pulse')
+    expect(skeletons.length).toBe(0)
+  })
+
+  it('shows entries when snapshot fires with data', async () => {
+    renderHistoryPage()
+    fireAuth()
+
     fireSnap([makeEntry('2026-04-10'), makeEntry('2026-04-15')], false)
 
     await waitFor(() => {
@@ -132,26 +139,27 @@ describe('HistoryPage — Firestore cache snapshot guard', () => {
       expect(screen.getAllByText('Entry for 2026-04-15').length).toBeGreaterThan(0)
     })
 
-    // Empty state should not be shown
     expect(screen.queryByText(/No entries for this month/)).not.toBeInTheDocument()
   })
 
-  it('shows empty state only when server confirms no entries', async () => {
+  it('shows empty state when server confirms no entries', async () => {
     renderHistoryPage()
     fireAuth()
 
-    // First: empty cache snapshot — loading stays true
-    fireSnap([], true)
-
-    // Then: server confirms truly empty
     fireSnap([], false)
 
     await waitFor(() => {
       expect(screen.getByText(/No entries for this month/)).toBeInTheDocument()
     })
 
-    // Skeleton should be gone
     const skeletons = document.querySelectorAll('.animate-pulse')
     expect(skeletons.length).toBe(0)
+  })
+
+  it('includes orderBy date desc in query to match composite index', async () => {
+    renderHistoryPage()
+    fireAuth()
+
+    await waitFor(() => expect(mockOrderBy).toHaveBeenCalledWith('date', 'desc'))
   })
 })
