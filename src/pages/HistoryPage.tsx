@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
-import { format } from 'date-fns'
+import { endOfMonth, format } from 'date-fns'
 
 import { auth, db } from '@/lib/firebase'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -38,7 +38,10 @@ export default function HistoryPage() {
 
     const monthStr = String(selectedMonth.month).padStart(2, '0')
     const startDate = `${selectedMonth.year}-${monthStr}-01`
-    const endDate = `${selectedMonth.year}-${monthStr}-31`
+    const endDate = format(
+      endOfMonth(new Date(selectedMonth.year, selectedMonth.month - 1)),
+      'yyyy-MM-dd',
+    )
 
     const q = query(
       collection(db, 'users', uid, 'entries'),
@@ -47,7 +50,6 @@ export default function HistoryPage() {
       where('date', '<=', endDate),
     )
 
-    Promise.resolve().then(() => setEntriesLoading(true))
     return onSnapshot(
       q,
       (snap) => {

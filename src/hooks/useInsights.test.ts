@@ -7,14 +7,12 @@ const mockCollection = vi.fn().mockReturnValue({ id: 'mock-collection' })
 const mockQuery = vi.fn().mockReturnValue({ id: 'mock-query' })
 const mockWhere = vi.fn().mockReturnValue({ id: 'mock-where' })
 const mockOrderBy = vi.fn().mockReturnValue({ id: 'mock-order' })
-const mockLimit = vi.fn().mockReturnValue({ id: 'mock-limit' })
 
 vi.mock('firebase/firestore', () => ({
   collection: (...args: unknown[]) => mockCollection(...args),
   query: (...args: unknown[]) => mockQuery(...args),
   where: (...args: unknown[]) => mockWhere(...args),
   orderBy: (...args: unknown[]) => mockOrderBy(...args),
-  limit: (...args: unknown[]) => mockLimit(...args),
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
 }))
 
@@ -146,5 +144,39 @@ describe('useInsights', () => {
       expect(result.current.totalEntries).toBe(3)
       expect(result.current.totalWords).toBe(425)
     })
+  })
+
+  it('totalEntries and totalWords reflect all entries, not capped at 90', async () => {
+    // Build 100 entries to confirm no cap is applied
+    const entries: EntryData[] = Array.from({ length: 100 }, (_, i) => ({
+      date: `2025-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+      mood: 3,
+      tags: [],
+      wordCount: 50,
+    }))
+
+    mockGetDocs.mockResolvedValue(makeSnapshot(entries))
+
+    const { result } = renderHook(() => useInsights())
+    fireAuth()
+
+    await waitFor(() => {
+      expect(result.current.totalEntries).toBe(100)
+      expect(result.current.totalWords).toBe(5000)
+    })
+  })
+
+  it('does not call limit() — query has no cap', () => {
+    mockGetDocs.mockResolvedValue(makeSnapshot([]))
+
+    renderHook(() => useInsights())
+    fireAuth()
+
+    // The query args passed to mockQuery should not include any limit call
+    const queryArgs = mockQuery.mock.calls.flat()
+    const limitCallIds = queryArgs.filter(
+      (arg) => arg && typeof arg === 'object' && 'id' in arg && arg.id === 'mock-limit',
+    )
+    expect(limitCallIds).toHaveLength(0)
   })
 })
