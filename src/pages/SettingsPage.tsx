@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { doc, updateDoc, onSnapshot } from 'firebase/firestore'
+import { doc, updateDoc, getDoc, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { signOut, onAuthStateChanged, type User } from 'firebase/auth'
 import { getToken } from 'firebase/messaging'
 
@@ -75,6 +75,8 @@ export default function SettingsPage() {
 
   const [reminderEnabled, setReminderEnabled] = useState(false)
   const [reminderTime, setReminderTime] = useState('20:00')
+  const [fcmTokens, setFcmTokens] = useState<string[]>([])
+  const [currentDeviceToken, setCurrentDeviceToken] = useState<string | null>(null)
   const [notifError, setNotifError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -89,12 +91,28 @@ export default function SettingsPage() {
           if (!data) return
           setReminderEnabled(data.reminderEnabled ?? false)
           setReminderTime(data.reminderTime ?? '20:00')
+          setFcmTokens(data.fcmTokens ?? [])
         },
         () => {
           setReminderEnabled(false)
           setReminderTime('20:00')
+          setFcmTokens([])
         },
       )
+
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        messagingPromise.then(async (messaging) => {
+          if (!messaging) return
+          const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined
+          if (!vapidKey) return
+          try {
+            const token = await getToken(messaging, { vapidKey })
+            setCurrentDeviceToken(token)
+          } catch {
+            // permission granted but token unavailable — treat device as unregistered
+          }
+        })
+      }
     })
     return () => {
       unsub()
@@ -110,8 +128,17 @@ export default function SettingsPage() {
   async function handleReminderToggle(enabled: boolean) {
     setNotifError(null)
     if (!enabled) {
-      setReminderEnabled(false)
-      await updateUserDoc({ reminderEnabled: false, fcmToken: null })
+      const tokenToRemove = currentDeviceToken
+      if (tokenToRemove && user) {
+        const userRef = doc(db, 'users', user.uid)
+        await updateDoc(userRef, { fcmTokens: arrayRemove(tokenToRemove) })
+        const snap = await getDoc(userRef)
+        const remaining: string[] = snap.data()?.fcmTokens ?? []
+        if (remaining.length === 0) {
+          await updateDoc(userRef, { reminderEnabled: false })
+        }
+        setCurrentDeviceToken(null)
+      }
       return
     }
 
@@ -134,11 +161,11 @@ export default function SettingsPage() {
     }
 
     try {
-      const fcmToken = await getToken(messaging, { vapidKey })
+      const token = await getToken(messaging, { vapidKey })
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      setReminderEnabled(true)
+      setCurrentDeviceToken(token)
       await updateUserDoc({
-        fcmToken,
+        fcmTokens: arrayUnion(token),
         reminderEnabled: true,
         reminderTime,
         reminderTimezone: timezone,
@@ -200,7 +227,7 @@ export default function SettingsPage() {
           <Toggle
             id="reminder-toggle"
             label="Daily Reminder"
-            enabled={reminderEnabled}
+            enabled={!!currentDeviceToken && fcmTokens.includes(currentDeviceToken)}
             onChange={handleReminderToggle}
           />
         </SettingsRow>

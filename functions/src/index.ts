@@ -4,7 +4,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { defineSecret, defineString } from 'firebase-functions/params'
 import { initializeApp, getApps } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
+import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 import { format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
@@ -19,6 +19,17 @@ const APP_BASE_URL = defineString('APP_BASE_URL', { default: 'https://journal-ma
 
 const FUNCTIONS_REGION = 'europe-west2'
 const SEARCH_INDEX_NAME = 'journal_entries'
+
+/** Returns true if currentHHMM falls within the 60-minute window starting at reminderHHMM. */
+export function isWithinReminderWindow(currentHHMM: string, reminderHHMM: string): boolean {
+  const [rHH, rMM] = reminderHHMM.split(':').map(Number)
+  const [cHH, cMM] = currentHHMM.split(':').map(Number)
+  if (Number.isNaN(rHH) || Number.isNaN(rMM) || Number.isNaN(cHH) || Number.isNaN(cMM)) {
+    return false
+  }
+  const minutesSinceReminder = cHH * 60 + cMM - (rHH * 60 + rMM)
+  return minutesSinceReminder >= 0 && minutesSinceReminder < 60
+}
 
 function generateSecuredApiKey(
   parentApiKey: string,
@@ -64,41 +75,30 @@ export const getSearchKey = onCall(
 )
 
 export const sendDailyReminders = onSchedule(
-  { schedule: 'every 5 minutes', region: FUNCTIONS_REGION },
+  { schedule: '5 * * * *', region: FUNCTIONS_REGION },
   async () => {
     const db = getFirestore()
     const messaging = getMessaging()
     const now = new Date()
 
-    const usersSnap = await db
-      .collection('users')
-      .where('reminderEnabled', '==', true)
-      .where('fcmToken', '!=', null)
-      .get()
+    const usersSnap = await db.collection('users').where('reminderEnabled', '==', true).get()
 
     const jobs = usersSnap.docs.map(async (userDoc) => {
       const user = userDoc.data() as {
         reminderTime?: string
         reminderTimezone?: string
-        fcmToken?: string
+        fcmTokens?: string[]
       }
 
-      if (!user.reminderTime || !user.reminderTimezone || !user.fcmToken) {
+      const tokens = user.fcmTokens ?? []
+      if (!user.reminderTime || !user.reminderTimezone || tokens.length === 0) {
         return
       }
 
       const zonedNow = toZonedTime(now, user.reminderTimezone)
       const currentHHMM = format(zonedNow, 'HH:mm')
 
-      const [rHH, rMM] = user.reminderTime.split(':').map(Number)
-      const [cHH, cMM] = currentHHMM.split(':').map(Number)
-
-      if (Number.isNaN(rHH) || Number.isNaN(rMM) || Number.isNaN(cHH) || Number.isNaN(cMM)) {
-        return
-      }
-
-      const minutesSinceReminder = cHH * 60 + cMM - (rHH * 60 + rMM)
-      if (minutesSinceReminder < 0 || minutesSinceReminder >= 5) {
+      if (!isWithinReminderWindow(currentHHMM, user.reminderTime)) {
         return
       }
 
@@ -114,26 +114,41 @@ export const sendDailyReminders = onSchedule(
         return
       }
 
-      try {
-        await messaging.send({
-          token: user.fcmToken,
-          notification: {
-            title: 'Time to reflect ✨',
-            body: 'Your sanctuary is waiting.',
-          },
-          webpush: {
-            notification: {
-              icon: `${APP_BASE_URL.value()}/icons/web-app-manifest-192x192.png`,
-            },
-            fcmOptions: {
-              link: `${APP_BASE_URL.value()}/`,
-            },
-          },
-        })
-        console.warn(`sendDailyReminders: sent to ${userDoc.id}`)
-      } catch (err) {
-        console.error(`sendDailyReminders: failed for ${userDoc.id}`, err)
+      const notification = {
+        title: 'Time to reflect ✨',
+        body: 'Your sanctuary is waiting.',
       }
+      const webpush = {
+        notification: {
+          icon: `${APP_BASE_URL.value()}/icons/web-app-manifest-192x192.png`,
+        },
+        fcmOptions: {
+          link: `${APP_BASE_URL.value()}/`,
+        },
+      }
+
+      const batchResponse = await messaging.sendEach(
+        tokens.map((token) => ({ token, notification, webpush })),
+      )
+
+      const staleTokens = tokens.filter((_, i) => {
+        const r = batchResponse.responses[i]
+        return !r.success && r.error?.code === 'messaging/registration-token-not-registered'
+      })
+
+      if (staleTokens.length > 0) {
+        await db
+          .collection('users')
+          .doc(userDoc.id)
+          .update({ fcmTokens: FieldValue.arrayRemove(...staleTokens) })
+        console.warn(
+          `sendDailyReminders: removed ${staleTokens.length} stale token(s) for ${userDoc.id}`,
+        )
+      }
+
+      console.warn(
+        `sendDailyReminders: sent to ${userDoc.id} (${batchResponse.successCount}/${tokens.length} ok)`,
+      )
     })
 
     await Promise.all(jobs)

@@ -24,7 +24,7 @@ export interface User {
   reminderTimezone: string // IANA, e.g. "Europe/London"
   grainEnabled: boolean // default true
   scriptureTranslation: 'NLT' | 'MSG' | 'ESV' // default 'NLT'
-  fcmToken: string | null
+  fcmTokens: string[]
   createdAt: import('firebase/firestore').Timestamp
 }
 

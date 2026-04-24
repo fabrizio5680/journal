@@ -8,7 +8,10 @@ import { BrowserRouter } from 'react-router-dom'
 let snapshotCallback: ((snap: unknown) => void) | null = null
 const mockUnsub = vi.fn()
 const mockUpdateDoc = vi.fn().mockResolvedValue(undefined)
+const mockGetDoc = vi.fn().mockResolvedValue({ data: () => ({ fcmTokens: [] }) })
 const mockDoc = vi.fn().mockReturnValue({ id: 'mock-ref' })
+const mockArrayUnion = vi.fn((...args: unknown[]) => ({ _type: 'arrayUnion', args }))
+const mockArrayRemove = vi.fn((...args: unknown[]) => ({ _type: 'arrayRemove', args }))
 const mockOnSnapshot = vi.fn((_: unknown, cb: (snap: unknown) => void) => {
   snapshotCallback = cb
   return mockUnsub
@@ -18,6 +21,9 @@ vi.mock('firebase/firestore', () => ({
   doc: (...args: unknown[]) => mockDoc(...(args as [unknown, ...unknown[]])),
   onSnapshot: (ref: unknown, cb: (snap: unknown) => void) => mockOnSnapshot(ref, cb),
   updateDoc: (...args: unknown[]) => mockUpdateDoc(...(args as [unknown, ...unknown[]])),
+  getDoc: (...args: unknown[]) => mockGetDoc(...(args as [unknown, ...unknown[]])),
+  arrayUnion: (...args: unknown[]) => mockArrayUnion(...args),
+  arrayRemove: (...args: unknown[]) => mockArrayRemove(...args),
 }))
 
 // --- Auth mocks ---
@@ -118,6 +124,7 @@ describe('SettingsPage', () => {
     authCallback = null
     mockMessagingPromise = Promise.resolve({ name: 'mock-messaging' })
     mockUpdateDoc.mockResolvedValue(undefined)
+    mockGetDoc.mockResolvedValue({ data: () => ({ fcmTokens: [] }) })
     mockGetToken.mockResolvedValue('mock-fcm-token')
     mockUpdateEditorFontSize.mockResolvedValue(undefined)
     mockPrefs.grainEnabled = true
@@ -138,35 +145,98 @@ describe('SettingsPage', () => {
     expect(screen.getByText('test@example.com')).toBeInTheDocument()
   })
 
-  it('toggling reminder OFF saves reminderEnabled: false and fcmToken: null', async () => {
+  it('toggling reminder OFF removes current device token via arrayRemove', async () => {
+    // Simulate device already has token registered
+    Object.defineProperty(window, 'Notification', {
+      value: { permission: 'granted', requestPermission: vi.fn().mockResolvedValue('granted') },
+      writable: true,
+      configurable: true,
+    })
+    mockGetToken.mockResolvedValue('mock-fcm-token')
+    // getDoc after arrayRemove returns empty array → triggers reminderEnabled: false
+    mockGetDoc.mockResolvedValue({ data: () => ({ fcmTokens: [] }) })
+
     renderPage()
     fireAuth()
-    fireSnapshot({ reminderEnabled: true, reminderTime: '09:00' })
+    // device token is in fcmTokens so toggle shows ON
+    fireSnapshot({ reminderEnabled: true, reminderTime: '09:00', fcmTokens: ['mock-fcm-token'] })
 
-    // Wait for enabled state to appear (reminder time input visible)
-    await screen.findByLabelText('Reminder time')
+    // Wait for the silent getToken on mount to resolve and toggle to show ON
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: /reminder/i })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      )
+    })
 
     await userEvent.click(screen.getByRole('switch', { name: /reminder/i }))
 
     await waitFor(() => {
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ reminderEnabled: false, fcmToken: null }),
+        expect.objectContaining({ fcmTokens: expect.objectContaining({ _type: 'arrayRemove' }) }),
+      )
+    })
+    // Last token removed → reminderEnabled cleared
+    await waitFor(() => {
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ reminderEnabled: false }),
       )
     })
   })
 
-  it('toggling reminder ON requests permission and saves fcmToken + reminderEnabled: true', async () => {
-    // Grant notification permission
+  it('toggling reminder OFF with other devices still enrolled does NOT clear reminderEnabled', async () => {
     Object.defineProperty(window, 'Notification', {
-      value: { requestPermission: vi.fn().mockResolvedValue('granted') },
+      value: { permission: 'granted', requestPermission: vi.fn().mockResolvedValue('granted') },
+      writable: true,
+      configurable: true,
+    })
+    mockGetToken.mockResolvedValue('mock-fcm-token')
+    // getDoc returns another device's token still present
+    mockGetDoc.mockResolvedValue({ data: () => ({ fcmTokens: ['other-device-token'] }) })
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: true,
+      reminderTime: '09:00',
+      fcmTokens: ['mock-fcm-token', 'other-device-token'],
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: /reminder/i })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      )
+    })
+
+    await userEvent.click(screen.getByRole('switch', { name: /reminder/i }))
+
+    await waitFor(() => {
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ fcmTokens: expect.objectContaining({ _type: 'arrayRemove' }) }),
+      )
+    })
+    // reminderEnabled must NOT be set to false — other device still enrolled
+    const calls = mockUpdateDoc.mock.calls
+    const disabledCall = calls.find(
+      ([, fields]) => 'reminderEnabled' in (fields as Record<string, unknown>),
+    )
+    expect(disabledCall).toBeUndefined()
+  })
+
+  it('toggling reminder ON requests permission and saves arrayUnion(token) + reminderEnabled: true', async () => {
+    Object.defineProperty(window, 'Notification', {
+      value: { permission: 'default', requestPermission: vi.fn().mockResolvedValue('granted') },
       writable: true,
       configurable: true,
     })
 
     renderPage()
     fireAuth()
-    fireSnapshot({ reminderEnabled: false, reminderTime: '20:00' })
+    fireSnapshot({ reminderEnabled: false, reminderTime: '20:00', fcmTokens: [] })
 
     await userEvent.click(screen.getByRole('switch', { name: /reminder/i }))
 
@@ -174,7 +244,7 @@ describe('SettingsPage', () => {
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
-          fcmToken: 'mock-fcm-token',
+          fcmTokens: expect.objectContaining({ _type: 'arrayUnion' }),
           reminderEnabled: true,
           reminderTime: '20:00',
           reminderTimezone: expect.any(String),
