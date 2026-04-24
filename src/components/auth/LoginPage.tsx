@@ -81,9 +81,7 @@ export default function LoginPage() {
       <div className="z-10 flex w-full flex-col justify-between px-10 py-12 md:w-[44%] md:px-14">
         {/* Top: Logo */}
         <div className="flex items-center gap-2.5">
-          <div className="bg-primary/10 flex h-9 w-9 items-center justify-center rounded-lg">
-            <span className="material-symbols-outlined text-primary text-[18px]">edit_note</span>
-          </div>
+          <img src="/icons/favicon.svg" alt="Reflect" className="h-9 w-9 rounded-xl" />
           <div>
             <span className="font-display text-on-surface text-2xl leading-none font-semibold tracking-tight">
               Reflect

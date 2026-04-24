@@ -39,9 +39,7 @@ export default function SideNav() {
       {/* Brand */}
       <div className="mb-8 px-1">
         <div className="mb-1 flex items-center gap-2.5">
-          <div className="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-            <span className="material-symbols-outlined text-primary text-[18px]">edit_note</span>
-          </div>
+          <img src="/icons/favicon.svg" alt="Reflect" className="h-8 w-8 shrink-0 rounded-xl" />
           <span className="font-display text-on-surface text-2xl leading-none font-semibold tracking-tight">
             Reflect
           </span>
