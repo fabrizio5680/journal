@@ -29,7 +29,9 @@ export function useEntryDates(userId: string, year: number, month: number): Set<
         snapshot.forEach((doc) => {
           dateSet.add(doc.id)
         })
-        setDates(dateSet)
+        if (dateSet.size > 0 || !snapshot.metadata.fromCache) {
+          setDates(dateSet)
+        }
       },
       () => {
         setDates(new Set())

@@ -31,6 +31,21 @@ export function isWithinReminderWindow(currentHHMM: string, reminderHHMM: string
   return minutesSinceReminder >= 0 && minutesSinceReminder < 60
 }
 
+/** Builds a data-only FCM message for a given token. Data-only (no notification key) prevents
+ *  the browser from auto-displaying a notification while the service worker also calls
+ *  showNotification(), which would produce a double notification on Android Chrome PWA. */
+export function buildReminderMessage(token: string, baseUrl: string) {
+  return {
+    token,
+    data: {
+      title: 'Time to reflect ✨',
+      body: 'Your sanctuary is waiting.',
+      icon: `${baseUrl}/icons/web-app-manifest-192x192.png`,
+      link: `${baseUrl}/`,
+    },
+  }
+}
+
 function generateSecuredApiKey(
   parentApiKey: string,
   restrictions: Record<string, string | number | boolean>,
@@ -114,21 +129,9 @@ export const sendDailyReminders = onSchedule(
         return
       }
 
-      const notification = {
-        title: 'Time to reflect ✨',
-        body: 'Your sanctuary is waiting.',
-      }
-      const webpush = {
-        notification: {
-          icon: `${APP_BASE_URL.value()}/icons/web-app-manifest-192x192.png`,
-        },
-        fcmOptions: {
-          link: `${APP_BASE_URL.value()}/`,
-        },
-      }
-
+      const baseUrl = APP_BASE_URL.value()
       const batchResponse = await messaging.sendEach(
-        tokens.map((token) => ({ token, notification, webpush })),
+        tokens.map((token) => buildReminderMessage(token, baseUrl)),
       )
 
       const staleTokens = tokens.filter((_, i) => {

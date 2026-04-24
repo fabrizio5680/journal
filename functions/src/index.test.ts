@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { isWithinReminderWindow } from './index'
+import { isWithinReminderWindow, buildReminderMessage } from './index'
 
 describe('isWithinReminderWindow', () => {
   it('returns true when current time matches reminder time exactly', () => {
@@ -29,5 +29,32 @@ describe('isWithinReminderWindow', () => {
 
   it('returns false for invalid current time', () => {
     expect(isWithinReminderWindow('bad', '08:00')).toBe(false)
+  })
+})
+
+describe('buildReminderMessage', () => {
+  const BASE = 'https://journal-manna.web.app'
+
+  it('sets token on the message', () => {
+    const msg = buildReminderMessage('tok-123', BASE)
+    expect(msg.token).toBe('tok-123')
+  })
+
+  it('has no notification key (data-only prevents double notification on Android Chrome PWA)', () => {
+    const msg = buildReminderMessage('tok-123', BASE)
+    expect(msg).not.toHaveProperty('notification')
+    expect(msg).not.toHaveProperty('webpush')
+  })
+
+  it('includes title and body in data payload', () => {
+    const msg = buildReminderMessage('tok-123', BASE)
+    expect(msg.data.title).toBeTruthy()
+    expect(msg.data.body).toBeTruthy()
+  })
+
+  it('includes icon and link derived from baseUrl', () => {
+    const msg = buildReminderMessage('tok-123', BASE)
+    expect(msg.data.icon).toContain(BASE)
+    expect(msg.data.link).toContain(BASE)
   })
 })

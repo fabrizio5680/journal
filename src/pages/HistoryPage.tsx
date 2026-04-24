@@ -57,7 +57,9 @@ export default function HistoryPage() {
         snap.forEach((doc) => list.push(doc.data() as Entry))
         list.sort((a, b) => b.date.localeCompare(a.date))
         setEntries(list)
-        setEntriesLoading(false)
+        if (list.length > 0 || !snap.metadata.fromCache) {
+          setEntriesLoading(false)
+        }
       },
       () => {
         setEntries([])

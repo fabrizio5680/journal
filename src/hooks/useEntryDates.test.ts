@@ -7,7 +7,7 @@ const mockUnsub = vi.fn()
 const mockCollection = vi.fn().mockReturnValue({ id: 'mock-collection' })
 const mockQuery = vi.fn().mockReturnValue({ id: 'mock-query' })
 const mockWhere = vi.fn().mockReturnValue({ id: 'mock-where' })
-const mockOnSnapshot = vi.fn((_, cb: (snap: unknown) => void) => {
+const mockOnSnapshot = vi.fn((_, cb: (snap: unknown) => void, _errCb?: (err: unknown) => void) => {
   snapshotCallback = cb
   return mockUnsub
 })
@@ -16,7 +16,8 @@ vi.mock('firebase/firestore', () => ({
   collection: (...args: unknown[]) => mockCollection(...(args as [unknown, ...unknown[]])),
   query: (...args: unknown[]) => mockQuery(...(args as [unknown, ...unknown[]])),
   where: (...args: unknown[]) => mockWhere(...(args as [unknown, ...unknown[]])),
-  onSnapshot: (ref: unknown, cb: (snap: unknown) => void) => mockOnSnapshot(ref, cb),
+  onSnapshot: (ref: unknown, cb: (snap: unknown) => void, errCb?: (err: unknown) => void) =>
+    mockOnSnapshot(ref, cb, errCb),
 }))
 
 // firebase.ts mock is already in setup.ts
@@ -27,10 +28,11 @@ function makeDoc(id: string) {
   return { id }
 }
 
-function fireSnapshot(docs: Array<{ id: string }>) {
+function fireSnapshot(docs: Array<{ id: string }>, fromCache = false) {
   act(() => {
     snapshotCallback?.({
       forEach: (cb: (doc: { id: string }) => void) => docs.forEach(cb),
+      metadata: { fromCache },
     })
   })
 }
@@ -39,10 +41,12 @@ describe('useEntryDates', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     snapshotCallback = null
-    mockOnSnapshot.mockImplementation((_, cb: (snap: unknown) => void) => {
-      snapshotCallback = cb
-      return mockUnsub
-    })
+    mockOnSnapshot.mockImplementation(
+      (_, cb: (snap: unknown) => void, _errCb?: (err: unknown) => void) => {
+        snapshotCallback = cb
+        return mockUnsub
+      },
+    )
   })
 
   it('returns empty set when no entries', async () => {
@@ -133,5 +137,35 @@ describe('useEntryDates', () => {
     const { unmount } = renderHook(() => useEntryDates('test-uid', 2026, 4))
     unmount()
     expect(mockUnsub).toHaveBeenCalled()
+  })
+
+  it('does not update dates when empty snapshot is from cache', async () => {
+    const { result } = renderHook(() => useEntryDates('test-uid', 2026, 4))
+
+    fireSnapshot([], true) // fromCache = true, empty
+
+    // Dates should remain the initial empty set (not "confirmed empty")
+    // because fromCache=true and size=0 means we skip the update
+    await waitFor(() => {
+      expect(result.current.size).toBe(0)
+    })
+    // Confirm the set is still the initial state — hook should NOT have called setDates
+    // We verify by then firing a server snapshot and checking it resolves correctly
+    fireSnapshot([makeDoc('2026-04-10')], false)
+    await waitFor(() => {
+      expect(result.current.size).toBe(1)
+      expect(result.current.has('2026-04-10')).toBe(true)
+    })
+  })
+
+  it('does update dates when from-cache snapshot has entries', async () => {
+    const { result } = renderHook(() => useEntryDates('test-uid', 2026, 4))
+
+    fireSnapshot([makeDoc('2026-04-01'), makeDoc('2026-04-15')], true) // fromCache = true, non-empty
+
+    await waitFor(() => {
+      expect(result.current.size).toBe(2)
+      expect(result.current.has('2026-04-01')).toBe(true)
+    })
   })
 })

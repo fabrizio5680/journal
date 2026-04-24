@@ -91,23 +91,6 @@ VITE_FIREBASE_VAPID_KEY=
 # Algolia search key is fetched at runtime via Cloud Function — never in env
 ```
 
-## Phase Index
-
-| Phase                          | Focus                                                                             |
-| ------------------------------ | --------------------------------------------------------------------------------- |
-| [Phase 1](phases/phase-1.md)   | Foundation — scaffold, Tailwind, Firebase, auth, ESLint, Prettier, testing, CI/CD |
-| [Phase 2](phases/phase-2.md)   | App Shell — layout, sidebar, top bar, bottom nav, right panel, useStreak          |
-| [Phase 3](phases/phase-3.md)   | Core Editor — Tiptap, auto-save, FloatingActionBar, TodayPage                     |
-| [Phase 4](phases/phase-4.md)   | Mood + Tags — MoodPicker, TagInput, tagVocabulary                                 |
-| [Phase 5](phases/phase-5.md)   | History — MiniCalendar, EntryListCard, HistoryPage, EntryPage                     |
-| [Phase 6](phases/phase-6.md)   | Dictation — useDictation, BubbleMenu wire-up                                      |
-| [Phase 7](phases/phase-7.md)   | Focus Mode — useFocusMode, hide chrome                                            |
-| [Phase 8](phases/phase-8.md)   | Search — Algolia extension, getSearchKey, SearchModal                             |
-| [Phase 9](phases/phase-9.md)   | Soft Delete + Trash — delete flow, TrashPage, TTL                                 |
-| [Phase 10](phases/phase-10.md) | Insights — useInsights, MoodSparkline, TopTags                                    |
-| [Phase 11](phases/phase-11.md) | Settings + Notifications — SettingsPage, FCM, sendDailyReminders                  |
-| [Phase 12](phases/phase-12.md) | PWA + Polish — service worker, skeletons, empty states, grain, mobile QA          |
-
 ## Reference Docs
 
 | Doc                                            | Contents                                                                     |
