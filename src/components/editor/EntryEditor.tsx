@@ -52,8 +52,8 @@ export default function EntryEditor({
       // Keep cursor above the fixed BottomNav on mobile (nav ≈ 72px tall).
       // scrollThreshold triggers a scroll before the cursor enters the nav zone;
       // scrollMargin keeps it comfortably clear after scrolling.
-      scrollThreshold: { top: 0, bottom: 80, left: 0, right: 0 },
-      scrollMargin: { top: 0, bottom: 100, left: 0, right: 0 },
+      scrollThreshold: { top: 0, bottom: 120, left: 0, right: 0 },
+      scrollMargin: { top: 0, bottom: 120, left: 0, right: 0 },
     },
     onUpdate({ editor }) {
       onUpdate(editor)

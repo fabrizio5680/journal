@@ -65,12 +65,13 @@ function EntryEditorView({ date }: { date: string }) {
     ),
   )
 
-  // Register editor controls with BottomNav via context
+  // Register editor controls with BottomNav and RightPanel via context
   useEffect(() => {
     register({
       dictation: { isSupported, state: dictationState, errorMessage, onStart: start, onStop: stop },
       fontSize: editorFontSize,
       onFontSizeChange: updateEditorFontSize,
+      wordCount,
     })
   }, [
     isSupported,
@@ -81,6 +82,7 @@ function EntryEditorView({ date }: { date: string }) {
     start,
     stop,
     updateEditorFontSize,
+    wordCount,
   ])
 
   useEffect(() => () => unregister(), [unregister])
@@ -192,7 +194,7 @@ function EntryEditorView({ date }: { date: string }) {
       {/* Word count — above bottom nav, mobile only */}
       <div
         data-testid="word-count"
-        className="text-on-surface-variant/40 pointer-events-none fixed bottom-[4.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden"
+        className="text-on-surface-variant/40 pointer-events-none fixed bottom-[3.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden"
       >
         {wordCount} {wordCount === 1 ? 'word' : 'words'}
       </div>

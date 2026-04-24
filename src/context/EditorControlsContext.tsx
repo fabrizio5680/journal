@@ -15,6 +15,7 @@ interface RegisteredControls {
   dictation: DictationControls | null
   fontSize: EditorFontSize
   onFontSizeChange: (size: EditorFontSize) => void
+  wordCount?: number
 }
 
 interface EditorControlsContextValue {
@@ -22,6 +23,7 @@ interface EditorControlsContextValue {
   dictation: DictationControls | null
   fontSize: EditorFontSize
   onFontSizeChange: ((size: EditorFontSize) => void) | null
+  wordCount: number
   register: (controls: RegisteredControls) => void
   unregister: () => void
 }
@@ -41,6 +43,7 @@ export function EditorControlsProvider({ children }: { children: ReactNode }) {
         dictation: controls?.dictation ?? null,
         fontSize: controls?.fontSize ?? 'medium',
         onFontSizeChange: controls?.onFontSizeChange ?? null,
+        wordCount: controls?.wordCount ?? 0,
         register,
         unregister,
       }}

@@ -31,7 +31,7 @@ export default function FloatingActionBar({
   const nextSize = FONT_SIZE_STEPS[(currentIndex + 1) % FONT_SIZE_STEPS.length]
 
   return (
-    <div className="fixed bottom-10 left-64 z-40 hidden md:flex">
+    <div className="fixed bottom-10 left-64 z-40 hidden md:flex xl:hidden">
       <div className="flex items-center gap-3">
         {/* Dictate button */}
         {dictation?.isSupported && (
