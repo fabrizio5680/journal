@@ -194,7 +194,7 @@ function EntryEditorView({ date }: { date: string }) {
       {/* Word count — above bottom nav, mobile only */}
       <div
         data-testid="word-count"
-        className="text-on-surface-variant/40 pointer-events-none fixed bottom-[4.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden"
+        className="text-on-surface-variant/40 pointer-events-none fixed bottom-[3.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden"
       >
         {wordCount} {wordCount === 1 ? 'word' : 'words'}
       </div>
