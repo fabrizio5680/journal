@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-const APP_NAME = 'The Quiet Sanctuary'
+const APP_NAME = 'Reflect'
 
 export function usePageTitle(title?: string) {
   useEffect(() => {
