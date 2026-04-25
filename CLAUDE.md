@@ -73,6 +73,7 @@ npm run precommit      format + lint + typecheck (manual run; also invoked by Hu
 ## Dictation (Speech-to-Text)
 
 `useDictation` uses the Web Speech API (continuous mode). Key behaviors:
+
 - Returns `interimTranscript: string | null` — live preview of in-progress speech, flows via `EditorControlsContext.DictationControls` to `BottomNav`, `FloatingActionBar`, and `RightPanel`.
 - Explicit stop calls `abort()` (not `stop()`) to discard in-flight audio.
 - Error codes handled: `not-allowed`, `service-not-allowed`, `network`, `audio-capture`, `language-not-supported` (silent en-US fallback), `aborted` (silent).
