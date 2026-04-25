@@ -24,6 +24,7 @@ interface SpeechRecognitionLike {
   lang: string
   start: () => void
   stop: () => void
+  abort: () => void
   onresult: ((event: SpeechRecognitionEventLike) => void) | null
   onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
   onend: (() => void) | null
@@ -37,6 +38,7 @@ export interface UseDictationReturn {
   isSupported: boolean
   state: DictationState
   errorMessage: string | null
+  interimTranscript: string | null
   start: () => void
   stop: () => void
 }
@@ -90,11 +92,13 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
 
   const [state, setState] = useState<DictationState>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [interimTranscript, setInterimTranscript] = useState<string | null>(null)
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const stateRef = useRef<DictationState>('idle')
   const silentRestartCountRef = useRef(0)
   const lastFinalTranscriptRef = useRef('')
+  const langFallbackRef = useRef(false)
   const onTranscriptRef = useRef(onTranscript)
 
   // Keep transcript callback ref current without re-creating recognition
@@ -114,6 +118,7 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
         if (result.isFinal) {
+          setInterimTranscript(null)
           const transcript = result[0].transcript.trim()
           if (transcript) {
             const deltaTranscript = getDeltaTranscript(lastFinalTranscriptRef.current, transcript)
@@ -122,17 +127,37 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
             }
             lastFinalTranscriptRef.current = transcript
           }
+        } else {
+          setInterimTranscript(result[0].transcript)
         }
       }
     }
 
     recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
-      if (event.error === 'not-allowed') {
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         stateRef.current = 'error'
         setState('error')
         setErrorMessage('Microphone permission denied')
-      } else if (event.error === 'no-speech') {
-        // handled in onend — silent restart
+      } else if (event.error === 'network') {
+        stateRef.current = 'error'
+        setState('error')
+        setErrorMessage('Connection required for voice')
+      } else if (event.error === 'audio-capture') {
+        stateRef.current = 'error'
+        setState('error')
+        setErrorMessage('No microphone found')
+      } else if (event.error === 'language-not-supported') {
+        if (!langFallbackRef.current) {
+          langFallbackRef.current = true
+          recognition.lang = 'en-US'
+          try {
+            recognition.start()
+          } catch {
+            // ignore if already starting
+          }
+        }
+      } else if (event.error === 'no-speech' || event.error === 'aborted') {
+        // no-speech handled in onend; aborted is intentional — both silent
       }
     }
 
@@ -163,6 +188,7 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
     setErrorMessage(null)
     silentRestartCountRef.current = 0
     lastFinalTranscriptRef.current = ''
+    langFallbackRef.current = false
 
     const recognition = createRecognition()
     if (!recognition) return
@@ -178,17 +204,18 @@ export function useDictation(onTranscript: (text: string) => void): UseDictation
     setState('idle')
     silentRestartCountRef.current = 0
     lastFinalTranscriptRef.current = ''
-    recognitionRef.current?.stop()
+    setInterimTranscript(null)
+    recognitionRef.current?.abort()
     recognitionRef.current = null
   }, [])
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      recognitionRef.current?.stop()
+      recognitionRef.current?.abort()
       recognitionRef.current = null
     }
   }, [])
 
-  return { isSupported, state, errorMessage, start, stop }
+  return { isSupported, state, errorMessage, interimTranscript, start, stop }
 }

@@ -84,6 +84,11 @@ export default function RightPanel() {
               {wordCount} {wordCount === 1 ? 'word' : 'words'}
             </span>
           </div>
+          {isListening && dictation?.interimTranscript && (
+            <p className="text-on-surface-variant/50 mt-2 text-xs leading-snug italic">
+              {dictation.interimTranscript}
+            </p>
+          )}
         </div>
       )}
 

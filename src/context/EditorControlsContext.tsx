@@ -7,6 +7,7 @@ export interface DictationControls {
   isSupported: boolean
   state: DictationState
   errorMessage: string | null
+  interimTranscript?: string | null
   onStart: () => void
   onStop: () => void
 }

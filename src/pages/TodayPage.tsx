@@ -41,15 +41,21 @@ export default function TodayPage() {
     isSupported,
     state: dictationState,
     errorMessage,
+    interimTranscript,
     start,
     stop,
   } = useDictation(
     useCallback(
       (text: string) => {
+        if (!editorInstance) return
+        const { from } = editorInstance.state.selection
+        const precedingChar = from > 1 ? editorInstance.state.doc.textBetween(from - 1, from) : ''
+        const needsLeadingSpace =
+          precedingChar !== '' && precedingChar !== ' ' && precedingChar !== '\n'
         editorInstance
-          ?.chain()
+          .chain()
           .focus()
-          .insertContent(text + ' ')
+          .insertContent((needsLeadingSpace ? ' ' : '') + text.trimStart())
           .run()
       },
       [editorInstance],
@@ -59,7 +65,14 @@ export default function TodayPage() {
   // Register editor controls with BottomNav and RightPanel via context
   useEffect(() => {
     register({
-      dictation: { isSupported, state: dictationState, errorMessage, onStart: start, onStop: stop },
+      dictation: {
+        isSupported,
+        state: dictationState,
+        errorMessage,
+        interimTranscript,
+        onStart: start,
+        onStop: stop,
+      },
       fontSize: editorFontSize,
       onFontSizeChange: updateEditorFontSize,
       wordCount,
@@ -68,6 +81,7 @@ export default function TodayPage() {
     isSupported,
     dictationState,
     errorMessage,
+    interimTranscript,
     editorFontSize,
     register,
     start,
@@ -190,6 +204,7 @@ export default function TodayPage() {
           isSupported,
           state: dictationState,
           errorMessage,
+          interimTranscript,
           onStart: start,
           onStop: stop,
         }}

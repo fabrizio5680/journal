@@ -5,6 +5,7 @@ interface DictationProps {
   isSupported: boolean
   state: DictationState
   errorMessage: string | null
+  interimTranscript?: string | null
   onStart: () => void
   onStop: () => void
 }
@@ -39,6 +40,11 @@ export default function FloatingActionBar({
             {hasError && (
               <p className="text-error absolute -top-8 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap">
                 {dictation.errorMessage}
+              </p>
+            )}
+            {isListening && !hasError && dictation.interimTranscript && (
+              <p className="text-on-surface-variant/60 absolute -top-8 left-1/2 max-w-[200px] -translate-x-1/2 truncate text-center text-xs whitespace-nowrap italic">
+                {dictation.interimTranscript}
               </p>
             )}
             <button

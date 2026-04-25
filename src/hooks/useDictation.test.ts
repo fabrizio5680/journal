@@ -15,6 +15,7 @@ interface MockRecognitionInstance {
   lang: string
   start: ReturnType<typeof vi.fn>
   stop: ReturnType<typeof vi.fn>
+  abort: ReturnType<typeof vi.fn>
   onresult: RecognitionEventHandler | null
   onerror: ErrorEventHandler | null
   onend: EndHandler | null
@@ -30,6 +31,7 @@ function installMockSpeechRecognition() {
     lang = ''
     start = vi.fn()
     stop = vi.fn()
+    abort = vi.fn()
     onresult: RecognitionEventHandler | null = null
     onerror: ErrorEventHandler | null = null
     onend: EndHandler | null = null
@@ -112,7 +114,7 @@ describe('useDictation', () => {
     })
 
     expect(result.current.state).toBe('idle')
-    expect(mockRecognitionInstance?.stop).toHaveBeenCalledOnce()
+    expect(mockRecognitionInstance?.abort).toHaveBeenCalledOnce()
   })
 
   it('onTranscript called when final result fires', () => {
@@ -256,7 +258,26 @@ describe('useDictation', () => {
     expect(result.current.state).toBe('idle')
   })
 
-  it('stop() called on unmount (cleanup)', () => {
+  it('abort() called on explicit stop (not stop())', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    const instance = mockRecognitionInstance!
+
+    act(() => {
+      result.current.stop()
+    })
+
+    expect(instance.abort).toHaveBeenCalledOnce()
+    expect(instance.stop).not.toHaveBeenCalled()
+  })
+
+  it('abort() called on unmount (cleanup)', () => {
     installMockSpeechRecognition()
 
     const { result, unmount } = renderHook(() => useDictation(vi.fn()))
@@ -266,11 +287,11 @@ describe('useDictation', () => {
     })
 
     const instance = mockRecognitionInstance!
-    expect(instance.stop).not.toHaveBeenCalled()
+    expect(instance.abort).not.toHaveBeenCalled()
 
     unmount()
 
-    expect(instance.stop).toHaveBeenCalledOnce()
+    expect(instance.abort).toHaveBeenCalledOnce()
   })
 
   it('configures recognition with continuous = true and interimResults = true', () => {
@@ -284,5 +305,165 @@ describe('useDictation', () => {
 
     expect(mockRecognitionInstance?.continuous).toBe(true)
     expect(mockRecognitionInstance?.interimResults).toBe(true)
+  })
+
+  it('interimTranscript set for non-final result', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    act(() => {
+      fireResult(mockRecognitionInstance!, 'hello wor', false)
+    })
+
+    expect(result.current.interimTranscript).toBe('hello wor')
+  })
+
+  it('interimTranscript cleared when final result fires', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+      fireResult(mockRecognitionInstance!, 'hello wor', false)
+    })
+
+    act(() => {
+      fireResult(mockRecognitionInstance!, 'hello world', true)
+    })
+
+    expect(result.current.interimTranscript).toBeNull()
+  })
+
+  it('interimTranscript cleared on stop()', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+      fireResult(mockRecognitionInstance!, 'hello wor', false)
+    })
+
+    act(() => {
+      result.current.stop()
+    })
+
+    expect(result.current.interimTranscript).toBeNull()
+  })
+
+  it('network error sets state=error with correct message', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    act(() => {
+      fireError(mockRecognitionInstance!, 'network')
+    })
+
+    expect(result.current.state).toBe('error')
+    expect(result.current.errorMessage).toBe('Connection required for voice')
+  })
+
+  it('audio-capture error sets state=error with correct message', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    act(() => {
+      fireError(mockRecognitionInstance!, 'audio-capture')
+    })
+
+    expect(result.current.state).toBe('error')
+    expect(result.current.errorMessage).toBe('No microphone found')
+  })
+
+  it('service-not-allowed error sets state=error same as not-allowed', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    act(() => {
+      fireError(mockRecognitionInstance!, 'service-not-allowed')
+    })
+
+    expect(result.current.state).toBe('error')
+    expect(result.current.errorMessage).toBe('Microphone permission denied')
+  })
+
+  it('aborted error is silent — no state change', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    act(() => {
+      fireError(mockRecognitionInstance!, 'aborted')
+    })
+
+    expect(result.current.state).toBe('listening')
+    expect(result.current.errorMessage).toBeNull()
+  })
+
+  it('language-not-supported: silent, retries with en-US once', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    const instance = mockRecognitionInstance!
+    const startCallsBefore = instance.start.mock.calls.length
+
+    act(() => {
+      fireError(instance, 'language-not-supported')
+    })
+
+    expect(result.current.state).toBe('listening')
+    expect(result.current.errorMessage).toBeNull()
+    expect(instance.lang).toBe('en-US')
+    expect(instance.start).toHaveBeenCalledTimes(startCallsBefore + 1)
+  })
+
+  it('language-not-supported: does not retry more than once', () => {
+    installMockSpeechRecognition()
+
+    const { result } = renderHook(() => useDictation(vi.fn()))
+
+    act(() => {
+      result.current.start()
+    })
+
+    const instance = mockRecognitionInstance!
+
+    act(() => {
+      fireError(instance, 'language-not-supported')
+      fireError(instance, 'language-not-supported')
+    })
+
+    // initial start (1) + one fallback retry (1) = 2 total
+    expect(instance.start).toHaveBeenCalledTimes(2)
   })
 })
