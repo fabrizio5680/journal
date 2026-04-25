@@ -406,9 +406,10 @@ const FALLBACK_VERSES: Verse[] = [
 ]
 
 const BIBLE_IDS: Record<string, string> = {
-  NLT: '65eec8e0b60e656b-01',
-  MSG: '65eec8e0b60e656b-02',
-  ESV: 'de4e12af7f28f599-01',
+  NLT: 'd6e14a625393b4da-01',
+  MSG: '6f11a7de016f942e-01',
+  AMP: 'a81b73293d3080c9-01',
+  // ESV: 'de4e12af7f28f599-01',
 }
 
 export function getDailyVerseId(date: Date): string {
