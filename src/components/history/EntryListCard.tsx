@@ -91,6 +91,21 @@ export default function EntryListCard({ entry }: EntryListCardProps) {
         </span>
       </div>
 
+      {/* Tags + scripture refs */}
+      {((entry.tags && entry.tags.length > 0) ||
+        (entry.scriptureRefs && entry.scriptureRefs.length > 0)) && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {entry.tags?.map((tag) => (
+            <Chip key={tag}>{tag}</Chip>
+          ))}
+          {entry.scriptureRefs?.map((ref) => (
+            <Chip key={ref.passageId} icon="menu_book">
+              {ref.reference}
+            </Chip>
+          ))}
+        </div>
+      )}
+
       {/* Word count */}
       {entry.wordCount > 0 && (
         <p className="text-outline-variant/60 mt-3 text-[10px] tracking-wide">

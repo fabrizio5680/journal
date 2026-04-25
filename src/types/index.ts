@@ -1,3 +1,8 @@
+export interface ScriptureRef {
+  reference: string
+  passageId: string
+}
+
 export interface Entry {
   userId?: string
   date: string
@@ -7,6 +12,7 @@ export interface Entry {
   mood: 1 | 2 | 3 | 4 | 5 | null
   moodLabel: string | null
   tags: string[]
+  scriptureRefs?: ScriptureRef[]
   wordCount: number
   deleted: boolean
   deletedAt: import('firebase/firestore').Timestamp | null
