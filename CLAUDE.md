@@ -37,12 +37,13 @@ src/
     insights/     MoodSparkline, TopTags
     fab/          FloatingActionBar
     auth/         LoginPage
+    scripture/    ScriptureRefInput, ScriptureChip
     ui/           Chip, GlassCard, DailyScripture, ProfileSheet
   context/        SaveStatusContext, FocusModeContext, SearchContext,
                   UserPreferencesContext, EditorControlsContext
   hooks/          useEntry, useEntryDates, useStreak, useDictation,
-                  useSearch, useInsights
-  lib/            firebase, firestore, algolia, tiptap
+                  useSearch, useInsights, useScriptureRef
+  lib/            firebase, firestore, algolia, tiptap, scriptureParser
   types/          index.ts
   pages/          TodayPage, EntryPage, HistoryPage, InsightsPage,
                   TrashPage, SettingsPage
@@ -102,9 +103,9 @@ VITE_FIREBASE_VAPID_KEY=
 
 ## Reference Docs
 
-| Doc                                            | Contents                                                                     |
-| ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)   | Key architectural decisions — sync, auth, contexts, notifications, scripture |
-| [docs/data-model.md](docs/data-model.md)       | Firestore schema for `users` and `entries`, mood mapping                     |
-| [docs/design-system.md](docs/design-system.md) | Color tokens and component patterns                                          |
-| [docs/testing.md](docs/testing.md)             | E2E conventions — test emails, emulator seeding, serial mode                 |
+| Doc                                            | Contents                                                                                                                                     |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)   | Key architectural decisions — sync, auth, contexts, notifications, scripture                                                                 |
+| [docs/data-model.md](docs/data-model.md)       | Firestore schema for `users` and `entries`, mood mapping; `Entry` has optional `scriptureRefs?: ScriptureRef[]` (`{ reference, passageId }`) |
+| [docs/design-system.md](docs/design-system.md) | Color tokens and component patterns                                                                                                          |
+| [docs/testing.md](docs/testing.md)             | E2E conventions — test emails, emulator seeding, serial mode                                                                                 |
