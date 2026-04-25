@@ -44,7 +44,8 @@ export default function TrashPage() {
         snap.forEach((d) => list.push(d.data() as Entry))
         setEntries(list)
       },
-      () => {
+      (err) => {
+        console.error('[TrashPage] onSnapshot error:', err)
         setEntries([])
       },
     )
