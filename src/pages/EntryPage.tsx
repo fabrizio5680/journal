@@ -15,7 +15,6 @@ import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
-import { VerseBlock } from '@/components/editor/VerseBlock'
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
@@ -35,7 +34,7 @@ function EntryEditorView({ date }: { date: string }) {
   const { setDirty, setLastSaved } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
   const { register, unregister } = useEditorControls()
-  const { verse, isLoading: verseLoading } = useDailyVerse(scriptureTranslation, parseISO(date))
+  const { verse } = useDailyVerse(scriptureTranslation, parseISO(date))
   const placeholder = verse ? `${verse.text} — ${verse.reference}` : undefined
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
@@ -190,8 +189,6 @@ function EntryEditorView({ date }: { date: string }) {
             </button>
           )}
         </div>
-
-        <VerseBlock verse={verse} isLoading={verseLoading} />
 
         <MetadataChips
           mood={entry?.mood ?? null}

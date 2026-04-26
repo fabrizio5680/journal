@@ -15,7 +15,6 @@ import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
-import { VerseBlock } from '@/components/editor/VerseBlock'
 
 export default function TodayPage() {
   usePageTitle("Today's Entry")
@@ -26,7 +25,7 @@ export default function TodayPage() {
   const { setDirty, setLastSaved } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
   const { register, unregister } = useEditorControls()
-  const { verse, isLoading: verseLoading } = useDailyVerse(scriptureTranslation)
+  const { verse } = useDailyVerse(scriptureTranslation)
   const placeholder = verse ? `${verse.text} — ${verse.reference}` : undefined
 
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
@@ -174,8 +173,6 @@ export default function TodayPage() {
             </button>
           </div>
         )}
-
-        <VerseBlock verse={verse} isLoading={verseLoading} />
 
         <MetadataChips
           mood={entry?.mood ?? null}
