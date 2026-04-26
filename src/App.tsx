@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged, type User } from 'firebase/auth'
 
@@ -9,14 +9,15 @@ import { SearchProvider } from '@/context/SearchContext'
 import { UserPreferencesProvider } from '@/context/UserPreferencesContext'
 import { EditorControlsProvider } from '@/context/EditorControlsContext'
 import AppShell from '@/components/layout/AppShell'
-import LoginPage from '@/components/auth/LoginPage'
-import TodayPage from '@/pages/TodayPage'
-import HistoryPage from '@/pages/HistoryPage'
-import InsightsPage from '@/pages/InsightsPage'
-import SettingsPage from '@/pages/SettingsPage'
-import EntryPage from '@/pages/EntryPage'
-import NotFoundPage from '@/pages/NotFoundPage'
 import UpdateBanner from '@/components/ui/UpdateBanner'
+
+const LoginPage = lazy(() => import('@/components/auth/LoginPage'))
+const TodayPage = lazy(() => import('@/pages/TodayPage'))
+const EntryPage = lazy(() => import('@/pages/EntryPage'))
+const HistoryPage = lazy(() => import('@/pages/HistoryPage'))
+const InsightsPage = lazy(() => import('@/pages/InsightsPage'))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined)
@@ -36,36 +37,38 @@ function RequireAuth({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
 
-        {/* All authenticated routes share the AppShell layout */}
-        <Route
-          element={
-            <RequireAuth>
-              <UserPreferencesProvider>
-                <SearchProvider>
-                  <FocusModeProvider>
-                    <SaveStatusProvider>
-                      <EditorControlsProvider>
-                        <AppShell />
-                      </EditorControlsProvider>
-                    </SaveStatusProvider>
-                  </FocusModeProvider>
-                </SearchProvider>
-              </UserPreferencesProvider>
-            </RequireAuth>
-          }
-        >
-          <Route path="/" element={<TodayPage />} />
-          <Route path="/entry/:date" element={<EntryPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/insights" element={<InsightsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
+          {/* All authenticated routes share the AppShell layout */}
+          <Route
+            element={
+              <RequireAuth>
+                <UserPreferencesProvider>
+                  <SearchProvider>
+                    <FocusModeProvider>
+                      <SaveStatusProvider>
+                        <EditorControlsProvider>
+                          <AppShell />
+                        </EditorControlsProvider>
+                      </SaveStatusProvider>
+                    </FocusModeProvider>
+                  </SearchProvider>
+                </UserPreferencesProvider>
+              </RequireAuth>
+            }
+          >
+            <Route path="/" element={<TodayPage />} />
+            <Route path="/entry/:date" element={<EntryPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/insights" element={<InsightsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
       <UpdateBanner />
     </>
   )

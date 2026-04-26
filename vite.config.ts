@@ -64,4 +64,26 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks: (id: string) => {
+          if (
+            id.includes('node_modules/react') ||
+            id.includes('node_modules/react-dom') ||
+            id.includes('node_modules/react-router-dom')
+          )
+            return 'vendor-react'
+          if (id.includes('node_modules/firebase/')) return 'vendor-firebase'
+          if (id.includes('node_modules/@tiptap/')) return 'vendor-tiptap'
+          if (
+            id.includes('node_modules/algoliasearch') ||
+            id.includes('node_modules/react-instantsearch')
+          )
+            return 'vendor-algolia'
+          if (id.includes('node_modules/recharts')) return 'vendor-recharts'
+        },
+      },
+    },
+  },
 })
