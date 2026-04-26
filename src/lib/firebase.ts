@@ -4,7 +4,7 @@ import {
   getFirestore,
   initializeFirestore,
   persistentLocalCache,
-  persistentSingleTabManager,
+  persistentMultipleTabManager,
 } from 'firebase/firestore'
 import { getMessaging, isSupported } from 'firebase/messaging'
 
@@ -27,14 +27,12 @@ if (import.meta.env.VITE_USE_EMULATOR !== 'true') {
   try {
     dbInstance = initializeFirestore(app, {
       localCache: persistentLocalCache({
-        tabManager: persistentSingleTabManager({}),
+        tabManager: persistentMultipleTabManager(),
       }),
     })
   } catch (err) {
     const code = (err as { code?: string }).code
-    if (code === 'failed-precondition') {
-      console.warn('Firestore persistence unavailable: multiple tabs open')
-    } else if (code === 'unimplemented') {
+    if (code !== 'unimplemented') {
       console.warn('Firestore persistence not supported in this browser')
     }
     dbInstance = getFirestore(app)
