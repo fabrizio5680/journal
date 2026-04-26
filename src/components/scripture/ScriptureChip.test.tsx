@@ -28,6 +28,19 @@ beforeEach(() => {
   localStorage.clear()
   vi.restoreAllMocks()
   vi.stubEnv('VITE_BIBLE_API_KEY', 'test-api-key')
+  // jsdom doesn't implement getBoundingClientRect — return a fake rect so
+  // ScriptureChip can compute popup position via createPortal
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+    bottom: 100,
+    left: 50,
+    top: 80,
+    right: 314,
+    width: 264,
+    height: 20,
+    x: 50,
+    y: 80,
+    toJSON: () => {},
+  } as DOMRect)
 })
 
 afterEach(() => {
@@ -205,5 +218,80 @@ describe('ScriptureChip', () => {
     await waitFor(() => {
       expect(screen.queryByText(verseText)).not.toBeInTheDocument()
     })
+  })
+
+  // ---- portal-specific tests ----
+
+  it('renders popup via portal into document.body (not inside chip container)', async () => {
+    const verseText = 'For God so loved the world'
+    mockFetchSuccess(verseText)
+
+    const user = userEvent.setup()
+    const { container } = render(<ScriptureChip ref_={sampleRef} translation="NLT" />)
+
+    await user.click(screen.getByRole('button', { name: /Show verse: John 3:16/i }))
+
+    // Wait for the portal popup div to appear in the DOM
+    await waitFor(() => expect(document.body.querySelector('.fixed.z-50')).not.toBeNull())
+
+    const popup = document.body.querySelector('.fixed.z-50')!
+    // The popup div is attached to document.body
+    expect(document.body.contains(popup)).toBe(true)
+
+    // It must NOT be a descendant of the chip's rendered container
+    expect(container.contains(popup)).toBe(false)
+  })
+
+  it('positions the popup using inline style from getBoundingClientRect', async () => {
+    // getBoundingClientRect is mocked to return bottom:100, left:50 in beforeEach
+    const verseText = 'For God so loved the world'
+    mockFetchSuccess(verseText)
+
+    const user = userEvent.setup()
+    render(<ScriptureChip ref_={sampleRef} translation="NLT" />)
+
+    await user.click(screen.getByRole('button', { name: /Show verse: John 3:16/i }))
+    await waitFor(() => expect(document.body.querySelector('.fixed.z-50')).not.toBeNull())
+
+    const popup = document.body.querySelector<HTMLElement>('.fixed.z-50')!
+    // top = rect.bottom + 4 = 100 + 4 = 104; left = rect.left = 50
+    expect(popup.style.top).toBe('104px')
+    expect(popup.style.left).toBe('50px')
+  })
+
+  it('closes popup when window scroll event fires', async () => {
+    const cacheKey = `scripture_ref_NLT_${sampleRef.passageId}`
+    localStorage.setItem(cacheKey, 'Cached verse text')
+
+    const user = userEvent.setup()
+    render(<ScriptureChip ref_={sampleRef} translation="NLT" />)
+
+    await user.click(screen.getByRole('button', { name: /Show verse: John 3:16/i }))
+    await waitFor(() => expect(screen.getByText('Cached verse text')).toBeInTheDocument())
+
+    // Dispatch scroll on window — captured in capture phase by the component
+    window.dispatchEvent(new Event('scroll'))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Cached verse text')).not.toBeInTheDocument()
+    })
+  })
+
+  it('keeps popup open when clicking inside the portal popup div', async () => {
+    const verseText = 'For God so loved the world'
+    mockFetchSuccess(verseText)
+
+    const user = userEvent.setup()
+    render(<ScriptureChip ref_={sampleRef} translation="NLT" />)
+
+    await user.click(screen.getByRole('button', { name: /Show verse: John 3:16/i }))
+    await waitFor(() => expect(screen.getByText(verseText)).toBeInTheDocument())
+
+    // Click inside the portal popup itself — popup should stay open
+    const popup = document.body.querySelector<HTMLElement>('.fixed.z-50')!
+    await user.pointer({ target: popup, keys: '[MouseLeft]' })
+
+    // Popup should still be present
+    expect(screen.getByText(verseText)).toBeInTheDocument()
   })
 })
