@@ -15,8 +15,6 @@ export interface UseEntryReturn {
   isDirty: boolean
   markDirty: () => void
   save: (data: Partial<Entry>) => Promise<void>
-  deleteEntry: () => Promise<void>
-  restoreEntry: () => Promise<void>
   wordCount: number
 }
 
@@ -131,26 +129,12 @@ export function useEntry(date: string): UseEntryReturn {
     [uid, date, entry],
   )
 
-  const deleteEntry = useCallback(async () => {
-    if (!uid) return
-    const entryRef = doc(db, 'users', uid, 'entries', date)
-    await setDoc(entryRef, { deleted: true, deletedAt: serverTimestamp() }, { merge: true })
-  }, [uid, date])
-
-  const restoreEntry = useCallback(async () => {
-    if (!uid) return
-    const entryRef = doc(db, 'users', uid, 'entries', date)
-    await setDoc(entryRef, { deleted: false, deletedAt: null }, { merge: true })
-  }, [uid, date])
-
   return {
     entry,
     isLoading,
     isDirty,
     markDirty,
     save,
-    deleteEntry,
-    restoreEntry,
     wordCount: entry?.wordCount ?? 0,
   }
 }

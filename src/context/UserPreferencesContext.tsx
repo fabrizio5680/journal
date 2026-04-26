@@ -7,6 +7,8 @@ import { auth, db } from '@/lib/firebase'
 type Translation = 'NLT' | 'MSG' | 'ESV'
 export type EditorFontSize = 'small' | 'medium' | 'large'
 
+const FONT_SIZE_KEY = 'pref_editor_font_size'
+
 interface UserPreferences {
   grainEnabled: boolean
   scriptureTranslation: Translation
@@ -29,8 +31,10 @@ const UserPreferencesContext = createContext<UserPreferencesContextValue>({
 })
 
 export function UserPreferencesProvider({ children }: { children: ReactNode }) {
-  const [prefs, setPrefs] = useState<UserPreferences>(defaultPreferences)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [prefs, setPrefs] = useState<UserPreferences>({
+    ...defaultPreferences,
+    editorFontSize: (localStorage.getItem(FONT_SIZE_KEY) as EditorFontSize) ?? 'medium',
+  })
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null
@@ -38,7 +42,6 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       unsubscribeSnapshot?.()
       unsubscribeSnapshot = null
-      setUserId(user?.uid ?? null)
 
       if (!user) {
         setPrefs(defaultPreferences)
@@ -51,11 +54,24 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
         (snap) => {
           const data = snap.data()
           if (!data) return
-          setPrefs({
-            grainEnabled: data.grainEnabled ?? true,
-            scriptureTranslation: (data.scriptureTranslation as Translation) ?? 'NLT',
-            editorFontSize: (data.editorFontSize as EditorFontSize) ?? 'medium',
-          })
+
+          // Seed localStorage from Firestore on first snapshot if no local entry yet
+          if (localStorage.getItem(FONT_SIZE_KEY) === null) {
+            const seeded = (data.editorFontSize as EditorFontSize) ?? 'medium'
+            localStorage.setItem(FONT_SIZE_KEY, seeded)
+            setPrefs((prev) => ({
+              ...prev,
+              grainEnabled: data.grainEnabled ?? true,
+              scriptureTranslation: (data.scriptureTranslation as Translation) ?? 'NLT',
+              editorFontSize: seeded,
+            }))
+          } else {
+            setPrefs((prev) => ({
+              ...prev,
+              grainEnabled: data.grainEnabled ?? true,
+              scriptureTranslation: (data.scriptureTranslation as Translation) ?? 'NLT',
+            }))
+          }
 
           const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone
           if (data.reminderEnabled === true && data.reminderTimezone !== detectedTz) {
@@ -75,8 +91,8 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function updateEditorFontSize(size: EditorFontSize) {
-    if (!userId) return
-    await updateDoc(doc(db, 'users', userId), { editorFontSize: size })
+    localStorage.setItem(FONT_SIZE_KEY, size)
+    setPrefs((prev) => ({ ...prev, editorFontSize: size }))
   }
 
   return (

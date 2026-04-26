@@ -264,7 +264,7 @@ export default function SettingsPage() {
           />
         </SettingsRow>
         <div className="border-outline-variant/20 mt-4 border-t pt-4">
-          <SettingsRow icon="format_size" label="Editor Text Size">
+          <SettingsRow icon="format_size" label="Editor Text Size (this device)">
             <div className="flex gap-1.5">
               {(['small', 'medium', 'large'] as EditorFontSize[]).map((size) => (
                 <button

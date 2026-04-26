@@ -33,7 +33,7 @@ src/
     search/       SearchModal, SearchFilters, SearchResultCard
     mood/         MoodPicker
     tags/         TagInput
-    history/      EntryListCard, MoodSummaryBar, TrashEntryCard
+    history/      EntryListCard, MoodSummaryBar
     insights/     MoodSparkline, TopTags
     fab/          FloatingActionBar
     auth/         LoginPage
@@ -45,12 +45,11 @@ src/
                   useSearch, useInsights, useScriptureRef
   lib/            firebase, firestore, algolia, tiptap, scriptureParser
   types/          index.ts
-  pages/          TodayPage, EntryPage, HistoryPage, InsightsPage,
-                  TrashPage, SettingsPage
+  pages/          TodayPage, EntryPage, HistoryPage, InsightsPage, SettingsPage
   styles/         globals.css
   test/           setup.ts, firebase-mocks.ts, render.tsx
 functions/src/    index.ts  (getSearchKey + sendDailyReminders)
-e2e/              auth, editor, history, search, focus-mode, trash specs
+e2e/              auth, editor, history, search, focus-mode specs
 phases/           phase-1.md … phase-12.md
 docs/             architecture.md, data-model.md, design-system.md, testing.md
 ```
@@ -100,6 +99,15 @@ VITE_BIBLE_API_KEY=
 VITE_FIREBASE_VAPID_KEY=
 # Algolia search key is fetched at runtime via Cloud Function — never in env
 ```
+
+## Device-local Storage
+
+| Key                     | Values                         | Description                                                                                                                                                                                                                                                                      |
+| ----------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pref_editor_font_size` | `small` \| `medium` \| `large` | Editor font size preference — device-local, never synced via Firestore. Seeded once from Firestore `editorFontSize` field on first snapshot if the key is absent. After that, Firestore `editorFontSize` is ignored and never written to (field may still exist in legacy docs). |
+| `scripture_<T>_<date>`  | JSON `{ text, reference }`     | Daily verse cache per translation and date.                                                                                                                                                                                                                                      |
+
+`UserPreferencesContext` manages `pref_editor_font_size`: initializes state from localStorage on mount (before Firestore arrives), seeds from Firestore on first snapshot when absent, and writes only to localStorage via `updateEditorFontSize` — no Firestore `updateDoc` call for font size.
 
 ## Reference Docs
 

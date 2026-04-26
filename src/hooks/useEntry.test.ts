@@ -172,38 +172,6 @@ describe('useEntry', () => {
     expect(payload).not.toHaveProperty('createdAt')
   })
 
-  it('deleteEntry() calls setDoc with deleted: true and deletedAt: serverTimestamp()', async () => {
-    const { result } = renderHook(() => useEntry('2026-04-13'))
-    fireAuth()
-    fireSnapshot({ date: '2026-04-13', contentText: 'hello', wordCount: 1, deleted: false })
-    await waitFor(() => expect(result.current.entry).not.toBeNull())
-
-    await act(async () => {
-      await result.current.deleteEntry()
-    })
-
-    expect(mockSetDoc).toHaveBeenCalledOnce()
-    const [, payload, options] = mockSetDoc.mock.calls[0]
-    expect(payload).toEqual({ deleted: true, deletedAt: 'SERVER_TIMESTAMP' })
-    expect(options).toEqual({ merge: true })
-  })
-
-  it('restoreEntry() calls setDoc with deleted: false and deletedAt: null', async () => {
-    const { result } = renderHook(() => useEntry('2026-04-13'))
-    fireAuth()
-    fireSnapshot(null)
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-
-    await act(async () => {
-      await result.current.restoreEntry()
-    })
-
-    expect(mockSetDoc).toHaveBeenCalledOnce()
-    const [, payload, options] = mockSetDoc.mock.calls[0]
-    expect(payload).toEqual({ deleted: false, deletedAt: null })
-    expect(options).toEqual({ merge: true })
-  })
-
   it('entry is null when snapshot has deleted: true', async () => {
     const { result } = renderHook(() => useEntry('2026-04-13'))
     fireAuth()

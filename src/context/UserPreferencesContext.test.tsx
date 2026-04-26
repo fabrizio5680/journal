@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, renderHook, act } from '@testing-library/react'
+import type { ReactNode } from 'react'
 
 // --- Firestore mocks ---
 let snapshotCallback: ((snap: unknown) => void) | null = null
@@ -33,7 +34,7 @@ vi.mock('@/lib/firebase', () => ({
   db: {},
 }))
 
-import { UserPreferencesProvider } from './UserPreferencesContext'
+import { UserPreferencesProvider, useUserPreferences } from './UserPreferencesContext'
 
 const TEST_USER = { uid: 'test-uid' }
 
@@ -57,11 +58,25 @@ function renderProvider() {
   )
 }
 
+// Helper that renders provider and exposes context value via renderHook
+function renderProviderWithCapture() {
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <UserPreferencesProvider>{children}</UserPreferencesProvider>
+  )
+  const { result } = renderHook(() => useUserPreferences(), { wrapper })
+  return () => result.current
+}
+
 describe('UserPreferencesContext — timezone refresh', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     snapshotCallback = null
     authCallback = null
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    localStorage.clear()
   })
 
   it('calls updateDoc with detected timezone when reminderEnabled is true and timezone is stale', () => {
@@ -117,5 +132,82 @@ describe('UserPreferencesContext — timezone refresh', () => {
     })
 
     expect(mockUpdateDoc).not.toHaveBeenCalled()
+  })
+})
+
+describe('UserPreferencesContext — editorFontSize localStorage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    snapshotCallback = null
+    authCallback = null
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+  })
+
+  it('initializes editorFontSize from localStorage when an entry already exists', () => {
+    localStorage.setItem('pref_editor_font_size', 'large')
+
+    const getCapture = renderProviderWithCapture()
+    expect(getCapture()?.editorFontSize).toBe('large')
+  })
+
+  it('defaults editorFontSize to medium when no localStorage entry exists', () => {
+    const getCapture = renderProviderWithCapture()
+    expect(getCapture()?.editorFontSize).toBe('medium')
+  })
+
+  it('seeds localStorage from Firestore value on first snapshot when no local entry exists', () => {
+    const getCapture = renderProviderWithCapture()
+    fireAuth()
+    fireSnapshot({ editorFontSize: 'small' })
+
+    expect(localStorage.getItem('pref_editor_font_size')).toBe('small')
+    expect(getCapture()?.editorFontSize).toBe('small')
+  })
+
+  it('does NOT overwrite localStorage with Firestore value when a local entry already exists', () => {
+    localStorage.setItem('pref_editor_font_size', 'large')
+
+    const getCapture = renderProviderWithCapture()
+    fireAuth()
+    fireSnapshot({ editorFontSize: 'small' })
+
+    // localStorage must still be 'large', not overwritten by Firestore
+    expect(localStorage.getItem('pref_editor_font_size')).toBe('large')
+    // Context keeps the local value
+    expect(getCapture()?.editorFontSize).toBe('large')
+  })
+
+  it('updateEditorFontSize writes to localStorage and does NOT call Firestore updateDoc', async () => {
+    const getCapture = renderProviderWithCapture()
+    fireAuth()
+    fireSnapshot({})
+
+    await act(async () => {
+      await getCapture()?.updateEditorFontSize('small')
+    })
+
+    expect(localStorage.getItem('pref_editor_font_size')).toBe('small')
+    // updateDoc must NOT have been called for font size — only the timezone call is allowed
+    const fontSizeUpdateCalls = mockUpdateDoc.mock.calls.filter(([, fields]) => {
+      const f = fields as Record<string, unknown>
+      return 'editorFontSize' in f
+    })
+    expect(fontSizeUpdateCalls).toHaveLength(0)
+  })
+
+  it('updateEditorFontSize updates the context state immediately', async () => {
+    const getCapture = renderProviderWithCapture()
+    fireAuth()
+    fireSnapshot({})
+
+    await act(async () => {
+      await getCapture()?.updateEditorFontSize('large')
+    })
+
+    expect(getCapture()?.editorFontSize).toBe('large')
   })
 })

@@ -1,4 +1,4 @@
-import { NavLink, Link, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, type User } from 'firebase/auth'
 import { format } from 'date-fns'
@@ -84,14 +84,6 @@ export default function SideNav() {
 
       {/* Secondary links */}
       <div className="mt-2 flex flex-col gap-0.5">
-        <Link
-          to="/trash"
-          className="text-on-surface-variant/60 hover:text-on-surface-variant hover:bg-surface-container flex items-center gap-3 rounded-xl px-3 py-2 text-xs transition-colors"
-        >
-          <span className="material-symbols-outlined text-[18px]">delete</span>
-          <span>Trash</span>
-        </Link>
-
         <button
           onClick={openSearch}
           className="text-on-surface-variant hover:bg-surface-container flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors"

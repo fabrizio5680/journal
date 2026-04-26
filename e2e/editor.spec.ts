@@ -273,9 +273,8 @@ test.describe('Editor', () => {
     expect(cursorClear).toBe(true)
   })
 
-  test('Scenario 5: font size cycle button cycles small→medium→large→small, persisted to Firestore', async ({
+  test('Scenario 5: font size cycle button cycles small→medium→large→small, persisted to localStorage', async ({
     page,
-    request,
   }) => {
     const editor = await getEditorOrSkip(page)
     await expect(editor).toBeVisible({ timeout: 5000 })
@@ -296,17 +295,9 @@ test.describe('Editor', () => {
       timeout: 3000,
     })
 
-    // Confirm final state persisted to Firestore user doc
-    await page.waitForTimeout(500)
-    const userDocUrl = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${testUid}`
-    const res = await request.get(userDocUrl, {
-      headers: { Authorization: `Bearer ${testIdToken}` },
-    })
-    expect(res.ok()).toBeTruthy()
-    const body = (await res.json()) as {
-      fields?: { editorFontSize?: { stringValue?: string } }
-    }
-    expect(body.fields?.editorFontSize?.stringValue).toBe('small')
+    // Confirm final state persisted to localStorage (device-local, not Firestore)
+    const stored = await page.evaluate(() => localStorage.getItem('pref_editor_font_size'))
+    expect(stored).toBe('small')
   })
 
   test('Scenario 7: scripture reference — add ref, chip appears, popover shows verse text', async ({

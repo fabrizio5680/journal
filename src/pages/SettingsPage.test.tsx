@@ -376,6 +376,14 @@ describe('SettingsPage', () => {
     })
   })
 
+  it('renders "Editor Text Size (this device)" label', () => {
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false })
+
+    expect(screen.getByText('Editor Text Size (this device)')).toBeInTheDocument()
+  })
+
   it('sign out calls signOut and navigates to /login', async () => {
     renderPage()
     fireAuth()

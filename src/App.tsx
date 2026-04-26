@@ -14,7 +14,6 @@ import TodayPage from '@/pages/TodayPage'
 import HistoryPage from '@/pages/HistoryPage'
 import InsightsPage from '@/pages/InsightsPage'
 import SettingsPage from '@/pages/SettingsPage'
-import TrashPage from '@/pages/TrashPage'
 import EntryPage from '@/pages/EntryPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import UpdateBanner from '@/components/ui/UpdateBanner'
@@ -63,7 +62,6 @@ export default function App() {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/insights" element={<InsightsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/trash" element={<TrashPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

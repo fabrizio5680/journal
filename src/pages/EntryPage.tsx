@@ -30,7 +30,7 @@ export default function EntryPage() {
 function EntryEditorView({ date }: { date: string }) {
   usePageTitle(format(parseISO(date), 'MMMM d, yyyy'))
   const navigate = useNavigate()
-  const { entry, isLoading, markDirty, save, deleteEntry } = useEntry(date)
+  const { entry, isLoading, markDirty, save } = useEntry(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
@@ -43,7 +43,6 @@ function EntryEditorView({ date }: { date: string }) {
   const [typingStarted, setTypingStarted] = useState(false)
 
   const wordCount = typingStarted ? liveWordCount : (entry?.wordCount ?? 0)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const {
@@ -143,12 +142,6 @@ function EntryEditorView({ date }: { date: string }) {
     [save],
   )
 
-  const handleDeleteConfirm = useCallback(async () => {
-    await deleteEntry()
-    setShowDeleteConfirm(false)
-    navigate('/history')
-  }, [deleteEntry, navigate])
-
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
@@ -180,15 +173,6 @@ function EntryEditorView({ date }: { date: string }) {
           <span className="text-on-surface-variant flex-1 text-sm">
             {format(parseISO(date), 'EEEE, MMMM d, yyyy')}
           </span>
-          {entry && (
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              aria-label="More options"
-              className="hover:bg-surface-container text-on-surface-variant flex h-9 w-9 items-center justify-center rounded-full transition-colors"
-            >
-              <span className="material-symbols-outlined text-[20px]">more_vert</span>
-            </button>
-          )}
         </div>
 
         <ScriptureBar
@@ -237,35 +221,6 @@ function EntryEditorView({ date }: { date: string }) {
         fontSize={editorFontSize}
         onFontSizeChange={updateEditorFontSize}
       />
-
-      {showDeleteConfirm && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm"
-        >
-          <div className="bg-surface-container-lowest w-full max-w-sm rounded-[2rem] p-8 shadow-xl">
-            <h2 className="text-on-surface mb-2 text-xl font-bold">Move to Trash?</h2>
-            <p className="text-on-surface-variant mb-8 text-sm leading-relaxed">
-              This entry will be permanently deleted after 30 days.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="bg-surface-container text-on-surface rounded-full px-6 py-3 text-sm font-medium transition-colors hover:brightness-95"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => void handleDeleteConfirm()}
-                className="bg-error text-on-error rounded-full px-6 py-3 text-sm font-bold transition-colors hover:brightness-95"
-              >
-                Move to Trash
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   )
 }
