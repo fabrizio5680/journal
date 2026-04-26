@@ -94,7 +94,11 @@ describe('ScriptureChip', () => {
     await waitFor(() => {
       // The footer shows "John 3:16 · NLT" — use exact match on the footer paragraph
       const footerEl = screen.getByText((_, el) => {
-        return el?.tagName === 'P' && !!el.textContent?.includes('John 3:16') && !!el.textContent?.includes('NLT')
+        return (
+          el?.tagName === 'P' &&
+          !!el.textContent?.includes('John 3:16') &&
+          !!el.textContent?.includes('NLT')
+        )
       })
       expect(footerEl).toBeInTheDocument()
     })
