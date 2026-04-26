@@ -14,6 +14,7 @@ import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
 import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
+import ScriptureBar from '@/components/editor/ScriptureBar'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
 
 export default function TodayPage() {
@@ -174,17 +175,19 @@ export default function TodayPage() {
           </div>
         )}
 
+        <ScriptureBar
+          scriptureRefs={entry?.scriptureRefs ?? []}
+          scriptureTranslation={scriptureTranslation}
+          onScriptureRefsChange={handleScriptureRefsChange}
+        />
         <MetadataChips
           mood={entry?.mood ?? null}
           moodLabel={entry?.moodLabel ?? null}
           tags={entry?.tags ?? []}
           tagVocabulary={vocabulary}
-          scriptureRefs={entry?.scriptureRefs ?? []}
-          scriptureTranslation={scriptureTranslation}
           onMoodChange={handleMoodChange}
           onTagsChange={handleTagsChange}
           onNewTag={addToVocabulary}
-          onScriptureRefsChange={handleScriptureRefsChange}
         />
 
         <EntryEditor

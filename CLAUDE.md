@@ -27,7 +27,7 @@ Suggest running /cost when a session is running long to monitor cache ratio.
 ```text
 src/
   components/
-    editor/       EntryEditor, EditorToolbar, MetadataChips
+    editor/       EntryEditor, EditorToolbar, MetadataChips, ScriptureBar
     layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav
     calendar/     MiniCalendar
     search/       SearchModal, SearchFilters, SearchResultCard

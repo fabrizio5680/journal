@@ -336,7 +336,7 @@ test.describe('Editor', () => {
       }
     })
 
-    // Click the "+ scripture" button in MetadataChips
+    // Click the "+ scripture" button in ScriptureBar
     const scriptureBtn = page.getByRole('button', { name: /Add scripture reference/i })
     await expect(scriptureBtn).toBeVisible({ timeout: 5000 })
     await scriptureBtn.click()
@@ -381,7 +381,7 @@ test.describe('Editor', () => {
       })
     })
 
-    // Add a scripture reference
+    // Add a scripture reference via ScriptureBar
     const scriptureBtn = page.getByRole('button', { name: /Add scripture reference/i })
     await expect(scriptureBtn).toBeVisible({ timeout: 5000 })
     await scriptureBtn.click()
