@@ -47,26 +47,35 @@ export function useScriptureRef(
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let active = true
+
     if (!passageId) {
       Promise.resolve().then(() => {
+        if (!active) return
         setText(null)
         setIsLoading(false)
         setError(null)
       })
-      return
+      return () => {
+        active = false
+      }
     }
 
     const fresh = readCache(passageId, translation)
     if (fresh) {
       Promise.resolve(fresh).then((v) => {
+        if (!active) return
         setText(v)
         setIsLoading(false)
         setError(null)
       })
-      return
+      return () => {
+        active = false
+      }
     }
 
     Promise.resolve().then(() => {
+      if (!active) return
       setIsLoading(true)
       setError(null)
     })
@@ -74,10 +83,13 @@ export function useScriptureRef(
     const apiKey = (import.meta.env.VITE_BIBLE_API_KEY as string | undefined)?.trim()
     if (!apiKey) {
       Promise.resolve().then(() => {
+        if (!active) return
         setIsLoading(false)
         setError('Bible API key not configured.')
       })
-      return
+      return () => {
+        active = false
+      }
     }
 
     const bibleId = BIBLE_IDS[translation] ?? BIBLE_IDS.NLT
@@ -92,15 +104,21 @@ export function useScriptureRef(
         return res.json() as Promise<{ data: { content: string } }>
       })
       .then((data) => {
+        if (!active) return
         const fetched = data.data.content.trim()
         writeCache(passageId, translation, fetched)
         setText(fetched)
         setIsLoading(false)
       })
       .catch(() => {
+        if (!active) return
         setIsLoading(false)
         setError('Could not load verse text.')
       })
+
+    return () => {
+      active = false
+    }
   }, [passageId, translation])
 
   return { text, isLoading, error }
