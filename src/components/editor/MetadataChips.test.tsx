@@ -9,11 +9,14 @@ describe('MetadataChips', () => {
     moodLabel: null,
     tags: [] as string[],
     tagVocabulary: [] as string[],
+    scriptureRefs: [] as import('@/types').ScriptureRef[],
+    scriptureTranslation: 'NLT' as const,
     onMoodClick: vi.fn(),
     onTagClick: vi.fn(),
     onMoodChange: vi.fn(),
     onTagsChange: vi.fn(),
     onNewTag: vi.fn(),
+    onScriptureRefsChange: vi.fn(),
   }
 
   it('renders mood chip placeholder when mood is null', () => {

@@ -127,6 +127,13 @@ export default function TodayPage() {
     [save],
   )
 
+  const handleScriptureRefsChange = useCallback(
+    async (scriptureRefs: import('@/types').ScriptureRef[]) => {
+      await save({ scriptureRefs })
+    },
+    [save],
+  )
+
   const handleDeleteConfirm = useCallback(async () => {
     await deleteEntry()
     setShowDeleteConfirm(false)
@@ -175,9 +182,12 @@ export default function TodayPage() {
           moodLabel={entry?.moodLabel ?? null}
           tags={entry?.tags ?? []}
           tagVocabulary={vocabulary}
+          scriptureRefs={entry?.scriptureRefs ?? []}
+          scriptureTranslation={scriptureTranslation}
           onMoodChange={handleMoodChange}
           onTagsChange={handleTagsChange}
           onNewTag={addToVocabulary}
+          onScriptureRefsChange={handleScriptureRefsChange}
         />
 
         <EntryEditor

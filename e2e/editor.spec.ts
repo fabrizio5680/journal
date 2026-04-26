@@ -308,4 +308,120 @@ test.describe('Editor', () => {
     }
     expect(body.fields?.editorFontSize?.stringValue).toBe('small')
   })
+
+  test('Scenario 7: scripture reference — add ref, chip appears, popover shows verse text', async ({
+    page,
+  }) => {
+    // Intercept Bible API calls so the test is fully offline-capable
+    await page.route('**/rest.api.bible/**', (route) => {
+      const url = route.request().url()
+      // Validation call from ScriptureRefInput (returns reference name)
+      // Verse text fetch from useScriptureRef (returns content)
+      if (url.includes('/verses/') || url.includes('/passages/')) {
+        void route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              reference: 'John 3:16',
+              content: 'For God so loved the world that he gave his one and only Son.',
+            },
+          }),
+        })
+      } else {
+        void route.continue()
+      }
+    })
+
+    // Navigate to today's entry page (TodayPage redirects to /entry/:date)
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+
+    // Click the "+ scripture" button in MetadataChips
+    const scriptureBtn = page.getByRole('button', { name: /Add scripture reference/i })
+    await expect(scriptureBtn).toBeVisible({ timeout: 5000 })
+    await scriptureBtn.click()
+
+    // Type the reference into the input that appears
+    const refInput = page.getByPlaceholder('e.g. John 3:16 or Psalm 23:1-4')
+    await expect(refInput).toBeVisible({ timeout: 3000 })
+    await refInput.fill('John 3:16')
+    await page.keyboard.press('Enter')
+
+    // The chip should appear with the reference text returned by the API
+    const chip = page.getByRole('button', { name: /Show verse: John 3:16/i })
+    await expect(chip).toBeVisible({ timeout: 5000 })
+
+    // Click the chip → popover with verse text
+    await chip.click()
+    await expect(
+      page.getByText('For God so loved the world that he gave his one and only Son.'),
+    ).toBeVisible({ timeout: 5000 })
+  })
+
+  test('Scenario 8: scripture reference — ref persists after navigating away and back', async ({
+    page,
+    request,
+  }) => {
+    const today = format(new Date(), 'yyyy-MM-dd')
+
+    // Intercept Bible API calls
+    await page.route('**/rest.api.bible/**', (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            reference: 'Romans 8:28',
+            content: 'And we know that in all things God works for the good of those who love him.',
+          },
+        }),
+      })
+    })
+
+    // Add a scripture reference
+    const scriptureBtn = page.getByRole('button', { name: /Add scripture reference/i })
+    await expect(scriptureBtn).toBeVisible({ timeout: 5000 })
+    await scriptureBtn.click()
+
+    const refInput = page.getByPlaceholder('e.g. John 3:16 or Psalm 23:1-4')
+    await expect(refInput).toBeVisible({ timeout: 3000 })
+    await refInput.fill('Romans 8:28')
+    await page.keyboard.press('Enter')
+
+    // Wait for chip to appear
+    await expect(page.getByRole('button', { name: /Show verse: Romans 8:28/i })).toBeVisible({
+      timeout: 5000,
+    })
+
+    // Wait for auto-save (1.5s debounce + buffer)
+    await page.waitForTimeout(2500)
+
+    // Verify it was persisted to Firestore emulator
+    const docUrl = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${testUid}/entries/${today}`
+    const res = await request.get(docUrl, {
+      headers: { Authorization: `Bearer ${testIdToken}` },
+    })
+    expect(res.ok()).toBeTruthy()
+    const body = (await res.json()) as {
+      fields?: {
+        scriptureRefs?: {
+          arrayValue?: { values?: Array<{ mapValue?: { fields?: Record<string, unknown> } }> }
+        }
+      }
+    }
+    const refs = body.fields?.scriptureRefs?.arrayValue?.values ?? []
+    expect(refs.length).toBeGreaterThan(0)
+
+    // Navigate away then back
+    await page.goto('/history')
+    await expect(page).toHaveURL('/history', { timeout: 5000 })
+
+    await page.goto(`/entry/${today}`)
+    await expect(page).toHaveURL(`/entry/${today}`, { timeout: 5000 })
+
+    // Chip should still be visible after reloading the entry
+    await expect(page.getByRole('button', { name: /Show verse: Romans 8:28/i })).toBeVisible({
+      timeout: 5000,
+    })
+  })
 })
