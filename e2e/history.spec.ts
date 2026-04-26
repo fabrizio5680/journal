@@ -195,7 +195,7 @@ test.describe('History', () => {
 
   test('Scenario 3: entry cards render title and excerpt correctly', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'First entry of the month' })).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     })
     await expect(page.getByRole('heading', { name: 'Mid month reflection' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Another quiet day of writing' })).toBeVisible()

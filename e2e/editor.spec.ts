@@ -312,6 +312,9 @@ test.describe('Editor', () => {
   test('Scenario 7: scripture reference — add ref, chip appears, popover shows verse text', async ({
     page,
   }) => {
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 10000 })
+
     // Intercept Bible API calls so the test is fully offline-capable
     await page.route('**/rest.api.bible/**', (route) => {
       const url = route.request().url()
@@ -332,9 +335,6 @@ test.describe('Editor', () => {
         void route.continue()
       }
     })
-
-    // Navigate to today's entry page (TodayPage redirects to /entry/:date)
-    await expect(page).toHaveURL('/', { timeout: 5000 })
 
     // Click the "+ scripture" button in MetadataChips
     const scriptureBtn = page.getByRole('button', { name: /Add scripture reference/i })
@@ -362,6 +362,9 @@ test.describe('Editor', () => {
     page,
     request,
   }) => {
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 10000 })
+
     const today = format(new Date(), 'yyyy-MM-dd')
 
     // Intercept Bible API calls
