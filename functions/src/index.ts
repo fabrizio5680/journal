@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto'
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
-import { defineSecret, defineString } from 'firebase-functions/params'
+import { defineSecret } from 'firebase-functions/params'
 import { initializeApp, getApps } from 'firebase-admin/app'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
@@ -15,7 +15,7 @@ if (getApps().length === 0) {
 
 const ALGOLIA_APP_ID = defineSecret('ALGOLIA_APP_ID')
 const ALGOLIA_SEARCH_ONLY_KEY = defineSecret('ALGOLIA_SEARCH_ONLY_KEY')
-const APP_BASE_URL = defineString('APP_BASE_URL', { default: 'https://journal-manna.web.app' })
+const APP_BASE_URL = 'https://journal-manna.web.app'
 
 const FUNCTIONS_REGION = 'europe-west2'
 const SEARCH_INDEX_NAME = 'journal_entries'
@@ -129,7 +129,7 @@ export const sendDailyReminders = onSchedule(
         return
       }
 
-      const baseUrl = APP_BASE_URL.value()
+      const baseUrl = APP_BASE_URL
       const batchResponse = await messaging.sendEach(
         tokens.map((token) => buildReminderMessage(token, baseUrl)),
       )
