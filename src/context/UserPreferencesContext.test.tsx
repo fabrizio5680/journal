@@ -135,6 +135,53 @@ describe('UserPreferencesContext — timezone refresh', () => {
   })
 })
 
+describe('UserPreferencesContext — spellcheckEnabled', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    snapshotCallback = null
+    authCallback = null
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+  })
+
+  it('defaults spellcheckEnabled to true when localStorage has no pref_spellcheck', () => {
+    const getCapture = renderProviderWithCapture()
+    expect(getCapture()?.spellcheckEnabled).toBe(true)
+  })
+
+  it('reads spellcheckEnabled as false when localStorage has pref_spellcheck = "false"', () => {
+    localStorage.setItem('pref_spellcheck', 'false')
+    const getCapture = renderProviderWithCapture()
+    expect(getCapture()?.spellcheckEnabled).toBe(false)
+  })
+
+  it('updateSpellcheck(false) writes "false" to localStorage and updates state', async () => {
+    const getCapture = renderProviderWithCapture()
+
+    await act(async () => {
+      getCapture()?.updateSpellcheck(false)
+    })
+
+    expect(localStorage.getItem('pref_spellcheck')).toBe('false')
+    expect(getCapture()?.spellcheckEnabled).toBe(false)
+  })
+
+  it('updateSpellcheck(true) writes "true" to localStorage and updates state', async () => {
+    localStorage.setItem('pref_spellcheck', 'false')
+    const getCapture = renderProviderWithCapture()
+
+    await act(async () => {
+      getCapture()?.updateSpellcheck(true)
+    })
+
+    expect(localStorage.getItem('pref_spellcheck')).toBe('true')
+    expect(getCapture()?.spellcheckEnabled).toBe(true)
+  })
+})
+
 describe('UserPreferencesContext — editorFontSize localStorage', () => {
   beforeEach(() => {
     vi.clearAllMocks()

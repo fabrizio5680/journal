@@ -10,3 +10,12 @@ vi.mock('@/lib/firebase', () => ({
   db: {},
   default: {},
 }))
+
+// jsdom does not implement window.matchMedia — provide a minimal stub
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: vi.fn().mockReturnValue({ matches: false }),
+  })
+}

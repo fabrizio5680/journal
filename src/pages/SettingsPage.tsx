@@ -8,6 +8,7 @@ import { auth, db, messagingPromise } from '@/lib/firebase'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { isMobileDevice } from '@/lib/device'
 
 type Translation = 'NLT' | 'MSG' | 'ESV'
 
@@ -70,8 +71,14 @@ export default function SettingsPage() {
   usePageTitle('Settings')
   const [user, setUser] = useState<User | null>(null)
   const navigate = useNavigate()
-  const { grainEnabled, scriptureTranslation, editorFontSize, updateEditorFontSize } =
-    useUserPreferences()
+  const {
+    grainEnabled,
+    scriptureTranslation,
+    editorFontSize,
+    updateEditorFontSize,
+    spellcheckEnabled,
+    updateSpellcheck,
+  } = useUserPreferences()
 
   const [reminderEnabled, setReminderEnabled] = useState(false)
   const [reminderTime, setReminderTime] = useState('20:00')
@@ -282,6 +289,18 @@ export default function SettingsPage() {
             </div>
           </SettingsRow>
         </div>
+        {!isMobileDevice() && (
+          <div className="border-outline-variant/20 mt-4 border-t pt-4">
+            <SettingsRow icon="spellcheck" label="Spell Check">
+              <Toggle
+                id="spellcheck-toggle"
+                label="Spell Check"
+                enabled={spellcheckEnabled}
+                onChange={updateSpellcheck}
+              />
+            </SettingsRow>
+          </div>
+        )}
       </SettingsSection>
 
       {/* Scripture */}

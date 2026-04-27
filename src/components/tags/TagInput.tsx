@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 
 import Chip from '@/components/ui/Chip'
+import { useUserPreferences } from '@/context/UserPreferencesContext'
+import { isMobileDevice } from '@/lib/device'
 
 interface TagInputProps {
   tags: string[]
@@ -17,6 +19,7 @@ function normalizeTag(raw: string): string {
 }
 
 export default function TagInput({ tags, vocabulary, onChange, onNewTag }: TagInputProps) {
+  const { spellcheckEnabled } = useUserPreferences()
   const [inputValue, setInputValue] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -82,6 +85,7 @@ export default function TagInput({ tags, vocabulary, onChange, onNewTag }: TagIn
             type="text"
             value={inputValue}
             placeholder="Add tag…"
+            spellCheck={!isMobileDevice() && spellcheckEnabled}
             className="text-on-surface placeholder:text-outline-variant/40 min-w-[80px] flex-1 bg-transparent text-xs outline-none"
             onChange={(e) => {
               setInputValue(e.target.value)

@@ -8,6 +8,7 @@ import Heading from '@tiptap/extension-heading'
 import type { Editor } from '@tiptap/core'
 
 import { useUserPreferences } from '@/context/UserPreferencesContext'
+import { isMobileDevice } from '@/lib/device'
 
 const DEFAULT_PLACEHOLDER = 'The silence this morning feels different...'
 
@@ -39,7 +40,7 @@ export default function EntryEditor({
   onEditorReady,
   placeholder,
 }: EntryEditorProps) {
-  const { editorFontSize } = useUserPreferences()
+  const { editorFontSize, spellcheckEnabled } = useUserPreferences()
   const fontSizeClass = FONT_SIZE_CLASS[editorFontSize] ?? FONT_SIZE_CLASS.medium
 
   const editor = useEditor({
@@ -48,6 +49,7 @@ export default function EntryEditor({
       attributes: {
         class:
           'outline-none bg-transparent leading-[1.9] font-light text-on-surface min-h-[60vh] w-full font-display',
+        spellcheck: isMobileDevice() ? 'false' : spellcheckEnabled ? 'true' : 'false',
       },
       // Keep cursor above the fixed BottomNav on mobile (nav ≈ 72px tall).
       // scrollThreshold triggers a scroll before the cursor enters the nav zone;

@@ -4,6 +4,16 @@ import userEvent from '@testing-library/user-event'
 
 import TagInput from './TagInput'
 
+let mockSpellcheckEnabled = true
+
+vi.mock('@/context/UserPreferencesContext', () => ({
+  useUserPreferences: () => ({ spellcheckEnabled: mockSpellcheckEnabled }),
+}))
+
+vi.mock('@/lib/device', () => ({
+  isMobileDevice: () => false,
+}))
+
 describe('TagInput', () => {
   const defaultProps = {
     tags: ['gratitude'],
@@ -54,5 +64,20 @@ describe('TagInput', () => {
     const input = screen.getByPlaceholderText('Add tag…')
     await userEvent.type(input, 'sunset')
     expect(screen.getByText('Create tag: sunset')).toBeInTheDocument()
+  })
+
+  it('input has spellCheck=true when spellcheckEnabled is true and not mobile', () => {
+    mockSpellcheckEnabled = true
+    render(<TagInput {...defaultProps} tags={[]} />)
+    const input = screen.getByPlaceholderText('Add tag…')
+    // React maps spellCheck={true} to the "spellcheck" HTML attribute as "true"
+    expect(input.getAttribute('spellcheck')).toBe('true')
+  })
+
+  it('input has spellCheck=false when spellcheckEnabled is false', () => {
+    mockSpellcheckEnabled = false
+    render(<TagInput {...defaultProps} tags={[]} />)
+    const input = screen.getByPlaceholderText('Add tag…')
+    expect(input.getAttribute('spellcheck')).toBe('false')
   })
 })

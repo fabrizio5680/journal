@@ -43,7 +43,7 @@ src/
                   UserPreferencesContext, EditorControlsContext
   hooks/          useEntry, useEntryDates, useStreak, useDictation,
                   useSearch, useInsights, useScriptureRef
-  lib/            firebase, firestore, algolia, tiptap, scriptureParser
+  lib/            firebase, firestore, algolia, tiptap, scriptureParser, device
   types/          index.ts
   pages/          TodayPage, EntryPage, HistoryPage, InsightsPage, SettingsPage
   styles/         globals.css
@@ -102,10 +102,11 @@ VITE_FIREBASE_VAPID_KEY=
 
 ## Device-local Storage
 
-| Key                     | Values                         | Description                                                                                                                                                                                                                                                                      |
-| ----------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pref_editor_font_size` | `small` \| `medium` \| `large` | Editor font size preference — device-local, never synced via Firestore. Seeded once from Firestore `editorFontSize` field on first snapshot if the key is absent. After that, Firestore `editorFontSize` is ignored and never written to (field may still exist in legacy docs). |
-| `scripture_<T>_<date>`  | JSON `{ text, reference }`     | Daily verse cache per translation and date.                                                                                                                                                                                                                                      |
+| Key                     | Values                         | Description                                                                                                                                                   |
+| ----------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pref_editor_font_size` | `small` \| `medium` \| `large` | Editor font size — device-local, never synced via Firestore. Seeded once from Firestore on first snapshot if absent; ignored and never written to after that. |
+| `pref_spellcheck`       | `true` \| `false`              | Spellcheck enabled — device-local. Default `true`. Always `false` on mobile regardless of setting.                                                            |
+| `scripture_<T>_<date>`  | JSON `{ text, reference }`     | Daily verse cache per translation and date.                                                                                                                   |
 
 `UserPreferencesContext` manages `pref_editor_font_size`: initializes state from localStorage on mount (before Firestore arrives), seeds from Firestore on first snapshot when absent, and writes only to localStorage via `updateEditorFontSize` — no Firestore `updateDoc` call for font size.
 

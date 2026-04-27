@@ -111,3 +111,47 @@ test.describe('Settings — editor font size (device-local)', () => {
     expect(storedAfterReload).toBe('large')
   })
 })
+
+test.describe('Settings — spellcheck toggle (desktop only)', () => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    const email = testEmail(testInfo.project.name)
+    await clearTestUser(email)
+    await createEmulatorUser(email)
+    await page.goto('/login')
+    await signInAsTestUser(page, email)
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+  })
+
+  test('toggling spellcheck off in Settings sets spellcheck="false" on editor contenteditable', async ({
+    page,
+  }) => {
+    // Navigate to Settings; skip if running on a touch (coarse pointer) device config
+    await page.goto('/settings')
+    await expect(page).toHaveURL('/settings', { timeout: 5000 })
+
+    // The Spell Check toggle is only rendered on non-mobile (pointer: fine) devices.
+    // Skip the test gracefully if the toggle is not present in this environment.
+    const spellcheckToggle = page.getByRole('switch', { name: /spell check/i })
+    const isVisible = await spellcheckToggle.isVisible().catch(() => false)
+    test.skip(!isVisible, 'Spell Check toggle not rendered on this device/viewport configuration')
+
+    // Default should be ON (aria-checked="true")
+    await expect(spellcheckToggle).toHaveAttribute('aria-checked', 'true')
+
+    // Toggle it OFF
+    await spellcheckToggle.click()
+    await expect(spellcheckToggle).toHaveAttribute('aria-checked', 'false')
+
+    // Confirm localStorage was updated
+    const stored = await page.evaluate(() => localStorage.getItem('pref_spellcheck'))
+    expect(stored).toBe('false')
+
+    // Navigate to today's entry and verify the editor has spellcheck="false"
+    await page.goto('/')
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+
+    const editor = page.locator('main [contenteditable="true"], main .ProseMirror').first()
+    await expect(editor).toBeVisible({ timeout: 5000 })
+    await expect(editor).toHaveAttribute('spellcheck', 'false')
+  })
+})
