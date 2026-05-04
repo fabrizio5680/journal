@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import React from 'react'
 
 import MoodSparkline from './MoodSparkline'
 
@@ -66,6 +67,7 @@ function getFormatter(
   const tooltipEl = container.querySelector('[data-testid="recharts-tooltip"]') as
     | (HTMLElement & { __formatter?: (value: unknown, name: string, props: object) => string })
     | null
+
   return tooltipEl?.__formatter ?? null
 }
 
