@@ -59,13 +59,17 @@ vi.mock('recharts', async (importOriginal) => {
 // Helper: extract the tooltip formatter from the rendered Tooltip mock
 function getFormatter(
   container: HTMLElement,
-): (
-  value: unknown,
-  name: string,
-  props: { payload?: { moodLabel?: string | null } },
-) => string | null {
+):
+  | ((
+      value: unknown,
+      name: string,
+      props: { payload?: { moodLabel?: string | null } },
+    ) => string | null)
+  | null {
   const tooltipEl = container.querySelector('[data-testid="recharts-tooltip"]') as
-    | (HTMLElement & { __formatter?: (value: unknown, name: string, props: object) => string })
+    | (HTMLElement & {
+        __formatter?: (value: unknown, name: string, props: object) => string | null
+      })
     | null
 
   return tooltipEl?.__formatter ?? null
