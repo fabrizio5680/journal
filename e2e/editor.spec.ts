@@ -349,6 +349,50 @@ test.describe('Editor', () => {
     ).toBeVisible({ timeout: 5000 })
   })
 
+  test('Scenario 7b: scripture reference — clicking check button submits ref and chip appears', async ({
+    page,
+  }) => {
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 10000 })
+
+    await page.route('**/rest.api.bible/**', (route) => {
+      const url = route.request().url()
+      if (url.includes('/verses/') || url.includes('/passages/')) {
+        void route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              reference: 'Psalm 23:1',
+              content: 'The Lord is my shepherd; I shall not want.',
+            },
+          }),
+        })
+      } else {
+        void route.continue()
+      }
+    })
+
+    // Open the scripture input
+    const scriptureBtn = page.getByRole('button', { name: /Add scripture reference/i })
+    await expect(scriptureBtn).toBeVisible({ timeout: 5000 })
+    await scriptureBtn.click()
+
+    // Type the reference
+    const refInput = page.getByPlaceholder('e.g. John 3:16 or Psalm 23:1-4')
+    await expect(refInput).toBeVisible({ timeout: 3000 })
+    await refInput.fill('Psalm 23:1')
+
+    // Click the check button instead of pressing Enter
+    const submitBtn = page.getByRole('button', { name: 'Add scripture reference' })
+    await expect(submitBtn).toBeEnabled({ timeout: 2000 })
+    await submitBtn.click()
+
+    // Chip should appear
+    const chip = page.getByRole('button', { name: /Show verse: Psalm 23:1/i })
+    await expect(chip).toBeVisible({ timeout: 5000 })
+  })
+
   test('Scenario 8: scripture reference — ref persists after navigating away and back', async ({
     page,
     request,

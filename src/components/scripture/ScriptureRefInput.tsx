@@ -103,10 +103,20 @@ export default function ScriptureRefInput({ translation, onAdd }: ScriptureRefIn
           onKeyDown={handleKeyDown}
           autoFocus
         />
-        {isLoading && (
+        {isLoading ? (
           <span className="material-symbols-outlined text-on-surface-variant/40 animate-spin text-[16px]">
             progress_activity
           </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void handleSubmit()}
+            aria-label="Add scripture reference"
+            disabled={value.trim() === ''}
+            className={`flex-shrink-0 transition-colors ${value.trim() === '' ? 'text-on-surface-variant/40 cursor-not-allowed' : 'text-primary cursor-pointer'}`}
+          >
+            <span className="material-symbols-outlined text-[16px]">check</span>
+          </button>
         )}
       </div>
       {error && <p className="text-error mt-1 text-[11px]">{error}</p>}

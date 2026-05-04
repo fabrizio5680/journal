@@ -193,6 +193,73 @@ describe('ScriptureRefInput', () => {
     expect(input).toBeDisabled()
   })
 
+  // ---- submit button tests ----
+
+  it('renders the submit button when input is empty', () => {
+    render(<ScriptureRefInput translation="NLT" onAdd={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Add scripture reference' })).toBeInTheDocument()
+  })
+
+  it('submit button is disabled when input is empty', () => {
+    render(<ScriptureRefInput translation="NLT" onAdd={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Add scripture reference' })).toBeDisabled()
+  })
+
+  it('submit button is enabled after typing a value', async () => {
+    const user = userEvent.setup()
+    render(<ScriptureRefInput translation="NLT" onAdd={vi.fn()} />)
+
+    const input = screen.getByPlaceholderText('e.g. John 3:16 or Psalm 23:1-4')
+    await user.type(input, 'John 3:16')
+
+    expect(screen.getByRole('button', { name: 'Add scripture reference' })).toBeEnabled()
+  })
+
+  it('clicking submit button with valid input calls onAdd', async () => {
+    const onAdd = vi.fn()
+    mockFetchSuccess('John 3:16')
+    const user = userEvent.setup()
+    render(<ScriptureRefInput translation="NLT" onAdd={onAdd} />)
+
+    const input = screen.getByPlaceholderText('e.g. John 3:16 or Psalm 23:1-4')
+    await user.type(input, 'John 3:16')
+    await user.click(screen.getByRole('button', { name: 'Add scripture reference' }))
+
+    await waitFor(() => {
+      expect(onAdd).toHaveBeenCalledWith({
+        reference: 'John 3:16',
+        passageId: 'JHN.3.16',
+      } satisfies ScriptureRef)
+    })
+  })
+
+  it('submit button is not visible while loading (spinner shown instead)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockReturnValueOnce(
+      new Promise((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              ok: true,
+              json: () => Promise.resolve({ data: { reference: 'John 3:16' } }),
+            } as unknown as Response),
+          200,
+        ),
+      ),
+    )
+
+    const user = userEvent.setup()
+    render(<ScriptureRefInput translation="NLT" onAdd={vi.fn()} />)
+
+    const input = screen.getByPlaceholderText('e.g. John 3:16 or Psalm 23:1-4')
+    await user.type(input, 'John 3:16')
+    await user.keyboard('{Enter}')
+
+    // While loading: spinner present, submit button absent
+    expect(
+      screen.queryByRole('button', { name: 'Add scripture reference' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('passes the correct passageId for a verse range', async () => {
     const onAdd = vi.fn()
     mockFetchSuccess('Psalm 23:1-4')
