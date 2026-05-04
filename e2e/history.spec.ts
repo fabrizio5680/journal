@@ -166,6 +166,7 @@ test.describe('History', () => {
     // Entry dot should be present on the 1st
     const day1Button = page.getByRole('button', {
       name: `${monthName} 1, ${year}`,
+      exact: true,
     })
     await expect(day1Button).toBeVisible({ timeout: 5000 })
     // The dot is the absolute rounded span inside the calendar date button
@@ -174,6 +175,7 @@ test.describe('History', () => {
     // Verify the 5th also has a dot
     const day5Button = page.getByRole('button', {
       name: `${monthName} 5, ${year}`,
+      exact: true,
     })
     await expect(day5Button.locator('span.absolute.rounded-full')).toBeVisible()
   })

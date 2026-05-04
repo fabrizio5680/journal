@@ -419,7 +419,7 @@ test.describe('Editor', () => {
     })
   })
 
-  test('Today page loads with today\'s date in the document title', async ({ page }) => {
+  test("Today page loads with today's date in the document title", async ({ page }) => {
     // The page title is set to "Today's Entry" by TodayPage via usePageTitle
     await expect(page).toHaveTitle(/today/i, { timeout: 5000 })
 
@@ -427,21 +427,20 @@ test.describe('Editor', () => {
     await expect(page).toHaveURL('/', { timeout: 5000 })
   })
 
-  test('Today button in BottomNav navigates to Today page', async ({ page, isMobile }) => {
+  test('Today button in BottomNav navigates to Today page', async ({ page }) => {
     // Navigate away to history first
     await page.goto('/history')
     await expect(page).toHaveURL('/history', { timeout: 5000 })
 
-    if (isMobile) {
-      // BottomNav is visible on mobile — click the Today link
-      const todayLink = page.getByRole('link', { name: /today/i })
-      await expect(todayLink).toBeVisible({ timeout: 3000 })
-      await todayLink.click()
+    // SideNav Today button visible on md+ (desktop and tablet); BottomNav link on narrow mobile
+    const sideNavBtn = page.getByRole('button', { name: /^today$/i })
+    const bottomNavLink = page.getByRole('link', { name: /^today$/i })
+
+    if (await sideNavBtn.isVisible()) {
+      await sideNavBtn.click()
     } else {
-      // Desktop: use the Today button in SideNav
-      const todayBtn = page.getByRole('button', { name: /^today$/i })
-      await expect(todayBtn).toBeVisible({ timeout: 3000 })
-      await todayBtn.click()
+      await expect(bottomNavLink).toBeVisible({ timeout: 3000 })
+      await bottomNavLink.click()
     }
 
     await expect(page).toHaveURL('/', { timeout: 5000 })

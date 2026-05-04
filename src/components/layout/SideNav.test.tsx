@@ -1,7 +1,10 @@
+import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { format } from 'date-fns'
+
+import SideNav from './SideNav'
 
 import { FocusModeProvider } from '@/context/FocusModeContext'
 import { SearchProvider } from '@/context/SearchContext'
@@ -25,8 +28,6 @@ vi.mock('firebase/firestore', () => ({
   onSnapshot: vi.fn(() => vi.fn()),
 }))
 
-import SideNav from './SideNav'
-
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
     <BrowserRouter>
@@ -38,7 +39,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe('SideNav', () => {
-  it('displays today\'s date using useToday (not a stale module-level value)', () => {
+  it("displays today's date using useToday (not a stale module-level value)", () => {
     const FAKE_NOW = new Date('2026-03-20T10:00:00Z')
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(FAKE_NOW)
