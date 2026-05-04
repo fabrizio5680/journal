@@ -432,11 +432,15 @@ test.describe('Editor', () => {
     await page.goto('/history')
     await expect(page).toHaveURL('/history', { timeout: 5000 })
 
-    // SideNav Today button visible on md+ (desktop and tablet); BottomNav link on narrow mobile
+    // SideNav Today button on md+ (desktop and tablet); BottomNav link on narrow mobile
     const sideNavBtn = page.getByRole('button', { name: /^today$/i })
     const bottomNavLink = page.getByRole('link', { name: /^today$/i })
 
-    if (await sideNavBtn.isVisible()) {
+    const viewport = page.viewportSize()
+    const isMobile = !viewport || viewport.width < 768
+
+    if (!isMobile) {
+      await expect(sideNavBtn).toBeVisible({ timeout: 3000 })
       await sideNavBtn.click()
     } else {
       await expect(bottomNavLink).toBeVisible({ timeout: 3000 })

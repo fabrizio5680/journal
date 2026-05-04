@@ -38,6 +38,7 @@ export default function BottomNav() {
         <NavLink
           to="/"
           end
+          aria-label="Today"
           className={({ isActive }) =>
             clsx(
               'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-200',

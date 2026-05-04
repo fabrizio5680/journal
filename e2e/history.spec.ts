@@ -190,6 +190,7 @@ test.describe('History', () => {
 
     const day1Button = page.getByRole('button', {
       name: `${monthName} 1, ${year}`,
+      exact: true,
     })
     await day1Button.click()
     await expect(page).toHaveURL(`/entry/${year}-${month}-01`, { timeout: 5000 })
