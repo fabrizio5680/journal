@@ -42,7 +42,7 @@ src/
   context/        SaveStatusContext, FocusModeContext, SearchContext,
                   UserPreferencesContext, EditorControlsContext
   hooks/          useEntry, useEntryDates, useStreak, useDictation,
-                  useSearch, useInsights, useScriptureRef
+                  useSearch, useInsights, useScriptureRef, useToday
   lib/            firebase, firestore, algolia, tiptap, scriptureParser, device
   types/          index.ts
   pages/          TodayPage, EntryPage, HistoryPage, InsightsPage, SettingsPage

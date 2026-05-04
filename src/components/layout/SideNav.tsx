@@ -1,13 +1,14 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, type User } from 'firebase/auth'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import clsx from 'clsx'
 
 import { auth } from '@/lib/firebase'
 import { useStreak } from '@/hooks/useStreak'
 import { useFocusMode } from '@/context/FocusModeContext'
 import { useSearch } from '@/context/SearchContext'
+import { useToday } from '@/hooks/useToday'
 
 const NAV_ITEMS = [
   { label: 'Journal', icon: 'edit_note', to: '/' },
@@ -16,11 +17,10 @@ const NAV_ITEMS = [
   { label: 'Settings', icon: 'settings', to: '/settings' },
 ]
 
-const now = new Date()
-
 export default function SideNav() {
   const [user, setUser] = useState<User | null>(null)
   const { current: streakCount } = useStreak()
+  const todayDate = useToday()
   const navigate = useNavigate()
   const { isFocused } = useFocusMode()
   const { openSearch } = useSearch()
@@ -52,12 +52,14 @@ export default function SideNav() {
       {/* Today's date — editorial feature */}
       <div className="border-outline-variant/25 mb-6 border-b px-1 pb-6">
         <p className="text-on-surface-variant mb-0.5 text-[10px] tracking-[0.2em] uppercase">
-          {format(now, 'EEEE')}
+          {format(parseISO(todayDate), 'EEEE')}
         </p>
         <p className="font-display text-primary text-3xl leading-none font-light">
-          {format(now, 'MMMM d')}
+          {format(parseISO(todayDate), 'MMMM d')}
         </p>
-        <p className="text-on-surface-variant/50 mt-0.5 text-[10px]">{format(now, 'yyyy')}</p>
+        <p className="text-on-surface-variant/50 mt-0.5 text-[10px]">
+          {format(parseISO(todayDate), 'yyyy')}
+        </p>
       </div>
 
       {/* Nav items */}

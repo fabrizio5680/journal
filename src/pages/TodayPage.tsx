@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { format } from 'date-fns'
 import type { Editor } from '@tiptap/core'
 
 import { useEntry } from '@/hooks/useEntry'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useToday } from '@/hooks/useToday'
 import { useTagVocabulary } from '@/hooks/useTagVocabulary'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
@@ -18,7 +18,7 @@ import FloatingActionBar from '@/components/fab/FloatingActionBar'
 
 export default function TodayPage() {
   usePageTitle("Today's Entry")
-  const today = format(new Date(), 'yyyy-MM-dd')
+  const today = useToday()
   const { entry, isLoading, markDirty, save } = useEntry(today)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved } = useSaveStatus()

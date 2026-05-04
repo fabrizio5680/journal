@@ -418,4 +418,33 @@ test.describe('Editor', () => {
       timeout: 5000,
     })
   })
+
+  test('Today page loads with today\'s date in the document title', async ({ page }) => {
+    // The page title is set to "Today's Entry" by TodayPage via usePageTitle
+    await expect(page).toHaveTitle(/today/i, { timeout: 5000 })
+
+    // Navigating to / always lands on the Today page
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+  })
+
+  test('Today button in BottomNav navigates to Today page', async ({ page, isMobile }) => {
+    // Navigate away to history first
+    await page.goto('/history')
+    await expect(page).toHaveURL('/history', { timeout: 5000 })
+
+    if (isMobile) {
+      // BottomNav is visible on mobile — click the Today link
+      const todayLink = page.getByRole('link', { name: /today/i })
+      await expect(todayLink).toBeVisible({ timeout: 3000 })
+      await todayLink.click()
+    } else {
+      // Desktop: use the Today button in SideNav
+      const todayBtn = page.getByRole('button', { name: /^today$/i })
+      await expect(todayBtn).toBeVisible({ timeout: 3000 })
+      await todayBtn.click()
+    }
+
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+    await expect(page).toHaveTitle(/today/i, { timeout: 5000 })
+  })
 })
