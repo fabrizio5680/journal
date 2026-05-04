@@ -2,6 +2,7 @@ import { useState } from 'react'
 import clsx from 'clsx'
 
 import { MOODS } from '@/lib/moods'
+import { useFocusMode } from '@/context/FocusModeContext'
 import MoodPicker from '@/components/mood/MoodPicker'
 import TagInput from '@/components/tags/TagInput'
 import ScriptureChip from '@/components/scripture/ScriptureChip'
@@ -35,6 +36,7 @@ export default function MetadataBar({
   scriptureTranslation,
   onScriptureRefsChange,
 }: MetadataBarProps) {
+  const { isFocused } = useFocusMode()
   const [activePicker, setActivePicker] = useState<ActivePicker>(null)
 
   const moodEntry =
@@ -75,97 +77,108 @@ export default function MetadataBar({
   return (
     <div
       data-testid="metadata-bar"
-      className="bg-surface/90 border-outline-variant/10 sticky top-16 z-20 -mx-6 border-b px-6 py-2 backdrop-blur-sm md:top-[50px]"
+      className={clsx(
+        'bg-surface/90 border-outline-variant/10 z-20 border-b py-2 backdrop-blur-sm',
+        // Mobile: sticky within content flow
+        'sticky top-16 -mx-6 px-6',
+        // Desktop: fixed toolbar spanning center panel
+        'md:fixed md:top-0 md:right-0 md:left-64 md:mx-0 md:px-0 xl:right-80',
+        // Focus mode: slide up on desktop
+        'md:transition-[transform,opacity] md:duration-500',
+        isFocused && 'md:pointer-events-none md:-translate-y-full md:opacity-0',
+      )}
     >
-      {/* Chips row */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Mood chip */}
-        <button
-          type="button"
-          onClick={handleMoodClick}
-          className={clsx(
-            'flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-            activePicker === 'mood'
-              ? 'bg-secondary-container text-on-secondary-container'
-              : 'bg-secondary-container/70 text-on-secondary-container hover:bg-secondary-container',
-          )}
-        >
-          {moodEntry ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true">{moodEntry.emoji}</span>
-              <span>{moodLabel ?? moodEntry.label}</span>
-            </span>
-          ) : (
-            '+ mood'
-          )}
-        </button>
-
-        {/* Scripture chips */}
-        {scriptureRefs.map((ref) => (
-          <ScriptureChip
-            key={ref.passageId}
-            ref_={ref}
-            translation={scriptureTranslation}
-            onRemove={() => handleRemoveScriptureRef(ref.passageId)}
-          />
-        ))}
-
-        {/* Add scripture button */}
-        <button
-          type="button"
-          onClick={handleScriptureClick}
-          aria-label="Add scripture reference"
-          className="text-on-surface-variant/40 hover:text-on-surface-variant flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
-        >
-          + scripture
-        </button>
-
-        {/* Tag chips */}
-        {tags.map((tag) => (
-          <span
-            key={tag}
-            className="bg-secondary-container/70 text-on-secondary-container flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium"
+      <div className="md:mx-auto md:max-w-2xl md:px-6">
+        {/* Chips row */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Mood chip */}
+          <button
+            type="button"
+            onClick={handleMoodClick}
+            className={clsx(
+              'flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+              activePicker === 'mood'
+                ? 'bg-secondary-container text-on-secondary-container'
+                : 'bg-secondary-container/70 text-on-secondary-container hover:bg-secondary-container',
+            )}
           >
-            {tag}
-          </span>
-        ))}
+            {moodEntry ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden="true">{moodEntry.emoji}</span>
+                <span>{moodLabel ?? moodEntry.label}</span>
+              </span>
+            ) : (
+              '+ mood'
+            )}
+          </button>
 
-        {/* Add tag button */}
-        <button
-          type="button"
-          onClick={handleTagClick}
-          aria-label="Add tag"
-          className="text-on-surface-variant/40 hover:text-on-surface-variant flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
-        >
-          + tag
-        </button>
+          {/* Scripture chips */}
+          {scriptureRefs.map((ref) => (
+            <ScriptureChip
+              key={ref.passageId}
+              ref_={ref}
+              translation={scriptureTranslation}
+              onRemove={() => handleRemoveScriptureRef(ref.passageId)}
+            />
+          ))}
+
+          {/* Add scripture button */}
+          <button
+            type="button"
+            onClick={handleScriptureClick}
+            aria-label="Add scripture reference"
+            className="text-on-surface-variant/40 hover:text-on-surface-variant flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+          >
+            + scripture
+          </button>
+
+          {/* Tag chips */}
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="bg-secondary-container/70 text-on-secondary-container flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium"
+            >
+              {tag}
+            </span>
+          ))}
+
+          {/* Add tag button */}
+          <button
+            type="button"
+            onClick={handleTagClick}
+            aria-label="Add tag"
+            className="text-on-surface-variant/40 hover:text-on-surface-variant flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+          >
+            + tag
+          </button>
+        </div>
+
+        {/* Inline MoodPicker */}
+        {activePicker === 'mood' && (
+          <div data-testid="mood-picker-inline">
+            <MoodPicker value={mood} label={moodLabel} onChange={handleMoodChange} />
+          </div>
+        )}
+
+        {/* Inline ScriptureRefInput */}
+        {activePicker === 'scripture' && (
+          <div data-testid="scripture-input-inline">
+            <ScriptureRefInput translation={scriptureTranslation} onAdd={handleAddScriptureRef} />
+          </div>
+        )}
+
+        {/* Inline TagInput */}
+        {activePicker === 'tag' && (
+          <div data-testid="tag-input-inline">
+            <TagInput
+              tags={tags}
+              vocabulary={tagVocabulary}
+              onChange={onTagsChange}
+              onNewTag={onNewTag}
+            />
+          </div>
+        )}
       </div>
-
-      {/* Inline MoodPicker */}
-      {activePicker === 'mood' && (
-        <div data-testid="mood-picker-inline">
-          <MoodPicker value={mood} label={moodLabel} onChange={handleMoodChange} />
-        </div>
-      )}
-
-      {/* Inline ScriptureRefInput */}
-      {activePicker === 'scripture' && (
-        <div data-testid="scripture-input-inline">
-          <ScriptureRefInput translation={scriptureTranslation} onAdd={handleAddScriptureRef} />
-        </div>
-      )}
-
-      {/* Inline TagInput */}
-      {activePicker === 'tag' && (
-        <div data-testid="tag-input-inline">
-          <TagInput
-            tags={tags}
-            vocabulary={tagVocabulary}
-            onChange={onTagsChange}
-            onNewTag={onNewTag}
-          />
-        </div>
-      )}
     </div>
   )
 }
