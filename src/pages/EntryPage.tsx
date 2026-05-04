@@ -12,8 +12,7 @@ import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
-import MetadataChips from '@/components/editor/MetadataChips'
-import ScriptureBar from '@/components/editor/ScriptureBar'
+import MetadataBar from '@/components/editor/MetadataBar'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
@@ -172,12 +171,7 @@ function EntryEditorView({ date }: { date: string }) {
           </span>
         </div>
 
-        <ScriptureBar
-          scriptureRefs={entry?.scriptureRefs ?? []}
-          scriptureTranslation={scriptureTranslation}
-          onScriptureRefsChange={handleScriptureRefsChange}
-        />
-        <MetadataChips
+        <MetadataBar
           mood={entry?.mood ?? null}
           moodLabel={entry?.moodLabel ?? null}
           tags={entry?.tags ?? []}
@@ -185,6 +179,9 @@ function EntryEditorView({ date }: { date: string }) {
           onMoodChange={handleMoodChange}
           onTagsChange={handleTagsChange}
           onNewTag={addToVocabulary}
+          scriptureRefs={entry?.scriptureRefs ?? []}
+          scriptureTranslation={scriptureTranslation}
+          onScriptureRefsChange={handleScriptureRefsChange}
         />
 
         <EntryEditor

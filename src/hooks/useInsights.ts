@@ -5,7 +5,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
 
 interface InsightsData {
-  moodByDate: Array<{ date: string; mood: number }>
+  moodByDate: Array<{ date: string; mood: number; moodLabel: string | null }>
   topTags: Array<{ tag: string; count: number }>
   totalEntries: number
   totalWords: number
@@ -44,7 +44,11 @@ export function useInsights(): InsightsData {
         // moodByDate: entries with mood set, sorted ASC for chart display
         const moodByDate = entries
           .filter((e) => e.mood != null)
-          .map((e) => ({ date: e.date as string, mood: e.mood as number }))
+          .map((e) => ({
+            date: e.date as string,
+            mood: e.mood as number,
+            moodLabel: (e.moodLabel as string | null) ?? null,
+          }))
           .sort((a, b) => a.date.localeCompare(b.date))
 
         // topTags: flatten all tags, count occurrences, sort DESC then alpha, top 10

@@ -2,6 +2,7 @@ import { MOODS } from '@/lib/moods'
 
 interface MoodPickerProps {
   value: number | null
+  label: string | null
   onChange: (mood: number | null, label: string | null) => void
 }
 
@@ -16,12 +17,12 @@ const MOOD_PAIRS = MOODS.reduce<(typeof MOODS)[number][][]>((acc, mood) => {
   return acc
 }, [])
 
-export default function MoodPicker({ value, onChange }: MoodPickerProps) {
+export default function MoodPicker({ value, label, onChange }: MoodPickerProps) {
   return (
     <div className="grid grid-cols-2 gap-2 py-2">
       {MOOD_PAIRS.map((pair) =>
         pair.map((mood) => {
-          const isSelected = value === mood.value
+          const isSelected = label !== null ? mood.label === label : value === mood.value
           return (
             <button
               key={mood.label}

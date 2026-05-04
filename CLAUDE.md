@@ -27,7 +27,7 @@ Suggest running /cost when a session is running long to monitor cache ratio.
 ```text
 src/
   components/
-    editor/       EntryEditor, MetadataChips, ScriptureBar
+    editor/       EntryEditor, MetadataBar
     layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav
     calendar/     MiniCalendar
     search/       SearchModal, SearchFilters, SearchResultCard
@@ -112,9 +112,9 @@ VITE_FIREBASE_VAPID_KEY=
 
 ## Reference Docs
 
-| Doc                                            | Contents                                                                                                                                     |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)   | Key architectural decisions — sync, auth, contexts, notifications, scripture                                                                 |
-| [docs/data-model.md](docs/data-model.md)       | Firestore schema for `users` and `entries`, mood mapping; `Entry` has optional `scriptureRefs?: ScriptureRef[]` (`{ reference, passageId }`) |
-| [docs/design-system.md](docs/design-system.md) | Color tokens and component patterns                                                                                                          |
-| [docs/testing.md](docs/testing.md)             | E2E conventions — test emails, emulator seeding, serial mode                                                                                 |
+| Doc | Contents |
+| --- | --- |
+| [docs/architecture.md](docs/architecture.md) | Key architectural decisions — sync, auth, contexts, notifications, scripture |
+| [docs/data-model.md](docs/data-model.md) | Firestore schema for `users` and `entries`, mood mapping; `Entry` stores `mood` (numeric weight 1–5) and `moodLabel` (string — the semantic identifier within a weight pair, two moods share each weight); `Entry` has optional `scriptureRefs?: ScriptureRef[]` (`{ reference, passageId }`) |
+| [docs/design-system.md](docs/design-system.md) | Color tokens and component patterns |
+| [docs/testing.md](docs/testing.md) | E2E conventions — test emails, emulator seeding, serial mode |

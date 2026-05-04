@@ -11,8 +11,7 @@ import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
-import MetadataChips from '@/components/editor/MetadataChips'
-import ScriptureBar from '@/components/editor/ScriptureBar'
+import MetadataBar from '@/components/editor/MetadataBar'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
 
 export default function TodayPage() {
@@ -151,12 +150,7 @@ export default function TodayPage() {
   return (
     <>
       <div className="mx-auto max-w-2xl px-6 pt-4">
-        <ScriptureBar
-          scriptureRefs={entry?.scriptureRefs ?? []}
-          scriptureTranslation={scriptureTranslation}
-          onScriptureRefsChange={handleScriptureRefsChange}
-        />
-        <MetadataChips
+        <MetadataBar
           mood={entry?.mood ?? null}
           moodLabel={entry?.moodLabel ?? null}
           tags={entry?.tags ?? []}
@@ -164,6 +158,9 @@ export default function TodayPage() {
           onMoodChange={handleMoodChange}
           onTagsChange={handleTagsChange}
           onNewTag={addToVocabulary}
+          scriptureRefs={entry?.scriptureRefs ?? []}
+          scriptureTranslation={scriptureTranslation}
+          onScriptureRefsChange={handleScriptureRefsChange}
         />
 
         <EntryEditor

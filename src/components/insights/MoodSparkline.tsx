@@ -12,7 +12,7 @@ import {
 import { MOODS } from '@/lib/moods'
 
 interface Props {
-  data: Array<{ date: string; mood: number }>
+  data: Array<{ date: string; mood: number; moodLabel?: string | null }>
   days: 30 | 90
 }
 
@@ -43,11 +43,14 @@ export default function MoodSparkline({ data, days }: Props) {
         />
         <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10 }} />
         <Tooltip
-          formatter={(value) => {
+          formatter={(value, _name, props) => {
             const numericValue = typeof value === 'number' ? value : Number(value ?? 0)
-            // With multiple moods sharing the same numeric value, use the first
-            // match as the representative label for the chart tooltip.
-            const mood = MOODS.find((m) => m.value === numericValue)
+            const pointLabel = (props.payload as { moodLabel?: string | null } | undefined)
+              ?.moodLabel
+            const mood = pointLabel
+              ? (MOODS.find((m) => m.label === pointLabel) ??
+                MOODS.find((m) => m.value === numericValue))
+              : MOODS.find((m) => m.value === numericValue)
             return mood ? `${mood.emoji} ${mood.label}` : String(value ?? '')
           }}
         />

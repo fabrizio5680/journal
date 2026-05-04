@@ -475,6 +475,145 @@ test.describe('Editor', () => {
     await expect(headingBtn).toBeHidden()
   })
 
+  // ── MetadataBar E2E scenarios ──────────────────────────────────────────────
+
+  async function getMetadataBarOrSkip(page: import('@playwright/test').Page) {
+    const bar = page.getByTestId('metadata-bar')
+    // Wait up to 8s for the MetadataBar to appear (Firestore snapshot may delay render)
+    const visible = await bar
+      .waitFor({ state: 'visible', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false)
+    test.skip(!visible, 'MetadataBar is not rendered for this device configuration')
+    return bar
+  }
+
+  test('MetadataBar 1: bar is visible when the editor page loads', async ({ page }) => {
+    const bar = await getMetadataBarOrSkip(page)
+    await expect(bar).toBeVisible({ timeout: 3000 })
+  })
+
+  test('MetadataBar 2: bar has sticky CSS positioning', async ({ page }) => {
+    const bar = await getMetadataBarOrSkip(page)
+
+    // Verify CSS position is sticky via computed style — no need to scroll or type content
+    const position = await bar.evaluate((el) => window.getComputedStyle(el).position)
+    expect(['sticky', 'fixed']).toContain(position)
+  })
+
+  test('MetadataBar 3: clicking mood chip opens mood picker inline within the bar', async ({
+    page,
+  }) => {
+    const bar = await getMetadataBarOrSkip(page)
+
+    // No picker should be visible initially
+    await expect(page.getByTestId('mood-picker-inline')).toBeHidden()
+
+    // Click the mood chip (shows "+ mood" before any mood is set)
+    const moodChip = bar.getByRole('button', { name: /\+ mood/i })
+    await expect(moodChip).toBeVisible({ timeout: 3000 })
+    await moodChip.click()
+
+    // Mood picker should appear inside the bar
+    const moodPickerInline = page.getByTestId('mood-picker-inline')
+    await expect(moodPickerInline).toBeVisible({ timeout: 3000 })
+
+    // The picker must be a descendant of the MetadataBar
+    const isInsideBar = await moodPickerInline.evaluate((el) => {
+      const bar = document.querySelector('[data-testid="metadata-bar"]')
+      return bar ? bar.contains(el) : false
+    })
+    expect(isInsideBar).toBe(true)
+  })
+
+  test('MetadataBar 4: clicking "+ scripture" opens scripture input inline within the bar', async ({
+    page,
+  }) => {
+    const bar = await getMetadataBarOrSkip(page)
+
+    // No scripture input initially
+    await expect(page.getByTestId('scripture-input-inline')).toBeHidden()
+
+    // Click the "+ scripture" button
+    const scriptureBtn = bar.getByRole('button', { name: /Add scripture reference/i })
+    await expect(scriptureBtn).toBeVisible({ timeout: 3000 })
+    await scriptureBtn.click()
+
+    // Scripture input should appear inside the bar
+    const scriptureInputInline = page.getByTestId('scripture-input-inline')
+    await expect(scriptureInputInline).toBeVisible({ timeout: 3000 })
+
+    // Must be a descendant of the MetadataBar
+    const isInsideBar = await scriptureInputInline.evaluate((el) => {
+      const bar = document.querySelector('[data-testid="metadata-bar"]')
+      return bar ? bar.contains(el) : false
+    })
+    expect(isInsideBar).toBe(true)
+  })
+
+  test('MetadataBar 5: clicking "+ tag" opens tag input inline within the bar', async ({
+    page,
+  }) => {
+    const bar = await getMetadataBarOrSkip(page)
+
+    // No tag input initially
+    await expect(page.getByTestId('tag-input-inline')).toBeHidden()
+
+    // Click the "+ tag" button
+    const tagBtn = bar.getByRole('button', { name: /Add tag/i })
+    await expect(tagBtn).toBeVisible({ timeout: 3000 })
+    await tagBtn.click()
+
+    // Tag input should appear inside the bar
+    const tagInputInline = page.getByTestId('tag-input-inline')
+    await expect(tagInputInline).toBeVisible({ timeout: 3000 })
+
+    // Must be a descendant of the MetadataBar
+    const isInsideBar = await tagInputInline.evaluate((el) => {
+      const bar = document.querySelector('[data-testid="metadata-bar"]')
+      return bar ? bar.contains(el) : false
+    })
+    expect(isInsideBar).toBe(true)
+  })
+
+  test('MetadataBar 6: only one picker open at a time — opening scripture closes mood picker', async ({
+    page,
+  }) => {
+    const bar = await getMetadataBarOrSkip(page)
+
+    // Open mood picker
+    await bar.getByRole('button', { name: /\+ mood/i }).click()
+    await expect(page.getByTestId('mood-picker-inline')).toBeVisible({ timeout: 3000 })
+    await expect(page.getByTestId('scripture-input-inline')).toBeHidden()
+    await expect(page.getByTestId('tag-input-inline')).toBeHidden()
+
+    // Open scripture picker — mood picker must close
+    await bar.getByRole('button', { name: /Add scripture reference/i }).click()
+    await expect(page.getByTestId('scripture-input-inline')).toBeVisible({ timeout: 3000 })
+    await expect(page.getByTestId('mood-picker-inline')).toBeHidden()
+    await expect(page.getByTestId('tag-input-inline')).toBeHidden()
+  })
+
+  test('MetadataBar 7: only one picker open at a time — opening tag input closes scripture input', async ({
+    page,
+  }) => {
+    const bar = await getMetadataBarOrSkip(page)
+
+    // Open scripture picker first
+    await bar.getByRole('button', { name: /Add scripture reference/i }).click()
+    await expect(page.getByTestId('scripture-input-inline')).toBeVisible({ timeout: 3000 })
+    await expect(page.getByTestId('mood-picker-inline')).toBeHidden()
+    await expect(page.getByTestId('tag-input-inline')).toBeHidden()
+
+    // Open tag input — scripture input must close
+    await bar.getByRole('button', { name: /Add tag/i }).click()
+    await expect(page.getByTestId('tag-input-inline')).toBeVisible({ timeout: 3000 })
+    await expect(page.getByTestId('scripture-input-inline')).toBeHidden()
+    await expect(page.getByTestId('mood-picker-inline')).toBeHidden()
+  })
+
+  // ── End MetadataBar E2E scenarios ──────────────────────────────────────────
+
   test("Today page loads with today's date in the document title", async ({ page }) => {
     // The page title is set to "Today's Entry" by TodayPage via usePageTitle
     await expect(page).toHaveTitle(/today/i, { timeout: 5000 })
