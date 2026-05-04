@@ -118,18 +118,6 @@ export default function EntryEditor({
             label="Italic"
             icon="format_italic"
           />
-          <BubbleButton
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            active={editor.isActive('bulletList')}
-            label="Bullet list"
-            icon="format_list_bulleted"
-          />
-          <BubbleButton
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            active={editor.isActive('heading', { level: 2 })}
-            label="Heading 2"
-            icon="title"
-          />
         </div>
       </BubbleMenu>
 

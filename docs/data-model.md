@@ -39,12 +39,20 @@
 
 ## Mood Mapping
 
+The numeric `mood` field (1–5) is stable and unchanged. Each value now maps to **two** biblical-toned moods distinguished by `moodLabel`. Firestore stores `mood` (number) and `moodLabel` (string) separately — the label is the semantic identifier within a pair.
+
 ```ts
+// src/lib/moods.ts — two entries per numeric value
 const MOODS = [
-  { value: 1, emoji: '😔', label: 'Heavy' },
-  { value: 2, emoji: '😐', label: 'Neutral' },
-  { value: 3, emoji: '🙂', label: 'Calm' },
-  { value: 4, emoji: '😊', label: 'Peaceful' },
-  { value: 5, emoji: '🥳', label: 'Radiant' },
+  { value: 1, emoji: '😢', label: 'Sorrowful' },
+  { value: 1, emoji: '😮‍💨', label: 'Weary' },
+  { value: 2, emoji: '😰', label: 'Anxious' },
+  { value: 2, emoji: '🌊', label: 'Unsettled' },
+  { value: 3, emoji: '🌱', label: 'Hopeful' },
+  { value: 3, emoji: '🕊️', label: 'Trusting' },
+  { value: 4, emoji: '😌', label: 'Peaceful' },
+  { value: 4, emoji: '🙏', label: 'Grateful' },
+  { value: 5, emoji: '😄', label: 'Joyful' },
+  { value: 5, emoji: '✨', label: 'Overflowing' },
 ]
 ```

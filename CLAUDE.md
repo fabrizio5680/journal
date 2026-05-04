@@ -17,7 +17,7 @@ Suggest running /cost when a session is running long to monitor cache ratio.
 - Tailwind CSS v4 — CSS-first config, all tokens in `src/styles/globals.css` inside `@theme {}`, no `tailwind.config.ts`
 - React Router v7
 - Firebase 12 (Auth, Firestore, Hosting, Cloud Functions — Node 22)
-- Tiptap v3 — rich text, JSON serialization; extensions: StarterKit, Placeholder, CharacterCount, BubbleMenu, Heading (H2 only)
+- Tiptap v3 — rich text, JSON serialization; extensions: StarterKit, Placeholder, CharacterCount, BubbleMenu, Heading (H2 only); BubbleMenu shows bold + italic only (no persistent toolbar)
 - Algolia — algoliasearch v5 + react-instantsearch v7, secured API keys via Cloud Function
 - date-fns v4, Recharts v3, clsx v2
 - Icons: Material Symbols Outlined | Font: Manrope (both Google Fonts)
@@ -27,7 +27,7 @@ Suggest running /cost when a session is running long to monitor cache ratio.
 ```text
 src/
   components/
-    editor/       EntryEditor, EditorToolbar, MetadataChips, ScriptureBar
+    editor/       EntryEditor, MetadataChips, ScriptureBar
     layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav
     calendar/     MiniCalendar
     search/       SearchModal, SearchFilters, SearchResultCard

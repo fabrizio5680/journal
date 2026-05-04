@@ -35,40 +35,53 @@ describe('MoodSummaryBar', () => {
     expect(screen.getByText('No entries yet this month.')).toBeTruthy()
   })
 
-  it('renders bar and caption for low avg mood (heavy)', () => {
+  it('renders bar and caption for low avg mood (sorrowful)', () => {
     const entries = [makeEntry({ mood: 1 }), makeEntry({ mood: 1 })]
     renderWithProviders(<MoodSummaryBar entries={entries} />)
-    expect(screen.getByText('A heavy month — be gentle with yourself.')).toBeTruthy()
+    expect(screen.getByText('A sorrowful season — He is close to the brokenhearted.')).toBeTruthy()
   })
 
-  it('renders caption for mixed avg mood', () => {
+  it('renders caption for restless avg mood', () => {
     const entries = [makeEntry({ mood: 2 }), makeEntry({ mood: 2 })]
     renderWithProviders(<MoodSummaryBar entries={entries} />)
-    expect(screen.getByText('A mixed month — some light, some shadow.')).toBeTruthy()
+    expect(screen.getByText('A restless season — cast your anxieties on Him.')).toBeTruthy()
   })
 
-  it('renders caption for calm avg mood', () => {
+  it('renders caption for hopeful avg mood', () => {
     const entries = [makeEntry({ mood: 3 }), makeEntry({ mood: 3 })]
     renderWithProviders(<MoodSummaryBar entries={entries} />)
-    expect(screen.getByText('A calm month — steady and grounded.')).toBeTruthy()
+    expect(screen.getByText('A hopeful season — steadfast in trust.')).toBeTruthy()
   })
 
   it('renders caption for peaceful avg mood', () => {
     const entries = [makeEntry({ mood: 4 }), makeEntry({ mood: 4 })]
     renderWithProviders(<MoodSummaryBar entries={entries} />)
-    expect(screen.getByText("A peaceful month — you're finding your rhythm.")).toBeTruthy()
+    expect(
+      screen.getByText('A peaceful season — the peace that surpasses understanding.'),
+    ).toBeTruthy()
   })
 
-  it('renders caption for radiant avg mood', () => {
+  it('renders caption for joyful avg mood', () => {
     const entries = [makeEntry({ mood: 5 }), makeEntry({ mood: 5 })]
     renderWithProviders(<MoodSummaryBar entries={entries} />)
-    expect(screen.getByText('A radiant month — your light is shining.')).toBeTruthy()
+    expect(screen.getByText('A joyful season — overflowing with gratitude.')).toBeTruthy()
   })
 
   it('skips entries with null mood in average calculation', () => {
     const entries = [makeEntry({ mood: null }), makeEntry({ mood: 5 })]
     renderWithProviders(<MoodSummaryBar entries={entries} />)
-    expect(screen.getByText('A radiant month — your light is shining.')).toBeTruthy()
+    expect(screen.getByText('A joyful season — overflowing with gratitude.')).toBeTruthy()
+  })
+
+  it('renders sorrowful caption for avg mood=1 set via Weary label (second pair member)', () => {
+    // Weary shares numeric value=1 with Sorrowful. The caption is driven by numeric avg,
+    // so moodLabel does not affect the caption — value=1 still yields the sorrowful caption.
+    const entries = [
+      makeEntry({ mood: 1, moodLabel: 'Weary' }),
+      makeEntry({ mood: 1, moodLabel: 'Weary' }),
+    ]
+    renderWithProviders(<MoodSummaryBar entries={entries} />)
+    expect(screen.getByText('A sorrowful season — He is close to the brokenhearted.')).toBeTruthy()
   })
 
   it('renders bars for all mood ranges', () => {

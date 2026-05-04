@@ -41,7 +41,7 @@ function MoodFilter({ selectedMoods, onToggleMood }: MoodFilterProps) {
     <>
       {MOODS.map((m) => (
         <button
-          key={m.value}
+          key={m.label}
           onClick={() => onToggleMood(m.value)}
           aria-label={m.label}
           className={clsx(

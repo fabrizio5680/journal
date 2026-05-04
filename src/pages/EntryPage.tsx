@@ -12,7 +12,6 @@ import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
-import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
 import ScriptureBar from '@/components/editor/ScriptureBar'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
@@ -158,9 +157,7 @@ function EntryEditorView({ date }: { date: string }) {
 
   return (
     <>
-      <EditorToolbar editor={editorInstance} />
-
-      <div className="mx-auto max-w-2xl px-6 pt-4 md:pt-14">
+      <div className="mx-auto max-w-2xl px-6 pt-4">
         <div className="mb-6 flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}

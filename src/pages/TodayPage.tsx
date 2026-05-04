@@ -11,7 +11,6 @@ import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
-import EditorToolbar from '@/components/editor/EditorToolbar'
 import MetadataChips from '@/components/editor/MetadataChips'
 import ScriptureBar from '@/components/editor/ScriptureBar'
 import FloatingActionBar from '@/components/fab/FloatingActionBar'
@@ -139,7 +138,7 @@ export default function TodayPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-2xl animate-pulse px-6 pt-14">
+      <div className="mx-auto max-w-2xl animate-pulse px-6 pt-4">
         <div className="bg-surface-container mb-6 h-4 w-32 rounded-xl" />
         <div className="bg-surface-container mb-3 h-8 w-2/3 rounded-xl" />
         <div className="bg-surface-container mb-2 h-5 w-full rounded-xl" />
@@ -151,9 +150,7 @@ export default function TodayPage() {
 
   return (
     <>
-      <EditorToolbar editor={editorInstance} />
-
-      <div className="mx-auto max-w-2xl px-6 pt-4 md:pt-14">
+      <div className="mx-auto max-w-2xl px-6 pt-4">
         <ScriptureBar
           scriptureRefs={entry?.scriptureRefs ?? []}
           scriptureTranslation={scriptureTranslation}

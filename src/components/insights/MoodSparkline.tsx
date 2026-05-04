@@ -45,6 +45,8 @@ export default function MoodSparkline({ data, days }: Props) {
         <Tooltip
           formatter={(value) => {
             const numericValue = typeof value === 'number' ? value : Number(value ?? 0)
+            // With multiple moods sharing the same numeric value, use the first
+            // match as the representative label for the chart tooltip.
             const mood = MOODS.find((m) => m.value === numericValue)
             return mood ? `${mood.emoji} ${mood.label}` : String(value ?? '')
           }}

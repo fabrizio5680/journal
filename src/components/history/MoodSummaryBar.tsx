@@ -35,14 +35,14 @@ export default function MoodSummaryBar({ entries }: MoodSummaryBarProps) {
 
   const caption =
     avg < 2
-      ? 'A heavy month — be gentle with yourself.'
+      ? 'A sorrowful season — He is close to the brokenhearted.'
       : avg < 3
-        ? 'A mixed month — some light, some shadow.'
+        ? 'A restless season — cast your anxieties on Him.'
         : avg < 4
-          ? 'A calm month — steady and grounded.'
+          ? 'A hopeful season — steadfast in trust.'
           : avg < 4.5
-            ? "A peaceful month — you're finding your rhythm."
-            : 'A radiant month — your light is shining.'
+            ? 'A peaceful season — the peace that surpasses understanding.'
+            : 'A joyful season — overflowing with gratitude.'
 
   return (
     <div className="mt-4">

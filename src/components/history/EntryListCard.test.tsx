@@ -84,13 +84,13 @@ describe('EntryListCard', () => {
   it('renders mood chip when mood is set', () => {
     const entry = makeEntry({ mood: 4, moodLabel: 'Peaceful' })
     renderWithProviders(<EntryListCard entry={entry} />)
-    expect(screen.getByText(/😊/)).toBeTruthy()
+    expect(screen.getByText(/😌/)).toBeTruthy()
     expect(screen.getByText(/Peaceful/)).toBeTruthy()
   })
 
   it('does not render mood chip when mood is null', () => {
     renderWithProviders(<EntryListCard entry={makeEntry({ mood: null })} />)
-    expect(screen.queryByText(/😊|😔|😐|🙂|🥳/)).toBeNull()
+    expect(screen.queryByText(/😢|😮‍💨|😰|🌊|🌱|🕊️|😌|🙏|😄|✨/)).toBeNull()
   })
 
   it('navigates to /entry/{date} when card is clicked', async () => {

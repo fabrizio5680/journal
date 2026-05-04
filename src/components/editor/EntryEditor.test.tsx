@@ -173,6 +173,16 @@ describe('EntryEditor', () => {
     )
   })
 
+  it('BubbleMenu renders only bold and italic buttons', () => {
+    getJSON.mockReturnValue({ type: 'doc', content: [] })
+    const { getByRole, queryByRole } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+
+    expect(getByRole('button', { name: 'Bold' })).toBeTruthy()
+    expect(getByRole('button', { name: 'Italic' })).toBeTruthy()
+    expect(queryByRole('button', { name: 'Bullet list' })).toBeNull()
+    expect(queryByRole('button', { name: 'Heading 2' })).toBeNull()
+  })
+
   it('applies bottom padding to the wrapper for scroll clearance', () => {
     getJSON.mockReturnValue({ type: 'doc', content: [] })
     const { container } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)

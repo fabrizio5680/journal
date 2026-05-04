@@ -463,6 +463,18 @@ test.describe('Editor', () => {
     })
   })
 
+  test('No persistent formatting toolbar is rendered on the page', async ({ page }) => {
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 5000 })
+
+    // EditorToolbar was removed — no fixed top-bar with formatting buttons should exist.
+    // Formatting is only available via the BubbleMenu (hidden until text is selected).
+    const bulletBtn = page.getByRole('button', { name: 'Bullet list' })
+    const headingBtn = page.getByRole('button', { name: 'Heading 2' })
+    await expect(bulletBtn).toBeHidden()
+    await expect(headingBtn).toBeHidden()
+  })
+
   test("Today page loads with today's date in the document title", async ({ page }) => {
     // The page title is set to "Today's Entry" by TodayPage via usePageTitle
     await expect(page).toHaveTitle(/today/i, { timeout: 5000 })
@@ -493,5 +505,127 @@ test.describe('Editor', () => {
 
     await expect(page).toHaveURL('/', { timeout: 5000 })
     await expect(page).toHaveTitle(/today/i, { timeout: 5000 })
+  })
+
+  test('Mood Scenario 1: select Weary (second member of value=1 pair) — chip shows correct label', async ({
+    page,
+  }) => {
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 5000 })
+
+    // Open the mood picker
+    const moodChip = page.getByRole('button', { name: /\+ mood/i })
+    await expect(moodChip).toBeVisible({ timeout: 3000 })
+    await moodChip.click()
+
+    // MoodPicker should appear — click Weary (second member of value=1 pair)
+    const wearyBtn = page.getByRole('button', { name: /weary/i })
+    await expect(wearyBtn).toBeVisible({ timeout: 3000 })
+    await wearyBtn.click()
+
+    // MoodPicker closes; the chip should now show "Weary"
+    await expect(page.getByRole('button', { name: /weary/i })).toBeVisible({ timeout: 3000 })
+    // The "+ mood" placeholder should be gone
+    await expect(page.getByRole('button', { name: /\+ mood/i })).toBeHidden()
+  })
+
+  test('Mood Scenario 2: select Grateful (second member of value=4 pair) — chip shows correct label', async ({
+    page,
+  }) => {
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 5000 })
+
+    // Open the mood picker
+    const moodChip = page.getByRole('button', { name: /\+ mood/i })
+    await expect(moodChip).toBeVisible({ timeout: 3000 })
+    await moodChip.click()
+
+    // Click Grateful (second member of value=4 pair)
+    const gratefulBtn = page.getByRole('button', { name: /grateful/i })
+    await expect(gratefulBtn).toBeVisible({ timeout: 3000 })
+    await gratefulBtn.click()
+
+    // Chip should show "Grateful"
+    await expect(page.getByRole('button', { name: /grateful/i })).toBeVisible({ timeout: 3000 })
+    await expect(page.getByRole('button', { name: /\+ mood/i })).toBeHidden()
+  })
+
+  test('Mood Scenario 3: switch between two moods of the same pair — label updates', async ({
+    page,
+  }) => {
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 5000 })
+
+    // Step 1: Select "Sorrowful" (first member of value=1 pair)
+    const moodChip = page.getByRole('button', { name: /\+ mood/i })
+    await expect(moodChip).toBeVisible({ timeout: 3000 })
+    await moodChip.click()
+
+    const sorrowfulBtn = page.getByRole('button', { name: /sorrowful/i })
+    await expect(sorrowfulBtn).toBeVisible({ timeout: 3000 })
+    await sorrowfulBtn.click()
+
+    // Chip shows "Sorrowful"
+    await expect(page.getByRole('button', { name: /sorrowful/i })).toBeVisible({ timeout: 3000 })
+
+    // Step 2: Open picker again to switch to "Weary" (other member of same pair).
+    // Since both share value=1 (isSelected=true for both), clicking Weary deselects first.
+    await page.getByRole('button', { name: /sorrowful/i }).click()
+    const wearyBtn = page.getByRole('button', { name: /weary/i })
+    await expect(wearyBtn).toBeVisible({ timeout: 3000 })
+    await wearyBtn.click()
+
+    // After deselect, picker closes. "+ mood" placeholder should reappear.
+    await expect(page.getByRole('button', { name: /\+ mood/i })).toBeVisible({ timeout: 3000 })
+
+    // Step 3: Open picker again and click Weary to select it
+    await page.getByRole('button', { name: /\+ mood/i }).click()
+    const wearyBtn2 = page.getByRole('button', { name: /weary/i })
+    await expect(wearyBtn2).toBeVisible({ timeout: 3000 })
+    await wearyBtn2.click()
+
+    // Chip should now show "Weary"
+    await expect(page.getByRole('button', { name: /weary/i })).toBeVisible({ timeout: 3000 })
+    await expect(page.getByRole('button', { name: /\+ mood/i })).toBeHidden()
+  })
+
+  test('Mood Scenario 4: selected mood persists after auto-save to Firestore', async ({
+    page,
+    request,
+  }) => {
+    const today = format(new Date(), 'yyyy-MM-dd')
+
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 5000 })
+
+    // Select "Weary" mood
+    const moodChip = page.getByRole('button', { name: /\+ mood/i })
+    await expect(moodChip).toBeVisible({ timeout: 3000 })
+    await moodChip.click()
+
+    const wearyBtn = page.getByRole('button', { name: /weary/i })
+    await expect(wearyBtn).toBeVisible({ timeout: 3000 })
+    await wearyBtn.click()
+
+    // Chip shows "Weary"
+    await expect(page.getByRole('button', { name: /weary/i })).toBeVisible({ timeout: 3000 })
+
+    // Mood saves are immediate (no debounce) — give a small buffer
+    await page.waitForTimeout(1000)
+
+    // Verify Firestore doc has mood=1 and moodLabel="Weary"
+    const docUrl = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${testUid}/entries/${today}`
+    const res = await request.get(docUrl, {
+      headers: { Authorization: `Bearer ${testIdToken}` },
+    })
+    expect(res.ok()).toBeTruthy()
+    const body = (await res.json()) as {
+      fields?: {
+        mood?: { integerValue?: string }
+        moodLabel?: { stringValue?: string }
+      }
+    }
+    expect(body.fields?.mood?.integerValue).toBe('1')
+    expect(body.fields?.moodLabel?.stringValue).toBe('Weary')
   })
 })
