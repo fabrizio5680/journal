@@ -6,7 +6,7 @@ import SideNav from './SideNav'
 import TopBar from './TopBar'
 import BottomNav from './BottomNav'
 import RightPanel from './RightPanel'
-import CollapsibleSideBar from './CollapsibleSideBar'
+import TabletSideBar from './TabletSideBar'
 
 import SearchModal from '@/components/search/SearchModal'
 import { useSearch } from '@/context/SearchContext'
@@ -41,8 +41,8 @@ export default function AppShell() {
       {/* Desktop: fixed right panel (xl only) */}
       <RightPanel />
 
-      {/* Tablet: collapsible thin sidebar (md–xl only) */}
-      <CollapsibleSideBar />
+      {/* Tablet: always-open sidebar (md–xl only) */}
+      <TabletSideBar />
 
       {/* Focus-mode exit button — fixed top-right, only visible when focused */}
       {isFocused && (
@@ -59,7 +59,7 @@ export default function AppShell() {
       <main
         className={clsx(
           'min-h-screen transition-all duration-500',
-          isFocused ? 'md:ml-0 xl:mr-0' : 'md:mr-5 md:ml-64 xl:mr-80',
+          isFocused ? 'md:ml-0 xl:mr-0' : 'md:mr-[200px] md:ml-64 xl:mr-80',
         )}
       >
         {/* pt-16 offsets fixed TopBar on mobile; pb-24 leaves room for BottomNav */}
