@@ -28,7 +28,7 @@ Suggest running /cost when a session is running long to monitor cache ratio.
 src/
   components/
     editor/       EntryEditor, MetadataBar (hidden on XL+; metadata surfaced in RightPanel)
-    layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav, CollapsibleSideBar
+    layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav, TabletSideBar
     calendar/     MiniCalendar
     search/       SearchModal, SearchFilters, SearchResultCard
     mood/         MoodPicker
@@ -74,7 +74,7 @@ npm run precommit      format + lint + typecheck (manual run; also invoked by Hu
 
 `useDictation` uses the Web Speech API (continuous mode). Key behaviors:
 
-- Returns `interimTranscript: string | null` — live preview of in-progress speech, flows via `EditorControlsContext.DictationControls` to `BottomNav`, `CollapsibleSideBar`, and `RightPanel`.
+- Returns `interimTranscript: string | null` — live preview of in-progress speech, flows via `EditorControlsContext.DictationControls` to `BottomNav`, `TabletSideBar`, and `RightPanel`.
 - Explicit stop calls `abort()` (not `stop()`) to discard in-flight audio.
 - Error codes handled: `not-allowed`, `service-not-allowed`, `network`, `audio-capture`, `language-not-supported` (silent en-US fallback), `aborted` (silent).
 - `vitest.config.ts` excludes `.claude/**` — prevents git worktree test files from being picked up by the test runner.
@@ -106,7 +106,6 @@ VITE_FIREBASE_VAPID_KEY=
 | ----------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pref_editor_font_size` | `small` \| `medium` \| `large` | Editor font size — device-local, never synced via Firestore. Seeded once from Firestore on first snapshot if absent; ignored and never written to after that. |
 | `pref_spellcheck`       | `true` \| `false`              | Spellcheck enabled — device-local. Default `true`. Always `false` on mobile regardless of setting.                                                            |
-| `pref_sidebar_expanded` | `true` \| `false`              | CollapsibleSideBar expand state on tablet (MD–XL). Persisted across sessions.                                                                                 |
 | `scripture_<T>_<date>`  | JSON `{ text, reference }`     | Daily verse cache per translation and date.                                                                                                                   |
 
 `UserPreferencesContext` manages `pref_editor_font_size`: initializes state from localStorage on mount (before Firestore arrives), seeds from Firestore on first snapshot when absent, and writes only to localStorage via `updateEditorFontSize` — no Firestore `updateDoc` call for font size.
