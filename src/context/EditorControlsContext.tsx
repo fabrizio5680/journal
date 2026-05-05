@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 
 import type { DictationState } from '@/hooks/useDictation'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
+import type { ScriptureRef } from '@/types'
 
 export interface DictationControls {
   isSupported: boolean
@@ -12,11 +13,25 @@ export interface DictationControls {
   onStop: () => void
 }
 
+export interface MetadataControls {
+  mood: 1 | 2 | 3 | 4 | 5 | null
+  moodLabel: string | null
+  tags: string[]
+  tagVocabulary: string[]
+  scriptureRefs: ScriptureRef[]
+  scriptureTranslation: 'NLT' | 'MSG' | 'ESV'
+  onMoodChange: (mood: number | null, label: string | null) => void
+  onTagsChange: (tags: string[]) => void
+  onNewTag: (tag: string) => void
+  onScriptureRefsChange: (refs: ScriptureRef[]) => void
+}
+
 interface RegisteredControls {
   dictation: DictationControls | null
   fontSize: EditorFontSize
   onFontSizeChange: (size: EditorFontSize) => void
   wordCount?: number
+  metadata?: MetadataControls | null
 }
 
 interface EditorControlsContextValue {
@@ -25,6 +40,7 @@ interface EditorControlsContextValue {
   fontSize: EditorFontSize
   onFontSizeChange: ((size: EditorFontSize) => void) | null
   wordCount: number
+  metadata: MetadataControls | null
   register: (controls: RegisteredControls) => void
   unregister: () => void
 }
@@ -45,6 +61,7 @@ export function EditorControlsProvider({ children }: { children: ReactNode }) {
         fontSize: controls?.fontSize ?? 'medium',
         onFontSizeChange: controls?.onFontSizeChange ?? null,
         wordCount: controls?.wordCount ?? 0,
+        metadata: controls?.metadata ?? null,
         register,
         unregister,
       }}

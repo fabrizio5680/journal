@@ -12,7 +12,6 @@ import { useEditorControls } from '@/context/EditorControlsContext'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
 import MetadataBar from '@/components/editor/MetadataBar'
-import FloatingActionBar from '@/components/fab/FloatingActionBar'
 
 export default function TodayPage() {
   usePageTitle("Today's Entry")
@@ -57,36 +56,6 @@ export default function TodayPage() {
     ),
   )
 
-  // Register editor controls with BottomNav and RightPanel via context
-  useEffect(() => {
-    register({
-      dictation: {
-        isSupported,
-        state: dictationState,
-        errorMessage,
-        interimTranscript,
-        onStart: start,
-        onStop: stop,
-      },
-      fontSize: editorFontSize,
-      onFontSizeChange: updateEditorFontSize,
-      wordCount,
-    })
-  }, [
-    isSupported,
-    dictationState,
-    errorMessage,
-    interimTranscript,
-    editorFontSize,
-    register,
-    start,
-    stop,
-    updateEditorFontSize,
-    wordCount,
-  ])
-
-  useEffect(() => () => unregister(), [unregister])
-
   const handleUpdate = useCallback(
     (editor: Editor) => {
       markDirty()
@@ -129,6 +98,55 @@ export default function TodayPage() {
     [save],
   )
 
+  // Register editor controls with BottomNav and RightPanel via context
+  useEffect(() => {
+    register({
+      dictation: {
+        isSupported,
+        state: dictationState,
+        errorMessage,
+        interimTranscript,
+        onStart: start,
+        onStop: stop,
+      },
+      fontSize: editorFontSize,
+      onFontSizeChange: updateEditorFontSize,
+      wordCount,
+      metadata: {
+        mood: entry?.mood ?? null,
+        moodLabel: entry?.moodLabel ?? null,
+        tags: entry?.tags ?? [],
+        tagVocabulary: vocabulary,
+        scriptureRefs: entry?.scriptureRefs ?? [],
+        scriptureTranslation,
+        onMoodChange: handleMoodChange,
+        onTagsChange: handleTagsChange,
+        onNewTag: addToVocabulary,
+        onScriptureRefsChange: handleScriptureRefsChange,
+      },
+    })
+  }, [
+    isSupported,
+    dictationState,
+    errorMessage,
+    interimTranscript,
+    editorFontSize,
+    register,
+    start,
+    stop,
+    updateEditorFontSize,
+    wordCount,
+    entry,
+    vocabulary,
+    scriptureTranslation,
+    handleMoodChange,
+    handleTagsChange,
+    addToVocabulary,
+    handleScriptureRefsChange,
+  ])
+
+  useEffect(() => () => unregister(), [unregister])
+
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
@@ -148,52 +166,27 @@ export default function TodayPage() {
   }
 
   return (
-    <>
-      <div className="mx-auto max-w-2xl px-6 pt-4">
-        <MetadataBar
-          mood={entry?.mood ?? null}
-          moodLabel={entry?.moodLabel ?? null}
-          tags={entry?.tags ?? []}
-          tagVocabulary={vocabulary}
-          onMoodChange={handleMoodChange}
-          onTagsChange={handleTagsChange}
-          onNewTag={addToVocabulary}
-          scriptureRefs={entry?.scriptureRefs ?? []}
-          scriptureTranslation={scriptureTranslation}
-          onScriptureRefsChange={handleScriptureRefsChange}
-        />
-
-        <EntryEditor
-          key={today}
-          content={entry?.content ?? null}
-          onUpdate={handleUpdate}
-          onEditorReady={setEditorInstance}
-          placeholder={placeholder}
-        />
-      </div>
-
-      {/* Word count — above bottom nav, mobile only */}
-      <div
-        data-testid="word-count"
-        className="text-on-surface-variant/40 pointer-events-none fixed bottom-[3.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden"
-      >
-        {wordCount} {wordCount === 1 ? 'word' : 'words'}
-      </div>
-
-      {/* Desktop FAB — voice, font cycle, word count */}
-      <FloatingActionBar
-        wordCount={wordCount}
-        dictation={{
-          isSupported,
-          state: dictationState,
-          errorMessage,
-          interimTranscript,
-          onStart: start,
-          onStop: stop,
-        }}
-        fontSize={editorFontSize}
-        onFontSizeChange={updateEditorFontSize}
+    <div className="mx-auto max-w-2xl px-6 pt-4">
+      <MetadataBar
+        mood={entry?.mood ?? null}
+        moodLabel={entry?.moodLabel ?? null}
+        tags={entry?.tags ?? []}
+        tagVocabulary={vocabulary}
+        onMoodChange={handleMoodChange}
+        onTagsChange={handleTagsChange}
+        onNewTag={addToVocabulary}
+        scriptureRefs={entry?.scriptureRefs ?? []}
+        scriptureTranslation={scriptureTranslation}
+        onScriptureRefsChange={handleScriptureRefsChange}
       />
-    </>
+
+      <EntryEditor
+        key={today}
+        content={entry?.content ?? null}
+        onUpdate={handleUpdate}
+        onEditorReady={setEditorInstance}
+        placeholder={placeholder}
+      />
+    </div>
   )
 }

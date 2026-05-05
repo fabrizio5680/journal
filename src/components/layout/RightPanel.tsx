@@ -2,24 +2,37 @@ import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 
 import DailyScripture from '@/components/ui/DailyScripture'
+import MoodPicker from '@/components/mood/MoodPicker'
+import ScriptureChip from '@/components/scripture/ScriptureChip'
+import ScriptureRefInput from '@/components/scripture/ScriptureRefInput'
+import TagInput from '@/components/tags/TagInput'
 import { useFocusMode } from '@/context/FocusModeContext'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
+import type { ScriptureRef } from '@/types'
+import { MOODS } from '@/lib/moods'
 
 const FONT_SIZE_STEPS: EditorFontSize[] = ['small', 'medium', 'large']
 
+type ActivePicker = 'mood' | 'scripture' | 'tag' | null
+
 export default function RightPanel() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [activePicker, setActivePicker] = useState<ActivePicker>(null)
   const { isFocused } = useFocusMode()
   const { scriptureTranslation } = useUserPreferences()
-  const { isEditorActive, dictation, fontSize, onFontSizeChange, wordCount } = useEditorControls()
+  const { isEditorActive, dictation, fontSize, onFontSizeChange, wordCount, metadata } =
+    useEditorControls()
 
   const currentIndex = FONT_SIZE_STEPS.indexOf(fontSize)
   const nextSize = FONT_SIZE_STEPS[(currentIndex + 1) % FONT_SIZE_STEPS.length]
 
   const isListening = dictation?.state === 'listening'
   const hasError = dictation?.state === 'error'
+
+  // Derive effective picker — reset to null when no editor is active
+  const effectivePicker: ActivePicker = isEditorActive ? activePicker : null
 
   // Watch online/offline status
   useEffect(() => {
@@ -33,6 +46,32 @@ export default function RightPanel() {
     }
   }, [])
 
+  function togglePicker(picker: ActivePicker) {
+    setActivePicker((prev) => (prev === picker ? null : picker))
+  }
+
+  function handleMoodChange(newMood: number | null, label: string | null) {
+    metadata?.onMoodChange(newMood, label)
+    setActivePicker(null)
+  }
+
+  function handleAddScriptureRef(ref: ScriptureRef) {
+    if (!metadata) return
+    metadata.onScriptureRefsChange([...metadata.scriptureRefs, ref])
+    setActivePicker(null)
+  }
+
+  function handleRemoveScriptureRef(passageId: string) {
+    if (!metadata) return
+    metadata.onScriptureRefsChange(metadata.scriptureRefs.filter((r) => r.passageId !== passageId))
+  }
+
+  const moodEntry =
+    metadata?.mood !== null && metadata?.mood !== undefined
+      ? (MOODS.find((m) => m.label === metadata.moodLabel) ??
+        MOODS.find((m) => m.value === metadata.mood))
+      : null
+
   return (
     <aside
       className={clsx(
@@ -40,7 +79,107 @@ export default function RightPanel() {
         isFocused && 'xl:pointer-events-none xl:translate-x-full xl:opacity-0',
       )}
     >
+      {/* Daily scripture */}
       <DailyScripture translation={scriptureTranslation} />
+
+      {/* Metadata section — visible when an editor page is active */}
+      {isEditorActive && metadata && (
+        <div className="border-outline-variant/20 flex flex-col gap-3 border-t pt-4">
+          {/* Mood chip */}
+          <div>
+            <button
+              type="button"
+              onClick={() => togglePicker('mood')}
+              className={clsx(
+                'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                effectivePicker === 'mood'
+                  ? 'bg-secondary-container text-on-secondary-container'
+                  : 'bg-secondary-container/70 text-on-secondary-container hover:bg-secondary-container',
+              )}
+            >
+              {moodEntry ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span aria-hidden="true">{moodEntry.emoji}</span>
+                  <span>{metadata.moodLabel ?? moodEntry.label}</span>
+                </span>
+              ) : (
+                '+ mood'
+              )}
+            </button>
+            {effectivePicker === 'mood' && (
+              <div className="mt-2">
+                <MoodPicker
+                  value={metadata.mood}
+                  label={metadata.moodLabel}
+                  onChange={handleMoodChange}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Scripture refs + add */}
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              {metadata.scriptureRefs.map((ref) => (
+                <ScriptureChip
+                  key={ref.passageId}
+                  ref_={ref}
+                  translation={metadata.scriptureTranslation}
+                  onRemove={() => handleRemoveScriptureRef(ref.passageId)}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={() => togglePicker('scripture')}
+                aria-label="Add scripture reference"
+                className="text-on-surface-variant/40 hover:text-on-surface-variant rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+              >
+                + scripture
+              </button>
+            </div>
+            {effectivePicker === 'scripture' && (
+              <div className="mt-2">
+                <ScriptureRefInput
+                  translation={metadata.scriptureTranslation}
+                  onAdd={handleAddScriptureRef}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Tags + add */}
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              {metadata.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="bg-secondary-container/70 text-on-secondary-container rounded-full px-3 py-1.5 text-xs font-medium"
+                >
+                  {tag}
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={() => togglePicker('tag')}
+                aria-label="Add tag"
+                className="text-on-surface-variant/40 hover:text-on-surface-variant rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+              >
+                + tag
+              </button>
+            </div>
+            {effectivePicker === 'tag' && (
+              <div className="mt-2">
+                <TagInput
+                  tags={metadata.tags}
+                  vocabulary={metadata.tagVocabulary}
+                  onChange={metadata.onTagsChange}
+                  onNewTag={metadata.onNewTag}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Editor controls — visible when an editor page is active */}
       {isEditorActive && (
@@ -72,10 +211,14 @@ export default function RightPanel() {
               <button
                 onClick={() => onFontSizeChange(nextSize)}
                 aria-label={`Text size: ${fontSize}. Click to change`}
-                className="bg-surface-container-lowest text-on-surface-variant border-outline-variant/20 hover:text-primary hover:border-primary/20 flex h-10 items-center gap-1.5 rounded-full border px-4 shadow-md transition-all"
+                className={clsx(
+                  'bg-surface-container-lowest border-outline-variant/20 flex h-10 items-center gap-1.5 rounded-full border px-4 shadow-md transition-all',
+                  fontSize !== 'medium'
+                    ? 'text-primary'
+                    : 'text-on-surface-variant/60 hover:text-primary hover:border-primary/20',
+                )}
               >
-                <span className="text-[13px] leading-none font-bold">Aa</span>
-                <span className="text-[10px] capitalize">{fontSize}</span>
+                <span className="material-symbols-outlined text-[18px]">format_size</span>
               </button>
             )}
 

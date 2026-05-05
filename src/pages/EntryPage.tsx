@@ -13,7 +13,6 @@ import { useEditorControls } from '@/context/EditorControlsContext'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
 import MetadataBar from '@/components/editor/MetadataBar'
-import FloatingActionBar from '@/components/fab/FloatingActionBar'
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
@@ -68,36 +67,6 @@ function EntryEditorView({ date }: { date: string }) {
     ),
   )
 
-  // Register editor controls with BottomNav and RightPanel via context
-  useEffect(() => {
-    register({
-      dictation: {
-        isSupported,
-        state: dictationState,
-        errorMessage,
-        interimTranscript,
-        onStart: start,
-        onStop: stop,
-      },
-      fontSize: editorFontSize,
-      onFontSizeChange: updateEditorFontSize,
-      wordCount,
-    })
-  }, [
-    isSupported,
-    dictationState,
-    errorMessage,
-    interimTranscript,
-    editorFontSize,
-    register,
-    start,
-    stop,
-    updateEditorFontSize,
-    wordCount,
-  ])
-
-  useEffect(() => () => unregister(), [unregister])
-
   const handleUpdate = useCallback(
     (editor: Editor) => {
       markDirty()
@@ -140,6 +109,55 @@ function EntryEditorView({ date }: { date: string }) {
     [save],
   )
 
+  // Register editor controls with BottomNav and RightPanel via context
+  useEffect(() => {
+    register({
+      dictation: {
+        isSupported,
+        state: dictationState,
+        errorMessage,
+        interimTranscript,
+        onStart: start,
+        onStop: stop,
+      },
+      fontSize: editorFontSize,
+      onFontSizeChange: updateEditorFontSize,
+      wordCount,
+      metadata: {
+        mood: entry?.mood ?? null,
+        moodLabel: entry?.moodLabel ?? null,
+        tags: entry?.tags ?? [],
+        tagVocabulary: vocabulary,
+        scriptureRefs: entry?.scriptureRefs ?? [],
+        scriptureTranslation,
+        onMoodChange: handleMoodChange,
+        onTagsChange: handleTagsChange,
+        onNewTag: addToVocabulary,
+        onScriptureRefsChange: handleScriptureRefsChange,
+      },
+    })
+  }, [
+    isSupported,
+    dictationState,
+    errorMessage,
+    interimTranscript,
+    editorFontSize,
+    register,
+    start,
+    stop,
+    updateEditorFontSize,
+    wordCount,
+    entry,
+    vocabulary,
+    scriptureTranslation,
+    handleMoodChange,
+    handleTagsChange,
+    addToVocabulary,
+    handleScriptureRefsChange,
+  ])
+
+  useEffect(() => () => unregister(), [unregister])
+
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
@@ -155,66 +173,41 @@ function EntryEditorView({ date }: { date: string }) {
   }
 
   return (
-    <>
-      <div className="mx-auto max-w-2xl px-6 pt-4 md:pt-12">
-        <div className="mb-6 flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            aria-label="Go back"
-            className="hover:bg-surface-container text-on-surface-variant flex items-center gap-1 rounded-full px-3 py-1.5 text-sm transition-colors"
-          >
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-            Back
-          </button>
-          <span className="text-on-surface-variant flex-1 text-sm">
-            {format(parseISO(date), 'EEEE, MMMM d, yyyy')}
-          </span>
-        </div>
-
-        <MetadataBar
-          mood={entry?.mood ?? null}
-          moodLabel={entry?.moodLabel ?? null}
-          tags={entry?.tags ?? []}
-          tagVocabulary={vocabulary}
-          onMoodChange={handleMoodChange}
-          onTagsChange={handleTagsChange}
-          onNewTag={addToVocabulary}
-          scriptureRefs={entry?.scriptureRefs ?? []}
-          scriptureTranslation={scriptureTranslation}
-          onScriptureRefsChange={handleScriptureRefsChange}
-        />
-
-        <EntryEditor
-          key={date}
-          content={entry?.content ?? null}
-          onUpdate={handleUpdate}
-          onEditorReady={setEditorInstance}
-          placeholder={placeholder}
-        />
+    <div className="mx-auto max-w-2xl px-6 pt-4 md:pt-12">
+      <div className="mb-6 flex items-center gap-3">
+        <button
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
+          className="hover:bg-surface-container text-on-surface-variant flex items-center gap-1 rounded-full px-3 py-1.5 text-sm transition-colors"
+        >
+          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+          Back
+        </button>
+        <span className="text-on-surface-variant flex-1 text-sm">
+          {format(parseISO(date), 'EEEE, MMMM d, yyyy')}
+        </span>
       </div>
 
-      {/* Word count — above bottom nav, mobile only */}
-      <div
-        data-testid="word-count"
-        className="text-on-surface-variant/40 pointer-events-none fixed bottom-[3.5rem] left-1/2 z-30 -translate-x-1/2 text-[10px] tracking-wide md:hidden"
-      >
-        {wordCount} {wordCount === 1 ? 'word' : 'words'}
-      </div>
-
-      {/* Desktop FAB — voice, font cycle, word count */}
-      <FloatingActionBar
-        wordCount={wordCount}
-        dictation={{
-          isSupported,
-          state: dictationState,
-          errorMessage,
-          interimTranscript,
-          onStart: start,
-          onStop: stop,
-        }}
-        fontSize={editorFontSize}
-        onFontSizeChange={updateEditorFontSize}
+      <MetadataBar
+        mood={entry?.mood ?? null}
+        moodLabel={entry?.moodLabel ?? null}
+        tags={entry?.tags ?? []}
+        tagVocabulary={vocabulary}
+        onMoodChange={handleMoodChange}
+        onTagsChange={handleTagsChange}
+        onNewTag={addToVocabulary}
+        scriptureRefs={entry?.scriptureRefs ?? []}
+        scriptureTranslation={scriptureTranslation}
+        onScriptureRefsChange={handleScriptureRefsChange}
       />
-    </>
+
+      <EntryEditor
+        key={date}
+        content={entry?.content ?? null}
+        onUpdate={handleUpdate}
+        onEditorReady={setEditorInstance}
+        placeholder={placeholder}
+      />
+    </div>
   )
 }

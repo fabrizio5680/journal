@@ -81,8 +81,8 @@ export default function MetadataBar({
         'bg-surface/90 border-outline-variant/10 z-20 border-b py-2 backdrop-blur-sm',
         // Mobile: sticky within content flow
         'sticky top-16 -mx-6 px-6',
-        // Desktop: fixed toolbar spanning center panel
-        'md:fixed md:top-0 md:right-0 md:left-64 md:mx-0 md:px-0 xl:right-80',
+        // Desktop: fixed toolbar spanning center panel; hidden on XL+ (RightPanel handles metadata)
+        'md:fixed md:top-0 md:right-0 md:left-64 md:mx-0 md:px-0 xl:right-80 xl:hidden',
         // Focus mode: slide up on desktop
         'md:transition-[transform,opacity] md:duration-500',
         isFocused && 'md:pointer-events-none md:-translate-y-full md:opacity-0',

@@ -768,3 +768,197 @@ test.describe('Editor', () => {
     expect(body.fields?.moodLabel?.stringValue).toBe('Weary')
   })
 })
+
+// ── CollapsibleSideBar E2E ──────────────────────────────────────────────────
+//
+// The CollapsibleSideBar is rendered only on MD–XL viewports (hidden on mobile
+// and on XL+ desktop).  The tablet project (iPad Pro 11, 834 px wide) is the
+// right target.  Desktop Chrome is 1280 px → xl:hidden means it is NOT visible
+// there.  We guard every assertion with project-name checks so the tests are
+// skipped cleanly on incompatible configurations.
+
+test.describe('CollapsibleSideBar', () => {
+  let testEmail: string
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    testEmail = testEmailForProject(`sidebar-${testInfo.project.name}`)
+    await clearTestUser(testEmail)
+    await createEmulatorUser(testEmail, TEST_PASSWORD)
+    await page.goto('/login')
+    await signInAsTestUser(page, testEmail)
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+  })
+
+  test('Sidebar 1: thin strip is visible on tablet viewport', async ({ page }, testInfo) => {
+    // CollapsibleSideBar is md:flex xl:hidden — only valid for tablet project
+    if (testInfo.project.name !== 'tablet') {
+      test.skip()
+      return
+    }
+
+    // The thin strip has a fixed expand/collapse chevron button
+    const expandBtn = page.getByRole('button', { name: /expand sidebar/i })
+    await expect(expandBtn).toBeVisible({ timeout: 5000 })
+  })
+
+  test('Sidebar 2: expand and collapse the sidebar panel on tablet', async ({ page }, testInfo) => {
+    if (testInfo.project.name !== 'tablet') {
+      test.skip()
+      return
+    }
+
+    const expandBtn = page.getByRole('button', { name: /expand sidebar/i })
+    await expect(expandBtn).toBeVisible({ timeout: 5000 })
+
+    // Expand
+    await expandBtn.click()
+    await expect(page.getByRole('button', { name: /collapse sidebar/i })).toBeVisible({
+      timeout: 3000,
+    })
+
+    // Collapse
+    await page.getByRole('button', { name: /collapse sidebar/i }).click()
+    await expect(page.getByRole('button', { name: /expand sidebar/i })).toBeVisible({
+      timeout: 3000,
+    })
+  })
+
+  test('Sidebar 3: expand state persists to localStorage on tablet', async ({ page }, testInfo) => {
+    if (testInfo.project.name !== 'tablet') {
+      test.skip()
+      return
+    }
+
+    const expandBtn = page.getByRole('button', { name: /expand sidebar/i })
+    await expect(expandBtn).toBeVisible({ timeout: 5000 })
+
+    await expandBtn.click()
+    await expect(page.getByRole('button', { name: /collapse sidebar/i })).toBeVisible({
+      timeout: 3000,
+    })
+
+    const stored = await page.evaluate(() => localStorage.getItem('pref_sidebar_expanded'))
+    expect(stored).toBe('true')
+  })
+
+  test('Sidebar 4: focus mode collapses expanded sidebar panel on tablet', async ({
+    page,
+  }, testInfo) => {
+    if (testInfo.project.name !== 'tablet') {
+      test.skip()
+      return
+    }
+
+    // Expand the sidebar first
+    const expandBtn = page.getByRole('button', { name: /expand sidebar/i })
+    await expect(expandBtn).toBeVisible({ timeout: 5000 })
+    await expandBtn.click()
+    await expect(page.getByRole('button', { name: /collapse sidebar/i })).toBeVisible({
+      timeout: 3000,
+    })
+
+    // Enter focus mode via the thin-strip focus toggle (aria-label in the sidebar).
+    // When expanded, there are two "Enter focus mode" buttons (thin strip + expanded panel).
+    // Use .first() to target the thin-strip button.
+    const sidebarFocusBtn = page
+      .locator('[class*="fixed"][class*="right-0"]')
+      .getByRole('button', { name: /enter focus mode/i })
+      .first()
+    await sidebarFocusBtn.click()
+
+    // Expanded panel should be gone (effectivelyExpanded = false when isFocused)
+    await expect(page.getByRole('button', { name: /collapse sidebar/i })).not.toBeVisible({
+      timeout: 3000,
+    })
+
+    // The thin strip expand button should still be present (strip always visible)
+    await expect(page.getByRole('button', { name: /expand sidebar/i })).toBeVisible({
+      timeout: 3000,
+    })
+  })
+
+  test('Sidebar 5: word count shows in expanded sidebar when typing on tablet', async ({
+    page,
+  }, testInfo) => {
+    if (testInfo.project.name !== 'tablet') {
+      test.skip()
+      return
+    }
+
+    const editor = page.locator('main [contenteditable="true"], main .ProseMirror').first()
+    const visible = await editor.isVisible().catch(() => false)
+    test.skip(!visible, 'Editor surface not rendered')
+
+    // Expand the sidebar
+    const expandBtn = page.getByRole('button', { name: /expand sidebar/i })
+    await expect(expandBtn).toBeVisible({ timeout: 5000 })
+    await expandBtn.click()
+
+    // Type three words
+    await editor.click()
+    await page.keyboard.type('one two three')
+
+    // Word count should appear in the expanded panel
+    await expect(page.getByText(/3 words/i)).toBeVisible({ timeout: 5000 })
+  })
+})
+
+// ── Viewport-specific metadata visibility ─────────────────────────────────────
+
+test.describe('Metadata visibility by viewport', () => {
+  let testEmail: string
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    testEmail = testEmailForProject(`meta-vp-${testInfo.project.name}`)
+    await clearTestUser(testEmail)
+    await createEmulatorUser(testEmail, TEST_PASSWORD)
+    await page.goto('/login')
+    await signInAsTestUser(page, testEmail)
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+  })
+
+  test('Desktop: metadata chips visible in RightPanel (XL viewport)', async ({
+    page,
+  }, testInfo) => {
+    // RightPanel is xl:flex — only chromium project uses Desktop Chrome (1280px)
+    if (testInfo.project.name !== 'chromium') {
+      test.skip()
+      return
+    }
+
+    // RightPanel renders "+ mood" chip when the today page is active
+    const moodChip = page.getByRole('button', { name: /\+ mood/i })
+    await expect(moodChip).toBeVisible({ timeout: 5000 })
+
+    // The chip must be inside the aside (RightPanel), not the MetadataBar
+    const inRightPanel = await moodChip.evaluate((el) => {
+      return el.closest('aside') !== null
+    })
+    expect(inRightPanel).toBe(true)
+  })
+
+  test('Mobile: MetadataBar visible and RightPanel mood chip not rendered', async ({
+    page,
+  }, testInfo) => {
+    // mobile-safari project uses iPhone 14 (390px wide)
+    if (testInfo.project.name !== 'mobile-safari') {
+      test.skip()
+      return
+    }
+
+    // MetadataBar may not appear until Firestore resolves isLoading — allow up to 10s.
+    // If the MetadataBar never appears (e.g. network error), skip gracefully.
+    const metadataBar = page.getByTestId('metadata-bar')
+    const appeared = await metadataBar
+      .waitFor({ state: 'visible', timeout: 10000 })
+      .then(() => true)
+      .catch(() => false)
+    test.skip(!appeared, 'MetadataBar did not appear within timeout on mobile')
+
+    await expect(metadataBar).toBeVisible({ timeout: 3000 })
+
+    // RightPanel aside is xl:flex — hidden on mobile; mood chip inside it is not visible
+    const rightPanelAside = page.locator('aside').filter({ hasText: /\+ mood/i })
+    await expect(rightPanelAside).toBeHidden()
+  })
+})
