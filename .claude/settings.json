@@ -24,7 +24,9 @@
       "Bash(chmod *)",
       "Bash(timeout *)",
       "Bash(xargs *)",
-      "Bash(cp *)"
+      "Bash(cp *)",
+      "WebFetch(domain:developer.chrome.com)",
+      "WebFetch(domain:capacitorjs.com)"
     ],
     "deny": [
       "node_modules/",
