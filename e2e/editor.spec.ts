@@ -769,15 +769,15 @@ test.describe('Editor', () => {
   })
 })
 
-// ── CollapsibleSideBar E2E ──────────────────────────────────────────────────
+// ── TabletSideBar E2E ──────────────────────────────────────────────────────
 //
-// The CollapsibleSideBar is rendered only on MD–XL viewports (hidden on mobile
+// The TabletSideBar is rendered only on MD–XL viewports (hidden on mobile
 // and on XL+ desktop).  The tablet project (iPad Pro 11, 834 px wide) is the
 // right target.  Desktop Chrome is 1280 px → xl:hidden means it is NOT visible
 // there.  We guard every assertion with project-name checks so the tests are
 // skipped cleanly on incompatible configurations.
 
-test.describe('CollapsibleSideBar', () => {
+test.describe('TabletSideBar', () => {
   let testEmail: string
 
   test.beforeEach(async ({ page }, testInfo) => {
@@ -789,95 +789,72 @@ test.describe('CollapsibleSideBar', () => {
     await expect(page).toHaveURL('/', { timeout: 5000 })
   })
 
-  test('Sidebar 1: thin strip is visible on tablet viewport', async ({ page }, testInfo) => {
-    // CollapsibleSideBar is md:flex xl:hidden — only valid for tablet project
+  test('Sidebar 1: tablet sidebar is visible on tablet viewport', async ({ page }, testInfo) => {
+    // TabletSideBar is md:flex xl:hidden — only valid for tablet project
     if (testInfo.project.name !== 'tablet') {
       test.skip()
       return
     }
 
-    // The thin strip has a fixed expand/collapse chevron button
-    const expandBtn = page.getByRole('button', { name: /expand sidebar/i })
-    await expect(expandBtn).toBeVisible({ timeout: 5000 })
+    // The sidebar always shows the focus toggle button
+    const focusBtn = page.getByRole('button', { name: /enter focus mode/i })
+    await expect(focusBtn).toBeVisible({ timeout: 5000 })
   })
 
-  test('Sidebar 2: expand and collapse the sidebar panel on tablet', async ({ page }, testInfo) => {
+  test('Sidebar 2: focus mode hides sidebar on tablet', async ({ page }, testInfo) => {
     if (testInfo.project.name !== 'tablet') {
       test.skip()
       return
     }
 
-    const expandBtn = page.getByRole('button', { name: /expand sidebar/i })
-    await expect(expandBtn).toBeVisible({ timeout: 5000 })
-
-    // Expand
-    await expandBtn.click()
-    await expect(page.getByRole('button', { name: /collapse sidebar/i })).toBeVisible({
-      timeout: 3000,
-    })
-
-    // Collapse
-    await page.getByRole('button', { name: /collapse sidebar/i }).click()
-    await expect(page.getByRole('button', { name: /expand sidebar/i })).toBeVisible({
-      timeout: 3000,
-    })
-  })
-
-  test('Sidebar 3: expand state persists to localStorage on tablet', async ({ page }, testInfo) => {
-    if (testInfo.project.name !== 'tablet') {
-      test.skip()
-      return
-    }
-
-    const expandBtn = page.getByRole('button', { name: /expand sidebar/i })
-    await expect(expandBtn).toBeVisible({ timeout: 5000 })
-
-    await expandBtn.click()
-    await expect(page.getByRole('button', { name: /collapse sidebar/i })).toBeVisible({
-      timeout: 3000,
-    })
-
-    const stored = await page.evaluate(() => localStorage.getItem('pref_sidebar_expanded'))
-    expect(stored).toBe('true')
-  })
-
-  test('Sidebar 4: focus mode collapses expanded sidebar panel on tablet', async ({
-    page,
-  }, testInfo) => {
-    if (testInfo.project.name !== 'tablet') {
-      test.skip()
-      return
-    }
-
-    // Expand the sidebar first
-    const expandBtn = page.getByRole('button', { name: /expand sidebar/i })
-    await expect(expandBtn).toBeVisible({ timeout: 5000 })
-    await expandBtn.click()
-    await expect(page.getByRole('button', { name: /collapse sidebar/i })).toBeVisible({
-      timeout: 3000,
-    })
-
-    // Enter focus mode via the thin-strip focus toggle (aria-label in the sidebar).
-    // When expanded, there are two "Enter focus mode" buttons (thin strip + expanded panel).
-    // Use .first() to target the thin-strip button.
+    // Sidebar focus toggle is visible before entering focus mode
     const sidebarFocusBtn = page
       .locator('[class*="fixed"][class*="right-0"]')
       .getByRole('button', { name: /enter focus mode/i })
-      .first()
+    await expect(sidebarFocusBtn).toBeVisible({ timeout: 5000 })
+
     await sidebarFocusBtn.click()
 
-    // Expanded panel should be gone (effectivelyExpanded = false when isFocused)
-    await expect(page.getByRole('button', { name: /collapse sidebar/i })).not.toBeVisible({
-      timeout: 3000,
+    // After entering focus mode the sidebar slides off-screen (translate-x-full).
+    // The panel element itself still exists in the DOM but should not be visible.
+    const sidebar = page.locator('[class*="fixed"][class*="right-0"][class*="w-\\[200px\\]"]')
+    await expect(sidebar).toHaveClass(/translate-x-full/, { timeout: 3000 })
+  })
+
+  test('Sidebar 3: focus toggle button label changes in focus mode', async ({ page }, testInfo) => {
+    if (testInfo.project.name !== 'tablet') {
+      test.skip()
+      return
+    }
+
+    await expect(page.getByRole('button', { name: /enter focus mode/i })).toBeVisible({
+      timeout: 5000,
     })
 
-    // The thin strip expand button should still be present (strip always visible)
-    await expect(page.getByRole('button', { name: /expand sidebar/i })).toBeVisible({
+    // Use the AppShell exit button after entering focus mode (sidebar is hidden)
+    await page
+      .getByRole('button', { name: /enter focus mode/i })
+      .first()
+      .click()
+
+    // At least one "Exit focus mode" button should be visible (AppShell fixed button or sidebar)
+    await expect(page.getByRole('button', { name: /exit focus mode/i }).first()).toBeVisible({
       timeout: 3000,
     })
   })
 
-  test('Sidebar 5: word count shows in expanded sidebar when typing on tablet', async ({
+  test('Sidebar 4: Focus label text is visible in tablet sidebar', async ({ page }, testInfo) => {
+    if (testInfo.project.name !== 'tablet') {
+      test.skip()
+      return
+    }
+
+    const sidebar = page.locator('[class*="fixed"][class*="right-0"][class*="w-\\[200px\\]"]')
+    await expect(sidebar).toBeVisible({ timeout: 5000 })
+    await expect(sidebar.getByText('Focus')).toBeVisible({ timeout: 3000 })
+  })
+
+  test('Sidebar 5: word count shows in sidebar when typing on tablet', async ({
     page,
   }, testInfo) => {
     if (testInfo.project.name !== 'tablet') {
@@ -889,16 +866,11 @@ test.describe('CollapsibleSideBar', () => {
     const visible = await editor.isVisible().catch(() => false)
     test.skip(!visible, 'Editor surface not rendered')
 
-    // Expand the sidebar
-    const expandBtn = page.getByRole('button', { name: /expand sidebar/i })
-    await expect(expandBtn).toBeVisible({ timeout: 5000 })
-    await expandBtn.click()
-
     // Type three words
     await editor.click()
     await page.keyboard.type('one two three')
 
-    // Word count should appear in the expanded panel
+    // Word count should appear directly in the sidebar (no expand needed)
     await expect(page.getByText(/3 words/i)).toBeVisible({ timeout: 5000 })
   })
 })

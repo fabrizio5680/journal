@@ -22,6 +22,7 @@ export default function TabletSideBar() {
   return (
     // Only visible on MD–XL (hidden on mobile and XL+)
     <div
+      data-testid="tablet-sidebar"
       className={clsx(
         'fixed top-0 right-0 z-30 hidden h-screen w-[200px] md:flex xl:hidden',
         'bg-surface border-outline-variant/10 flex-col gap-4 overflow-y-auto border-l px-4 py-4',
