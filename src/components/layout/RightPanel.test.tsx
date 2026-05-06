@@ -21,20 +21,6 @@ vi.mock('@/components/mood/MoodPicker', () => ({
   ),
 }))
 
-vi.mock('@/components/scripture/ScriptureChip', () => ({
-  default: ({
-    ref_,
-    onRemove,
-  }: {
-    ref_: { passageId: string; reference: string }
-    onRemove: () => void
-  }) => (
-    <button onClick={onRemove} aria-label={`Remove ${ref_.reference}`}>
-      {ref_.reference}
-    </button>
-  ),
-}))
-
 vi.mock('@/components/scripture/ScriptureRefInput', () => ({
   default: ({ onAdd }: { onAdd: (ref: { reference: string; passageId: string }) => void }) => (
     <div data-testid="scripture-ref-input-panel">
@@ -47,6 +33,18 @@ vi.mock('@/components/scripture/ScriptureRefInput', () => ({
 
 vi.mock('@/components/tags/TagInput', () => ({
   default: () => <div data-testid="tag-input-panel" />,
+}))
+
+vi.mock('@/hooks/useScriptureRef', () => ({
+  useScriptureRef: () => ({ text: 'Mocked verse text.', isLoading: false, error: null }),
+}))
+
+vi.mock('@/hooks/useDailyVerse', () => ({
+  useDailyVerse: () => ({
+    verse: { reference: 'Isaiah 26:4', text: 'Trust in the Lord always.' },
+    isLoading: false,
+  }),
+  getDailyVerseId: () => 'ISA.26.4',
 }))
 
 vi.mock('@/context/UserPreferencesContext', async (importOriginal) => {
@@ -330,6 +328,62 @@ describe('RightPanel — editor controls section', () => {
 
     expect(screen.getByText('Microphone not available')).toBeInTheDocument()
   })
+
+  it('font size icon is text-primary when size is not medium', () => {
+    let doRegister: ReturnType<typeof useEditorControls>['register']
+
+    render(
+      <Wrapper>
+        <EditorRegistrar
+          onReady={(r) => {
+            doRegister = r
+          }}
+        />
+        <RightPanel />
+      </Wrapper>,
+    )
+
+    act(() => {
+      doRegister!({
+        dictation: null,
+        fontSize: 'large',
+        onFontSizeChange: vi.fn(),
+        wordCount: 0,
+        metadata: buildMetadata(),
+      })
+    })
+
+    const fontBtn = screen.getByRole('button', { name: /text size: large/i })
+    expect(fontBtn).toHaveClass('text-primary')
+  })
+
+  it('font size icon is not text-primary when size is medium', () => {
+    let doRegister: ReturnType<typeof useEditorControls>['register']
+
+    render(
+      <Wrapper>
+        <EditorRegistrar
+          onReady={(r) => {
+            doRegister = r
+          }}
+        />
+        <RightPanel />
+      </Wrapper>,
+    )
+
+    act(() => {
+      doRegister!({
+        dictation: null,
+        fontSize: 'medium',
+        onFontSizeChange: vi.fn(),
+        wordCount: 0,
+        metadata: buildMetadata(),
+      })
+    })
+
+    const fontBtn = screen.getByRole('button', { name: /text size: medium/i })
+    expect(fontBtn).not.toHaveClass('text-primary')
+  })
 })
 
 // ── Metadata section ──────────────────────────────────────────────────────────
@@ -351,21 +405,21 @@ function buildMetadata(overrides: Partial<MetadataControls> = {}): MetadataContr
 }
 
 describe('RightPanel — metadata section', () => {
-  it('does not show metadata section when no editor is active', () => {
+  it('does not show metadata when no editor is active', () => {
     render(
       <Wrapper>
         <RightPanel />
       </Wrapper>,
     )
 
-    expect(screen.queryByRole('button', { name: /\+ mood/i })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: /Add scripture reference/i }),
+      screen.queryByRole('button', { name: /add scripture reference/i }),
     ).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Add tag/i })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('tag-input-panel')).not.toBeInTheDocument()
   })
 
-  it('does not show metadata section when editor is active but metadata is null', () => {
+  it('does not show metadata when editor is active but metadata is null', () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
     render(
@@ -389,130 +443,37 @@ describe('RightPanel — metadata section', () => {
       })
     })
 
-    expect(screen.queryByRole('button', { name: /\+ mood/i })).not.toBeInTheDocument()
-  })
-
-  it('shows "+ mood" chip when editor active with metadata and no mood set', () => {
-    let doRegister: ReturnType<typeof useEditorControls>['register']
-
-    render(
-      <Wrapper>
-        <EditorRegistrar
-          onReady={(r) => {
-            doRegister = r
-          }}
-        />
-        <RightPanel />
-      </Wrapper>,
-    )
-
-    act(() => {
-      doRegister!({
-        dictation: null,
-        fontSize: 'medium',
-        onFontSizeChange: vi.fn(),
-        wordCount: 0,
-        metadata: buildMetadata(),
-      })
-    })
-
-    expect(screen.getByRole('button', { name: /\+ mood/i })).toBeInTheDocument()
-  })
-
-  it('shows mood label and emoji when a mood is set', () => {
-    let doRegister: ReturnType<typeof useEditorControls>['register']
-
-    render(
-      <Wrapper>
-        <EditorRegistrar
-          onReady={(r) => {
-            doRegister = r
-          }}
-        />
-        <RightPanel />
-      </Wrapper>,
-    )
-
-    act(() => {
-      doRegister!({
-        dictation: null,
-        fontSize: 'medium',
-        onFontSizeChange: vi.fn(),
-        wordCount: 0,
-        metadata: buildMetadata({ mood: 3, moodLabel: 'Hopeful' }),
-      })
-    })
-
-    // Mood chip shows the label (not "+ mood")
-    expect(screen.getByText('Hopeful')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /\+ mood/i })).not.toBeInTheDocument()
-  })
-
-  it('clicking the mood chip toggles the MoodPicker', async () => {
-    let doRegister: ReturnType<typeof useEditorControls>['register']
-
-    render(
-      <Wrapper>
-        <EditorRegistrar
-          onReady={(r) => {
-            doRegister = r
-          }}
-        />
-        <RightPanel />
-      </Wrapper>,
-    )
-
-    act(() => {
-      doRegister!({
-        dictation: null,
-        fontSize: 'medium',
-        onFontSizeChange: vi.fn(),
-        wordCount: 0,
-        metadata: buildMetadata(),
-      })
-    })
-
-    // Picker not visible initially
-    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /\+ mood/i }))
-
-    // Picker should now appear
-    expect(screen.getByTestId('mood-picker-panel')).toBeInTheDocument()
-  })
-
-  it('clicking the mood chip a second time closes the MoodPicker', async () => {
-    let doRegister: ReturnType<typeof useEditorControls>['register']
-
-    render(
-      <Wrapper>
-        <EditorRegistrar
-          onReady={(r) => {
-            doRegister = r
-          }}
-        />
-        <RightPanel />
-      </Wrapper>,
-    )
-
-    act(() => {
-      doRegister!({
-        dictation: null,
-        fontSize: 'medium',
-        onFontSizeChange: vi.fn(),
-        wordCount: 0,
-        metadata: buildMetadata(),
-      })
-    })
-
-    await userEvent.click(screen.getByRole('button', { name: /\+ mood/i }))
-    expect(screen.getByTestId('mood-picker-panel')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /\+ mood/i }))
     expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
   })
 
-  it('selecting a mood calls onMoodChange and closes the picker', async () => {
+  it('shows MoodPicker always when editor is active with metadata', () => {
+    let doRegister: ReturnType<typeof useEditorControls>['register']
+
+    render(
+      <Wrapper>
+        <EditorRegistrar
+          onReady={(r) => {
+            doRegister = r
+          }}
+        />
+        <RightPanel />
+      </Wrapper>,
+    )
+
+    act(() => {
+      doRegister!({
+        dictation: null,
+        fontSize: 'medium',
+        onFontSizeChange: vi.fn(),
+        wordCount: 0,
+        metadata: buildMetadata(),
+      })
+    })
+
+    expect(screen.getByTestId('mood-picker-panel')).toBeInTheDocument()
+  })
+
+  it('selecting a mood calls onMoodChange', async () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
     const onMoodChange = vi.fn()
 
@@ -537,14 +498,38 @@ describe('RightPanel — metadata section', () => {
       })
     })
 
-    await userEvent.click(screen.getByRole('button', { name: /\+ mood/i }))
     await userEvent.click(screen.getByRole('button', { name: /pick hopeful/i }))
-
     expect(onMoodChange).toHaveBeenCalledWith(3, 'Hopeful')
-    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
   })
 
-  it('shows "+ scripture" button and toggles ScriptureRefInput on click', async () => {
+  it('shows TagInput always when editor is active with metadata', () => {
+    let doRegister: ReturnType<typeof useEditorControls>['register']
+
+    render(
+      <Wrapper>
+        <EditorRegistrar
+          onReady={(r) => {
+            doRegister = r
+          }}
+        />
+        <RightPanel />
+      </Wrapper>,
+    )
+
+    act(() => {
+      doRegister!({
+        dictation: null,
+        fontSize: 'medium',
+        onFontSizeChange: vi.fn(),
+        wordCount: 0,
+        metadata: buildMetadata(),
+      })
+    })
+
+    expect(screen.getByTestId('tag-input-panel')).toBeInTheDocument()
+  })
+
+  it('shows "Add scripture reference" button and reveals ScriptureRefInput on click', async () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
     render(
@@ -609,7 +594,7 @@ describe('RightPanel — metadata section', () => {
     expect(screen.queryByTestId('scripture-ref-input-panel')).not.toBeInTheDocument()
   })
 
-  it('shows existing scripture chips when scriptureRefs are provided', () => {
+  it('shows existing scripture references', () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
     render(
@@ -676,7 +661,7 @@ describe('RightPanel — metadata section', () => {
     ])
   })
 
-  it('shows "+ tag" button and toggles TagInput on click', async () => {
+  it('shows "Add as verse" button when editor is active with metadata', () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
     render(
@@ -700,14 +685,42 @@ describe('RightPanel — metadata section', () => {
       })
     })
 
-    expect(screen.queryByTestId('tag-input-panel')).not.toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /add tag/i }))
-
-    expect(screen.getByTestId('tag-input-panel')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add as verse/i })).toBeInTheDocument()
   })
 
-  it('shows existing tag chips when tags are provided', () => {
+  it('"Add as verse" calls onScriptureRefsChange with daily verse', async () => {
+    let doRegister: ReturnType<typeof useEditorControls>['register']
+    const onScriptureRefsChange = vi.fn()
+
+    render(
+      <Wrapper>
+        <EditorRegistrar
+          onReady={(r) => {
+            doRegister = r
+          }}
+        />
+        <RightPanel />
+      </Wrapper>,
+    )
+
+    act(() => {
+      doRegister!({
+        dictation: null,
+        fontSize: 'medium',
+        onFontSizeChange: vi.fn(),
+        wordCount: 0,
+        metadata: buildMetadata({ onScriptureRefsChange }),
+      })
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: /add as verse/i }))
+
+    expect(onScriptureRefsChange).toHaveBeenCalledWith([
+      { reference: 'Isaiah 26:4', passageId: 'ISA.26.4' },
+    ])
+  })
+
+  it('"Add as verse" is disabled when verse is already in refs', () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
     render(
@@ -727,102 +740,13 @@ describe('RightPanel — metadata section', () => {
         fontSize: 'medium',
         onFontSizeChange: vi.fn(),
         wordCount: 0,
-        metadata: buildMetadata({ tags: ['prayer', 'gratitude'] }),
+        metadata: buildMetadata({
+          scriptureRefs: [{ reference: 'Isaiah 26:4', passageId: 'ISA.26.4' }],
+        }),
       })
     })
 
-    expect(screen.getByText('prayer')).toBeInTheDocument()
-    expect(screen.getByText('gratitude')).toBeInTheDocument()
-  })
-
-  it('only one picker is open at a time — opening tag input closes scripture input', async () => {
-    let doRegister: ReturnType<typeof useEditorControls>['register']
-
-    render(
-      <Wrapper>
-        <EditorRegistrar
-          onReady={(r) => {
-            doRegister = r
-          }}
-        />
-        <RightPanel />
-      </Wrapper>,
-    )
-
-    act(() => {
-      doRegister!({
-        dictation: null,
-        fontSize: 'medium',
-        onFontSizeChange: vi.fn(),
-        wordCount: 0,
-        metadata: buildMetadata(),
-      })
-    })
-
-    // Open scripture input (button has aria-label "Add scripture reference")
-    await userEvent.click(screen.getByRole('button', { name: /add scripture reference/i }))
-    expect(screen.getByTestId('scripture-ref-input-panel')).toBeInTheDocument()
-    expect(screen.queryByTestId('tag-input-panel')).not.toBeInTheDocument()
-
-    // Open tag input — should close scripture input (button has aria-label "Add tag")
-    await userEvent.click(screen.getByRole('button', { name: /^add tag$/i }))
-    expect(screen.getByTestId('tag-input-panel')).toBeInTheDocument()
-    expect(screen.queryByTestId('scripture-ref-input-panel')).not.toBeInTheDocument()
-  })
-
-  it('font size icon is text-primary when size is not medium', () => {
-    let doRegister: ReturnType<typeof useEditorControls>['register']
-
-    render(
-      <Wrapper>
-        <EditorRegistrar
-          onReady={(r) => {
-            doRegister = r
-          }}
-        />
-        <RightPanel />
-      </Wrapper>,
-    )
-
-    act(() => {
-      doRegister!({
-        dictation: null,
-        fontSize: 'large',
-        onFontSizeChange: vi.fn(),
-        wordCount: 0,
-        metadata: buildMetadata(),
-      })
-    })
-
-    const fontBtn = screen.getByRole('button', { name: /text size: large/i })
-    expect(fontBtn).toHaveClass('text-primary')
-  })
-
-  it('font size icon is not text-primary when size is medium', () => {
-    let doRegister: ReturnType<typeof useEditorControls>['register']
-
-    render(
-      <Wrapper>
-        <EditorRegistrar
-          onReady={(r) => {
-            doRegister = r
-          }}
-        />
-        <RightPanel />
-      </Wrapper>,
-    )
-
-    act(() => {
-      doRegister!({
-        dictation: null,
-        fontSize: 'medium',
-        onFontSizeChange: vi.fn(),
-        wordCount: 0,
-        metadata: buildMetadata(),
-      })
-    })
-
-    const fontBtn = screen.getByRole('button', { name: /text size: medium/i })
-    expect(fontBtn).not.toHaveClass('text-primary')
+    const btn = screen.getByRole('button', { name: /verse already added/i })
+    expect(btn).toBeDisabled()
   })
 })

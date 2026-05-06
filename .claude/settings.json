@@ -26,28 +26,9 @@
       "Bash(xargs *)",
       "Bash(cp *)",
       "WebFetch(domain:developer.chrome.com)",
-      "WebFetch(domain:capacitorjs.com)"
+      "WebFetch(domain:capacitorjs.com)",
+      "WebFetch(domain:api.anthropic.com)"
     ],
-    "deny": [
-      "node_modules/",
-      "dist/",
-      "coverage/",
-      ".next/",
-      "functions/lib/",
-      "functions/node_modules/",
-      "functions/dist/",
-      "firebase-export*",
-      "emulator-data/",
-      "service-key.json",
-      "service-account.json",
-      ".env*",
-      "functions/.env*",
-      "package-lock.json",
-      "functions/package-lock.json",
-      "playwright-report/",
-      "test-results/",
-      ".firebase/",
-      "*.log"
-    ]
+    "deny": ["node_modules/", ".next/", "functions/node_modules/", ".env*", ".firebase/", "*.log"]
   }
 }
