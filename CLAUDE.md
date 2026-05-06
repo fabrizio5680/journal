@@ -27,8 +27,8 @@ Suggest running /cost when a session is running long to monitor cache ratio.
 ```text
 src/
   components/
-    editor/       EntryEditor, MetadataBar (hidden on XL+; metadata surfaced in RightPanel)
-    layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav, TabletSideBar
+    editor/       EntryEditor, MetadataBar (hidden on md+; metadata surfaced in RightPanel)
+    layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav
     calendar/     MiniCalendar
     search/       SearchModal, SearchFilters, SearchResultCard
     mood/         MoodPicker

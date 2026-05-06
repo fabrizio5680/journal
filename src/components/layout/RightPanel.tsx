@@ -6,7 +6,6 @@ import MoodPicker from '@/components/mood/MoodPicker'
 import ScriptureChip from '@/components/scripture/ScriptureChip'
 import ScriptureRefInput from '@/components/scripture/ScriptureRefInput'
 import TagInput from '@/components/tags/TagInput'
-import { useFocusMode } from '@/context/FocusModeContext'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
@@ -20,7 +19,6 @@ type ActivePicker = 'mood' | 'scripture' | 'tag' | null
 export default function RightPanel() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [activePicker, setActivePicker] = useState<ActivePicker>(null)
-  const { isFocused } = useFocusMode()
   const { scriptureTranslation } = useUserPreferences()
   const { isEditorActive, dictation, fontSize, onFontSizeChange, wordCount, metadata } =
     useEditorControls()
@@ -73,12 +71,7 @@ export default function RightPanel() {
       : null
 
   return (
-    <aside
-      className={clsx(
-        'bg-surface border-outline-variant/10 fixed top-0 right-0 z-30 hidden h-screen w-80 flex-col gap-6 border-l px-6 py-8 transition-all duration-500 xl:flex',
-        isFocused && 'xl:pointer-events-none xl:translate-x-full xl:opacity-0',
-      )}
-    >
+    <aside className="bg-surface border-outline-variant/10 fixed top-0 right-0 z-30 hidden h-screen w-80 flex-col gap-6 border-l px-6 py-8 md:flex">
       {/* Daily scripture */}
       <DailyScripture translation={scriptureTranslation} />
 

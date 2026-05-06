@@ -5,7 +5,6 @@ import React from 'react'
 
 import RightPanel from './RightPanel'
 
-import { FocusModeProvider } from '@/context/FocusModeContext'
 import { EditorControlsProvider, useEditorControls } from '@/context/EditorControlsContext'
 import { UserPreferencesProvider } from '@/context/UserPreferencesContext'
 import type { MetadataControls } from '@/context/EditorControlsContext'
@@ -61,11 +60,9 @@ vi.mock('@/context/UserPreferencesContext', async (importOriginal) => {
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
-    <FocusModeProvider>
-      <EditorControlsProvider>
-        <UserPreferencesProvider>{children}</UserPreferencesProvider>
-      </EditorControlsProvider>
-    </FocusModeProvider>
+    <EditorControlsProvider>
+      <UserPreferencesProvider>{children}</UserPreferencesProvider>
+    </EditorControlsProvider>
   )
 }
 
