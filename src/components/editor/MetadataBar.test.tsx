@@ -1,99 +1,80 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 
 import MetadataBar from './MetadataBar'
 
 import { renderWithProviders } from '@/test/render'
+import { MOODS } from '@/lib/moods'
 import type { ScriptureRef } from '@/types'
 
 // ---- module mocks ----
 
-vi.mock('@/components/scripture/ScriptureChip', () => ({
-  default: ({
-    ref_,
-    onRemove,
-  }: {
-    ref_: ScriptureRef
-    translation: string
-    onRemove?: () => void
-  }) => (
-    <div data-testid={`scripture-chip-${ref_.passageId}`}>
-      <span>{ref_.reference}</span>
-      {onRemove && (
-        <button type="button" aria-label={`Remove ${ref_.reference}`} onClick={onRemove}>
-          ×
-        </button>
-      )}
-    </div>
-  ),
-}))
+// Render portal content inline so jsdom can query it
+vi.mock('react-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-dom')>('react-dom')
+  return { ...actual, createPortal: (node: React.ReactNode) => node }
+})
 
 vi.mock('@/components/scripture/ScriptureRefInput', () => ({
-  default: ({ onAdd }: { translation: string; onAdd: (ref: ScriptureRef) => void }) => (
-    <div data-testid="scripture-ref-input">
-      <button
-        type="button"
-        onClick={() => onAdd({ reference: 'John 3:16', passageId: 'JHN.3.16' })}
-      >
-        Mock Add
-      </button>
-    </div>
+  default: ({ onAdd }: { onAdd: (ref: ScriptureRef) => void }) => (
+    <button
+      type="button"
+      data-testid="mock-scripture-input"
+      onClick={() => onAdd({ reference: 'John 3:16', passageId: 'john-3-16' })}
+    >
+      mock-scripture-input
+    </button>
   ),
 }))
 
-vi.mock('@/components/mood/MoodPicker', () => ({
-  default: ({
-    value,
-    onChange,
-  }: {
-    value: number | null
-    label: string | null
-    onChange: (mood: number | null, label: string | null) => void
-  }) => (
-    <div data-testid="mood-picker">
-      <button type="button" onClick={() => onChange(3, 'Hopeful')}>
-        Pick Hopeful
-      </button>
-      {value !== null && (
-        <button type="button" onClick={() => onChange(null, null)}>
-          Clear Mood
-        </button>
-      )}
-    </div>
-  ),
-}))
-
+// TagInput uses UserPreferencesContext; mock it so we don't need the full provider tree
 vi.mock('@/components/tags/TagInput', () => ({
   default: ({
     tags,
-    onChange,
   }: {
     tags: string[]
     vocabulary: string[]
-    onChange: (tags: string[]) => void
-    onNewTag?: (tag: string) => void
+    onChange: unknown
+    onNewTag?: unknown
   }) => (
     <div data-testid="tag-input">
-      <button type="button" onClick={() => onChange([...tags, 'faith'])}>
-        Add Faith
-      </button>
+      {tags.map((t) => (
+        <span key={t} data-testid={`tag-${t}`}>
+          {t}
+        </span>
+      ))}
     </div>
   ),
 }))
 
 // ---- helpers ----
 
-const sampleRefs: ScriptureRef[] = [
-  { reference: 'John 3:16', passageId: 'JHN.3.16' },
-  { reference: 'Romans 8:28', passageId: 'ROM.8.28' },
-]
+/**
+ * The sheet (MetadataSheet) is always in the DOM (CSS translateY animation).
+ * "Open" state = transform: translateY(0px) or translateY(<small>px)
+ * "Closed" state = transform: translateY(100%)
+ * We detect open state via the sheet div's style attribute.
+ */
+function getSheetDiv() {
+  // The sheet is the fixed bottom div with rounded-t-3xl
+  return document.querySelector('.fixed.bottom-0') as HTMLElement | null
+}
+
+function isSheetOpen() {
+  const sheet = getSheetDiv()
+  if (!sheet) return false
+  const transform = sheet.style.transform
+  // Open = translateY(0px), Closed = translateY(100%)
+  return transform !== 'translateY(100%)'
+}
+
+// ---- test data ----
 
 const defaultProps = {
-  mood: null as null,
-  moodLabel: null,
+  mood: null as 1 | 2 | 3 | 4 | 5 | null,
+  moodLabel: null as string | null,
   tags: [] as string[],
-  tagVocabulary: [] as string[],
+  tagVocabulary: ['prayer', 'gratitude'] as string[],
   onMoodChange: vi.fn(),
   onTagsChange: vi.fn(),
   onNewTag: vi.fn(),
@@ -106,221 +87,266 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+function openSheet() {
+  const bar = screen.getByTestId('metadata-bar')
+  const outerBtn = bar.querySelector('button') as HTMLButtonElement
+  fireEvent.click(outerBtn)
+}
+
 // ---- tests ----
 
 describe('MetadataBar', () => {
-  // Mood chip
-  it('renders mood chip placeholder when mood is null', () => {
+  // 1. Collapsed strip renders correctly
+  it('renders the metadata-bar testid', () => {
     renderWithProviders(<MetadataBar {...defaultProps} />)
-    expect(screen.getByRole('button', { name: '+ mood' })).toBeInTheDocument()
+    expect(screen.getByTestId('metadata-bar')).toBeInTheDocument()
   })
 
-  it('renders mood emoji and label when mood is set', () => {
-    renderWithProviders(<MetadataBar {...defaultProps} mood={3} moodLabel="Hopeful" />)
-    expect(screen.getByText('🌱')).toBeInTheDocument()
-    expect(screen.getByText('Hopeful')).toBeInTheDocument()
-  })
-
-  it('renders mood emoji with default label when moodLabel is null', () => {
-    renderWithProviders(<MetadataBar {...defaultProps} mood={5} moodLabel={null} />)
-    expect(screen.getByText('😄')).toBeInTheDocument()
-    expect(screen.getByText('Joyful')).toBeInTheDocument()
-  })
-
-  it('renders Weary emoji (😮‍💨) when moodLabel="Weary" and mood=1, not Sorrowful emoji (😢)', () => {
-    renderWithProviders(<MetadataBar {...defaultProps} mood={1} moodLabel="Weary" />)
-    expect(screen.getByText('😮‍💨')).toBeInTheDocument()
-    expect(screen.getByText('Weary')).toBeInTheDocument()
-    expect(screen.queryByText('😢')).not.toBeInTheDocument()
-  })
-
-  it('renders Sorrowful emoji (😢) when moodLabel="Sorrowful" and mood=1, not Weary emoji (😮‍💨)', () => {
-    renderWithProviders(<MetadataBar {...defaultProps} mood={1} moodLabel="Sorrowful" />)
-    expect(screen.getByText('😢')).toBeInTheDocument()
-    expect(screen.getByText('Sorrowful')).toBeInTheDocument()
-    expect(screen.queryByText('😮‍💨')).not.toBeInTheDocument()
-  })
-
-  // Tag chips
-  it('renders tag chips for each tag', () => {
-    renderWithProviders(<MetadataBar {...defaultProps} tags={['gratitude', 'morning']} />)
-    expect(screen.getByText('gratitude')).toBeInTheDocument()
-    expect(screen.getByText('morning')).toBeInTheDocument()
-  })
-
-  // Scripture chips
-  it('renders a ScriptureChip for each existing ref', () => {
-    renderWithProviders(<MetadataBar {...defaultProps} scriptureRefs={sampleRefs} />)
-    expect(screen.getByTestId('scripture-chip-JHN.3.16')).toBeInTheDocument()
-    expect(screen.getByTestId('scripture-chip-ROM.8.28')).toBeInTheDocument()
-    expect(screen.getByText('John 3:16')).toBeInTheDocument()
-    expect(screen.getByText('Romans 8:28')).toBeInTheDocument()
-  })
-
-  // Mood picker toggle
-  it('clicking mood chip shows MoodPicker', async () => {
-    const user = userEvent.setup()
+  it('shows "+ Mood" placeholder when no mood is set', () => {
     renderWithProviders(<MetadataBar {...defaultProps} />)
-
-    expect(screen.queryByTestId('mood-picker')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '+ mood' }))
-    expect(screen.getByTestId('mood-picker')).toBeInTheDocument()
+    // Strip has a pill with text "+ Mood"
+    const bar = screen.getByTestId('metadata-bar')
+    expect(within(bar).getByText('+ Mood')).toBeInTheDocument()
   })
 
-  it('clicking mood chip a second time hides MoodPicker (toggle)', async () => {
-    const user = userEvent.setup()
+  it('shows scripture count 0 in the strip', () => {
     renderWithProviders(<MetadataBar {...defaultProps} />)
-
-    const moodBtn = screen.getByRole('button', { name: '+ mood' })
-    await user.click(moodBtn)
-    expect(screen.getByTestId('mood-picker')).toBeInTheDocument()
-
-    await user.click(moodBtn)
-    expect(screen.queryByTestId('mood-picker')).not.toBeInTheDocument()
+    // Two count spans exist in the strip (scripture=0, tag=0)
+    const bar = screen.getByTestId('metadata-bar')
+    const zeros = within(bar).getAllByText('0')
+    expect(zeros.length).toBeGreaterThanOrEqual(2)
   })
 
-  // Scripture picker toggle
-  it('renders the "+ scripture" button', () => {
+  it('shows "Edit" text in the strip', () => {
     renderWithProviders(<MetadataBar {...defaultProps} />)
-    expect(screen.getByRole('button', { name: /Add scripture reference/i })).toBeInTheDocument()
+    const bar = screen.getByTestId('metadata-bar')
+    expect(within(bar).getByText('Edit')).toBeInTheDocument()
   })
 
-  it('clicking "+ scripture" shows ScriptureRefInput', async () => {
-    const user = userEvent.setup()
+  it('sheet is closed on initial render', () => {
     renderWithProviders(<MetadataBar {...defaultProps} />)
-
-    expect(screen.queryByTestId('scripture-ref-input')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Add scripture reference/i }))
-    expect(screen.getByTestId('scripture-ref-input')).toBeInTheDocument()
+    expect(isSheetOpen()).toBe(false)
   })
 
-  it('clicking "+ scripture" a second time hides ScriptureRefInput (toggle)', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<MetadataBar {...defaultProps} />)
-
-    const addBtn = screen.getByRole('button', { name: /Add scripture reference/i })
-    await user.click(addBtn)
-    expect(screen.getByTestId('scripture-ref-input')).toBeInTheDocument()
-
-    await user.click(addBtn)
-    expect(screen.queryByTestId('scripture-ref-input')).not.toBeInTheDocument()
-  })
-
-  // Tag picker toggle
-  it('clicking "+ tag" shows TagInput', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<MetadataBar {...defaultProps} />)
-
-    expect(screen.queryByTestId('tag-input')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Add tag/i }))
-    expect(screen.getByTestId('tag-input')).toBeInTheDocument()
-  })
-
-  it('clicking "+ tag" a second time hides TagInput (toggle)', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<MetadataBar {...defaultProps} />)
-
-    const tagBtn = screen.getByRole('button', { name: /Add tag/i })
-    await user.click(tagBtn)
-    expect(screen.getByTestId('tag-input')).toBeInTheDocument()
-
-    await user.click(tagBtn)
-    expect(screen.queryByTestId('tag-input')).not.toBeInTheDocument()
-  })
-
-  // Mutual exclusion
-  it('opening scripture picker closes mood picker', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<MetadataBar {...defaultProps} />)
-
-    await user.click(screen.getByRole('button', { name: '+ mood' }))
-    expect(screen.getByTestId('mood-picker')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /Add scripture reference/i }))
-    expect(screen.queryByTestId('mood-picker')).not.toBeInTheDocument()
-    expect(screen.getByTestId('scripture-ref-input')).toBeInTheDocument()
-  })
-
-  it('opening tag picker closes scripture picker', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<MetadataBar {...defaultProps} />)
-
-    await user.click(screen.getByRole('button', { name: /Add scripture reference/i }))
-    expect(screen.getByTestId('scripture-ref-input')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /Add tag/i }))
-    expect(screen.queryByTestId('scripture-ref-input')).not.toBeInTheDocument()
-    expect(screen.getByTestId('tag-input')).toBeInTheDocument()
-  })
-
-  // Callbacks
-  it('calls onScriptureRefsChange with ref filtered out when remove is clicked', () => {
-    const onScriptureRefsChange = vi.fn()
+  // 2. Strip shows mood emoji when mood is set
+  it('shows mood emoji in the strip when mood is set', () => {
+    const mood = MOODS[0] // Sorrowful, value=1
     renderWithProviders(
-      <MetadataBar
-        {...defaultProps}
-        scriptureRefs={sampleRefs}
-        onScriptureRefsChange={onScriptureRefsChange}
-      />,
+      <MetadataBar {...defaultProps} mood={mood.value} moodLabel={mood.label} />,
     )
-
-    fireEvent.click(screen.getByRole('button', { name: /Remove John 3:16/i }))
-
-    expect(onScriptureRefsChange).toHaveBeenCalledOnce()
-    expect(onScriptureRefsChange).toHaveBeenCalledWith([
-      { reference: 'Romans 8:28', passageId: 'ROM.8.28' },
-    ])
+    const bar = screen.getByTestId('metadata-bar')
+    // The strip pill (inside the outer button, not in the sheet) shows the emoji
+    const outerButton = bar.querySelector('button') as HTMLButtonElement
+    expect(within(outerButton).getByText(mood.emoji)).toBeInTheDocument()
+    expect(within(outerButton).getByText(mood.label)).toBeInTheDocument()
   })
 
-  it('calls onScriptureRefsChange with new ref appended when ScriptureRefInput fires onAdd', async () => {
-    const onScriptureRefsChange = vi.fn()
-    const user = userEvent.setup()
-
-    renderWithProviders(
-      <MetadataBar
-        {...defaultProps}
-        scriptureRefs={[]}
-        onScriptureRefsChange={onScriptureRefsChange}
-      />,
-    )
-
-    await user.click(screen.getByRole('button', { name: /Add scripture reference/i }))
-    await user.click(screen.getByRole('button', { name: /Mock Add/i }))
-
-    expect(onScriptureRefsChange).toHaveBeenCalledOnce()
-    expect(onScriptureRefsChange).toHaveBeenCalledWith([
-      { reference: 'John 3:16', passageId: 'JHN.3.16' },
-    ])
-  })
-
-  it('hides ScriptureRefInput after a ref is added', async () => {
-    const user = userEvent.setup()
+  // 3. Tapping outer button opens sheet
+  it('clicking outer button opens the sheet', () => {
     renderWithProviders(<MetadataBar {...defaultProps} />)
-
-    await user.click(screen.getByRole('button', { name: /Add scripture reference/i }))
-    expect(screen.getByTestId('scripture-ref-input')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /Mock Add/i }))
-    expect(screen.queryByTestId('scripture-ref-input')).not.toBeInTheDocument()
+    expect(isSheetOpen()).toBe(false)
+    openSheet()
+    expect(isSheetOpen()).toBe(true)
   })
 
-  it('calls onMoodChange and closes picker when a mood is selected', async () => {
+  // 4. Tapping mood pill opens sheet
+  it('clicking mood pill opens the sheet', () => {
+    renderWithProviders(<MetadataBar {...defaultProps} />)
+    expect(isSheetOpen()).toBe(false)
+    const bar = screen.getByTestId('metadata-bar')
+    const moodPill = within(bar).getAllByRole('presentation')[0]
+    fireEvent.click(moodPill)
+    expect(isSheetOpen()).toBe(true)
+  })
+
+  // 5. Tapping scripture count opens sheet
+  it('clicking scripture count pill opens the sheet', () => {
+    renderWithProviders(<MetadataBar {...defaultProps} />)
+    expect(isSheetOpen()).toBe(false)
+    const bar = screen.getByTestId('metadata-bar')
+    const pills = within(bar).getAllByRole('presentation')
+    // pills[1] = scripture count
+    fireEvent.click(pills[1])
+    expect(isSheetOpen()).toBe(true)
+  })
+
+  // 6. Tapping tag count opens sheet
+  it('clicking tag count pill opens the sheet', () => {
+    renderWithProviders(<MetadataBar {...defaultProps} />)
+    expect(isSheetOpen()).toBe(false)
+    const bar = screen.getByTestId('metadata-bar')
+    const pills = within(bar).getAllByRole('presentation')
+    // pills[2] = tag count
+    fireEvent.click(pills[2])
+    expect(isSheetOpen()).toBe(true)
+  })
+
+  // 7. Sheet close button closes sheet
+  it('clicking Close button closes the sheet', () => {
+    renderWithProviders(<MetadataBar {...defaultProps} />)
+    openSheet()
+    expect(isSheetOpen()).toBe(true)
+
+    const closeBtn = screen.getByRole('button', { name: 'Close' })
+    fireEvent.click(closeBtn)
+    expect(isSheetOpen()).toBe(false)
+  })
+
+  // 8. Backdrop click closes sheet
+  it('clicking backdrop closes the sheet', () => {
+    renderWithProviders(<MetadataBar {...defaultProps} />)
+    openSheet()
+    expect(isSheetOpen()).toBe(true)
+
+    // The backdrop is the fixed inset-0 div (not the sheet div)
+    const backdrop = document.querySelector('.fixed.inset-0') as HTMLElement
+    expect(backdrop).toBeTruthy()
+    fireEvent.click(backdrop)
+    expect(isSheetOpen()).toBe(false)
+  })
+
+  // 9. Mood selection calls onMoodChange
+  it('clicking a mood button in the sheet calls onMoodChange with correct args', () => {
     const onMoodChange = vi.fn()
-    const user = userEvent.setup()
-
     renderWithProviders(<MetadataBar {...defaultProps} onMoodChange={onMoodChange} />)
+    openSheet()
 
-    await user.click(screen.getByRole('button', { name: '+ mood' }))
-    await user.click(screen.getByRole('button', { name: 'Pick Hopeful' }))
+    const targetMood = MOODS[0] // Sorrowful, value=1
+    // The sheet's mood grid contains buttons with the mood label text
+    const sheet = getSheetDiv()!
+    const moodBtn = within(sheet).getByRole('button', { name: new RegExp(targetMood.label, 'i') })
+    fireEvent.click(moodBtn)
 
     expect(onMoodChange).toHaveBeenCalledOnce()
-    expect(onMoodChange).toHaveBeenCalledWith(3, 'Hopeful')
-    expect(screen.queryByTestId('mood-picker')).not.toBeInTheDocument()
+    expect(onMoodChange).toHaveBeenCalledWith(targetMood.value, targetMood.label)
+  })
+
+  // 10. Mood deselection (toggle)
+  it('clicking already-selected mood button calls onMoodChange with (null, null)', () => {
+    const onMoodChange = vi.fn()
+    const mood = MOODS[0] // Sorrowful
+    renderWithProviders(
+      <MetadataBar
+        {...defaultProps}
+        mood={mood.value}
+        moodLabel={mood.label}
+        onMoodChange={onMoodChange}
+      />,
+    )
+    openSheet()
+
+    const sheet = getSheetDiv()!
+    const moodBtn = within(sheet).getByRole('button', { name: new RegExp(mood.label, 'i') })
+    fireEvent.click(moodBtn)
+
+    expect(onMoodChange).toHaveBeenCalledWith(null, null)
+  })
+
+  // 11. Scripture remove calls onScriptureRefsChange
+  it('clicking remove scripture button calls onScriptureRefsChange with ref filtered out', () => {
+    const onScriptureRefsChange = vi.fn()
+    const refs: ScriptureRef[] = [{ reference: 'John 3:16', passageId: 'john-3-16' }]
+    renderWithProviders(
+      <MetadataBar
+        {...defaultProps}
+        scriptureRefs={refs}
+        onScriptureRefsChange={onScriptureRefsChange}
+      />,
+    )
+    openSheet()
+
+    const removeBtn = screen.getByRole('button', { name: 'Remove John 3:16' })
+    fireEvent.click(removeBtn)
+
+    expect(onScriptureRefsChange).toHaveBeenCalledOnce()
+    expect(onScriptureRefsChange).toHaveBeenCalledWith([])
+  })
+
+  // 12. Tags section renders TagInput with existing tags
+  it('renders TagInput with existing tags visible in the sheet', () => {
+    renderWithProviders(<MetadataBar {...defaultProps} tags={['prayer']} />)
+    openSheet()
+
+    expect(screen.getByTestId('tag-input')).toBeInTheDocument()
+    expect(screen.getByTestId('tag-prayer')).toBeInTheDocument()
+  })
+
+  // 13. Add scripture flow
+  it('clicking "Add scripture" shows mock input; clicking mock fires onScriptureRefsChange', async () => {
+    const onScriptureRefsChange = vi.fn()
+    renderWithProviders(
+      <MetadataBar {...defaultProps} onScriptureRefsChange={onScriptureRefsChange} />,
+    )
+    openSheet()
+
+    // The dashed "Add scripture" button is in the sheet
+    const sheet = getSheetDiv()!
+    const addScriptureBtn = within(sheet).getByRole('button', { name: /Add scripture/i })
+    fireEvent.click(addScriptureBtn)
+
+    // Mock scripture input should now appear
+    expect(screen.getByTestId('mock-scripture-input')).toBeInTheDocument()
+
+    // Click mock to trigger onAdd
+    fireEvent.click(screen.getByTestId('mock-scripture-input'))
+
+    await waitFor(() => {
+      expect(onScriptureRefsChange).toHaveBeenCalledOnce()
+      expect(onScriptureRefsChange).toHaveBeenCalledWith([
+        { reference: 'John 3:16', passageId: 'john-3-16' },
+      ])
+    })
+  })
+
+  // ---- Additional coverage ----
+
+  it('sheet contains Mood, Scripture, and Tags section labels', () => {
+    renderWithProviders(<MetadataBar {...defaultProps} />)
+    openSheet()
+    const sheet = getSheetDiv()!
+    expect(within(sheet).getByText('Mood')).toBeInTheDocument()
+    expect(within(sheet).getByText('Scripture')).toBeInTheDocument()
+    expect(within(sheet).getByText('Tags')).toBeInTheDocument()
+  })
+
+  it('"Entry details" heading is present in the sheet', () => {
+    renderWithProviders(<MetadataBar {...defaultProps} />)
+    openSheet()
+    const sheet = getSheetDiv()!
+    expect(within(sheet).getByText('Entry details')).toBeInTheDocument()
   })
 
   it('has md:hidden class on the root element', () => {
     renderWithProviders(<MetadataBar {...defaultProps} />)
     const bar = screen.getByTestId('metadata-bar')
     expect(bar.className).toContain('md:hidden')
+  })
+
+  it('strip shows correct scripture count when refs are passed', () => {
+    renderWithProviders(
+      <MetadataBar
+        {...defaultProps}
+        scriptureRefs={[
+          { reference: 'John 3:16', passageId: 'j1' },
+          { reference: 'Romans 8:28', passageId: 'r1' },
+        ]}
+      />,
+    )
+    const bar = screen.getByTestId('metadata-bar')
+    const outerBtn = bar.querySelector('button') as HTMLButtonElement
+    // The scripture count is in the strip's scripture pill
+    const scripturePill = within(outerBtn).getAllByRole('presentation')[1]
+    expect(within(scripturePill).getByText('2')).toBeInTheDocument()
+  })
+
+  it('strip shows correct tag count when tags are passed', () => {
+    renderWithProviders(
+      <MetadataBar {...defaultProps} tags={['prayer', 'gratitude', 'faith']} />,
+    )
+    const bar = screen.getByTestId('metadata-bar')
+    const outerBtn = bar.querySelector('button') as HTMLButtonElement
+    // The tag count is in the strip's tag pill
+    const tagPill = within(outerBtn).getAllByRole('presentation')[2]
+    expect(within(tagPill).getByText('3')).toBeInTheDocument()
   })
 })

@@ -300,6 +300,35 @@ test.describe('Editor', () => {
     expect(stored).toBe('small')
   })
 
+  /**
+   * Opens the "Add scripture" input on any device:
+   * - On mobile (< 768px): MetadataBar is shown; must open the sheet first, then click
+   *   the "Add scripture" dashed button inside the sheet.
+   * - On desktop/tablet (>= 768px): RightPanel is shown; click the "Add scripture
+   *   reference" button in the panel directly.
+   */
+  async function openScriptureInput(page: import('@playwright/test').Page) {
+    const vp = page.viewportSize()
+    const isMobile = !vp || vp.width < 768
+    if (isMobile) {
+      // Open metadata sheet first
+      const bar = page.getByTestId('metadata-bar')
+      await bar.waitFor({ state: 'visible', timeout: 8000 })
+      const stripBtn = bar.locator('button').first()
+      await stripBtn.click()
+      await page.getByText('Entry details').waitFor({ state: 'visible', timeout: 3000 })
+      // Click the dashed "Add scripture" button in the sheet
+      const addBtn = page.getByRole('button', { name: /Add scripture/i })
+      await expect(addBtn).toBeVisible({ timeout: 3000 })
+      await addBtn.click()
+    } else {
+      // RightPanel is visible — click its "Add scripture reference" button
+      const scriptureBtn = page.getByRole('button', { name: /Add scripture reference/i })
+      await expect(scriptureBtn).toBeVisible({ timeout: 5000 })
+      await scriptureBtn.click()
+    }
+  }
+
   test('Scenario 7: scripture reference — add ref, chip appears, popover shows verse text', async ({
     page,
   }) => {
@@ -327,10 +356,8 @@ test.describe('Editor', () => {
       }
     })
 
-    // Click the "+ scripture" button in ScriptureBar
-    const scriptureBtn = page.getByRole('button', { name: /Add scripture reference/i })
-    await expect(scriptureBtn).toBeVisible({ timeout: 5000 })
-    await scriptureBtn.click()
+    // Open the scripture input (via sheet on mobile, via RightPanel on desktop/tablet)
+    await openScriptureInput(page)
 
     // Type the reference into the input that appears
     const refInput = page.getByPlaceholder('e.g. John 3:16 or Psalm 23:1-4')
@@ -373,10 +400,8 @@ test.describe('Editor', () => {
       }
     })
 
-    // Open the scripture input
-    const scriptureBtn = page.getByRole('button', { name: /Add scripture reference/i })
-    await expect(scriptureBtn).toBeVisible({ timeout: 5000 })
-    await scriptureBtn.click()
+    // Open the scripture input (via sheet on mobile, via RightPanel on desktop/tablet)
+    await openScriptureInput(page)
 
     // Type the reference
     const refInput = page.getByPlaceholder('e.g. John 3:16 or Psalm 23:1-4')
@@ -416,10 +441,8 @@ test.describe('Editor', () => {
       })
     })
 
-    // Add a scripture reference via ScriptureBar
-    const scriptureBtn = page.getByRole('button', { name: /Add scripture reference/i })
-    await expect(scriptureBtn).toBeVisible({ timeout: 5000 })
-    await scriptureBtn.click()
+    // Open the scripture input (via sheet on mobile, via RightPanel on desktop/tablet)
+    await openScriptureInput(page)
 
     const refInput = page.getByPlaceholder('e.g. John 3:16 or Psalm 23:1-4')
     await expect(refInput).toBeVisible({ timeout: 3000 })
@@ -501,115 +524,85 @@ test.describe('Editor', () => {
     expect(['sticky', 'fixed']).toContain(position)
   })
 
-  test('MetadataBar 3: clicking mood chip opens mood picker inline within the bar', async ({
+  test('MetadataBar 3: clicking the strip opens the metadata sheet with "Entry details" heading', async ({
     page,
   }) => {
     const bar = await getMetadataBarOrSkip(page)
 
-    // No picker should be visible initially
-    await expect(page.getByTestId('mood-picker-inline')).toBeHidden()
+    // Sheet must not be open initially (translateY(100%))
+    const sheet = page.locator('.fixed.bottom-0')
+    await expect(sheet).toHaveCSS('transform', /translateY\(100%\)/, { timeout: 3000 })
 
-    // Click the mood chip (shows "+ mood" before any mood is set)
-    const moodChip = bar.getByRole('button', { name: /\+ mood/i })
-    await expect(moodChip).toBeVisible({ timeout: 3000 })
-    await moodChip.click()
+    // Click the outer strip button
+    const stripBtn = bar.locator('button').first()
+    await expect(stripBtn).toBeVisible({ timeout: 3000 })
+    await stripBtn.click()
 
-    // Mood picker should appear inside the bar
-    const moodPickerInline = page.getByTestId('mood-picker-inline')
-    await expect(moodPickerInline).toBeVisible({ timeout: 3000 })
-
-    // The picker must be a descendant of the MetadataBar
-    const isInsideBar = await moodPickerInline.evaluate((el) => {
-      const bar = document.querySelector('[data-testid="metadata-bar"]')
-      return bar ? bar.contains(el) : false
-    })
-    expect(isInsideBar).toBe(true)
+    // "Entry details" heading must appear and sheet must be visible (translateY changes)
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
   })
 
-  test('MetadataBar 4: clicking "+ scripture" opens scripture input inline within the bar', async ({
+  test('MetadataBar 4: clicking strip opens sheet containing Mood, Scripture, and Tags sections', async ({
     page,
   }) => {
     const bar = await getMetadataBarOrSkip(page)
 
-    // No scripture input initially
-    await expect(page.getByTestId('scripture-input-inline')).toBeHidden()
+    const stripBtn = bar.locator('button').first()
+    await stripBtn.click()
 
-    // Click the "+ scripture" button
-    const scriptureBtn = bar.getByRole('button', { name: /Add scripture reference/i })
-    await expect(scriptureBtn).toBeVisible({ timeout: 3000 })
-    await scriptureBtn.click()
-
-    // Scripture input should appear inside the bar
-    const scriptureInputInline = page.getByTestId('scripture-input-inline')
-    await expect(scriptureInputInline).toBeVisible({ timeout: 3000 })
-
-    // Must be a descendant of the MetadataBar
-    const isInsideBar = await scriptureInputInline.evaluate((el) => {
-      const bar = document.querySelector('[data-testid="metadata-bar"]')
-      return bar ? bar.contains(el) : false
-    })
-    expect(isInsideBar).toBe(true)
+    // All three section labels should be visible in the sheet
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
+    await expect(page.locator('text=Mood').first()).toBeVisible({ timeout: 3000 })
+    await expect(page.locator('text=Scripture').first()).toBeVisible({ timeout: 3000 })
+    await expect(page.locator('text=Tags').first()).toBeVisible({ timeout: 3000 })
   })
 
-  test('MetadataBar 5: clicking "+ tag" opens tag input inline within the bar', async ({
-    page,
-  }) => {
+  test('MetadataBar 5: close button dismisses the metadata sheet', async ({ page }) => {
     const bar = await getMetadataBarOrSkip(page)
 
-    // No tag input initially
-    await expect(page.getByTestId('tag-input-inline')).toBeHidden()
+    // Open sheet
+    const stripBtn = bar.locator('button').first()
+    await stripBtn.click()
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
 
-    // Click the "+ tag" button
-    const tagBtn = bar.getByRole('button', { name: /Add tag/i })
-    await expect(tagBtn).toBeVisible({ timeout: 3000 })
-    await tagBtn.click()
+    // Click the close button (aria-label="Close")
+    const closeBtn = page.getByRole('button', { name: 'Close' })
+    await expect(closeBtn).toBeVisible({ timeout: 3000 })
+    await closeBtn.click()
 
-    // Tag input should appear inside the bar
-    const tagInputInline = page.getByTestId('tag-input-inline')
-    await expect(tagInputInline).toBeVisible({ timeout: 3000 })
-
-    // Must be a descendant of the MetadataBar
-    const isInsideBar = await tagInputInline.evaluate((el) => {
-      const bar = document.querySelector('[data-testid="metadata-bar"]')
-      return bar ? bar.contains(el) : false
-    })
-    expect(isInsideBar).toBe(true)
+    // Sheet should be dismissed (transform back to translateY(100%))
+    const sheet = page.locator('.fixed.bottom-0')
+    await expect(sheet).toHaveCSS('transform', /translateY\(100%\)/, { timeout: 2000 })
   })
 
-  test('MetadataBar 6: only one picker open at a time — opening scripture closes mood picker', async ({
-    page,
-  }) => {
+  test('MetadataBar 6: clicking mood pill in sheet grid calls mood change', async ({ page }) => {
     const bar = await getMetadataBarOrSkip(page)
 
-    // Open mood picker
-    await bar.getByRole('button', { name: /\+ mood/i }).click()
-    await expect(page.getByTestId('mood-picker-inline')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByTestId('scripture-input-inline')).toBeHidden()
-    await expect(page.getByTestId('tag-input-inline')).toBeHidden()
+    // Open sheet by clicking the mood pill (role=presentation) inside the strip
+    const moodPill = bar.locator('[role="presentation"]').first()
+    await expect(moodPill).toBeVisible({ timeout: 3000 })
+    await moodPill.click()
 
-    // Open scripture picker — mood picker must close
-    await bar.getByRole('button', { name: /Add scripture reference/i }).click()
-    await expect(page.getByTestId('scripture-input-inline')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByTestId('mood-picker-inline')).toBeHidden()
-    await expect(page.getByTestId('tag-input-inline')).toBeHidden()
+    // Sheet should open
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
+
+    // The Mood section grid should be visible with mood buttons
+    const hopefulBtn = page.getByRole('button', { name: /hopeful/i })
+    await expect(hopefulBtn).toBeVisible({ timeout: 3000 })
   })
 
-  test('MetadataBar 7: only one picker open at a time — opening tag input closes scripture input', async ({
+  test('MetadataBar 7: "Add scripture" dashed button is visible in the sheet Scripture section', async ({
     page,
   }) => {
     const bar = await getMetadataBarOrSkip(page)
 
-    // Open scripture picker first
-    await bar.getByRole('button', { name: /Add scripture reference/i }).click()
-    await expect(page.getByTestId('scripture-input-inline')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByTestId('mood-picker-inline')).toBeHidden()
-    await expect(page.getByTestId('tag-input-inline')).toBeHidden()
+    const stripBtn = bar.locator('button').first()
+    await stripBtn.click()
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
 
-    // Open tag input — scripture input must close
-    await bar.getByRole('button', { name: /Add tag/i }).click()
-    await expect(page.getByTestId('tag-input-inline')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByTestId('scripture-input-inline')).toBeHidden()
-    await expect(page.getByTestId('mood-picker-inline')).toBeHidden()
+    // "Add scripture" dashed button should be present in the sheet
+    const addScriptureBtn = page.getByRole('button', { name: /Add scripture/i })
+    await expect(addScriptureBtn).toBeVisible({ timeout: 3000 })
   })
 
   test('MetadataBar 8: bar is hidden on tablet-width viewport (md+)', async ({ page }) => {
@@ -654,86 +647,113 @@ test.describe('Editor', () => {
     await expect(page).toHaveTitle(/today/i, { timeout: 5000 })
   })
 
-  test('Mood Scenario 1: select Weary (second member of value=1 pair) — chip shows correct label', async ({
+  test('Mood Scenario 1: select Weary via metadata sheet — strip pill updates to show Weary', async ({
     page,
   }) => {
     const editor = await getEditorOrSkip(page)
     await expect(editor).toBeVisible({ timeout: 5000 })
 
-    // Open the mood picker
-    const moodChip = page.getByRole('button', { name: /\+ mood/i })
-    await expect(moodChip).toBeVisible({ timeout: 3000 })
-    await moodChip.click()
+    // Open the metadata sheet by clicking the strip button
+    const bar = page.getByTestId('metadata-bar')
+    const visible = await bar
+      .waitFor({ state: 'visible', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false)
+    test.skip(!visible, 'MetadataBar not rendered for this device configuration')
 
-    // MoodPicker should appear — click Weary (second member of value=1 pair)
+    const stripBtn = bar.locator('button').first()
+    await stripBtn.click()
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
+
+    // Click Weary (second member of value=1 pair) in the mood grid
     const wearyBtn = page.getByRole('button', { name: /weary/i })
     await expect(wearyBtn).toBeVisible({ timeout: 3000 })
     await wearyBtn.click()
 
-    // MoodPicker closes; the chip should now show "Weary"
-    await expect(page.getByRole('button', { name: /weary/i })).toBeVisible({ timeout: 3000 })
-    // The "+ mood" placeholder should be gone
-    await expect(page.getByRole('button', { name: /\+ mood/i })).toBeHidden()
+    // Close the sheet so we can inspect the strip
+    await page.getByRole('button', { name: 'Close' }).click()
+
+    // Strip pill should now show "Weary" text
+    await expect(bar.getByText('Weary')).toBeVisible({ timeout: 3000 })
+    // The "+ Mood" placeholder should be gone from the strip
+    await expect(bar.getByText('+ Mood')).toBeHidden()
   })
 
-  test('Mood Scenario 2: select Grateful (second member of value=4 pair) — chip shows correct label', async ({
+  test('Mood Scenario 2: select Grateful via metadata sheet — strip pill updates to show Grateful', async ({
     page,
   }) => {
     const editor = await getEditorOrSkip(page)
     await expect(editor).toBeVisible({ timeout: 5000 })
 
-    // Open the mood picker
-    const moodChip = page.getByRole('button', { name: /\+ mood/i })
-    await expect(moodChip).toBeVisible({ timeout: 3000 })
-    await moodChip.click()
+    const bar = page.getByTestId('metadata-bar')
+    const visible = await bar
+      .waitFor({ state: 'visible', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false)
+    test.skip(!visible, 'MetadataBar not rendered for this device configuration')
+
+    // Open sheet
+    const stripBtn = bar.locator('button').first()
+    await stripBtn.click()
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
 
     // Click Grateful (second member of value=4 pair)
     const gratefulBtn = page.getByRole('button', { name: /grateful/i })
     await expect(gratefulBtn).toBeVisible({ timeout: 3000 })
     await gratefulBtn.click()
 
-    // Chip should show "Grateful"
-    await expect(page.getByRole('button', { name: /grateful/i })).toBeVisible({ timeout: 3000 })
-    await expect(page.getByRole('button', { name: /\+ mood/i })).toBeHidden()
+    // Close sheet and verify strip
+    await page.getByRole('button', { name: 'Close' }).click()
+    await expect(bar.getByText('Grateful')).toBeVisible({ timeout: 3000 })
+    await expect(bar.getByText('+ Mood')).toBeHidden()
   })
 
-  test('Mood Scenario 3: switch between two moods of the same pair — label updates', async ({
-    page,
-  }) => {
+  test('Mood Scenario 3: switch from Sorrowful to Weary via metadata sheet', async ({ page }) => {
     const editor = await getEditorOrSkip(page)
     await expect(editor).toBeVisible({ timeout: 5000 })
 
-    // Step 1: Select "Sorrowful" (first member of value=1 pair)
-    const moodChip = page.getByRole('button', { name: /\+ mood/i })
-    await expect(moodChip).toBeVisible({ timeout: 3000 })
-    await moodChip.click()
+    const bar = page.getByTestId('metadata-bar')
+    const visible = await bar
+      .waitFor({ state: 'visible', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false)
+    test.skip(!visible, 'MetadataBar not rendered for this device configuration')
+
+    // Step 1: Select "Sorrowful" via sheet
+    const stripBtn = bar.locator('button').first()
+    await stripBtn.click()
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
 
     const sorrowfulBtn = page.getByRole('button', { name: /sorrowful/i })
     await expect(sorrowfulBtn).toBeVisible({ timeout: 3000 })
     await sorrowfulBtn.click()
 
-    // Chip shows "Sorrowful"
-    await expect(page.getByRole('button', { name: /sorrowful/i })).toBeVisible({ timeout: 3000 })
+    // Close sheet — strip shows "Sorrowful"
+    await page.getByRole('button', { name: 'Close' }).click()
+    await expect(bar.getByText('Sorrowful')).toBeVisible({ timeout: 3000 })
 
-    // Step 2: Open picker again to switch to "Weary" (other member of same pair).
-    // Since both share value=1 (isSelected=true for both), clicking Weary deselects first.
-    await page.getByRole('button', { name: /sorrowful/i }).click()
+    // Step 2: Re-open sheet, click Sorrowful again to deselect
+    await stripBtn.click()
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
+    const sorrowfulBtn2 = page.getByRole('button', { name: /sorrowful/i })
+    await expect(sorrowfulBtn2).toBeVisible({ timeout: 3000 })
+    await sorrowfulBtn2.click()
+
+    // Close and verify deselected — "+ Mood" appears
+    await page.getByRole('button', { name: 'Close' }).click()
+    await expect(bar.getByText('+ Mood')).toBeVisible({ timeout: 3000 })
+
+    // Step 3: Open sheet again and select Weary
+    await stripBtn.click()
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
     const wearyBtn = page.getByRole('button', { name: /weary/i })
     await expect(wearyBtn).toBeVisible({ timeout: 3000 })
     await wearyBtn.click()
 
-    // After deselect, picker closes. "+ mood" placeholder should reappear.
-    await expect(page.getByRole('button', { name: /\+ mood/i })).toBeVisible({ timeout: 3000 })
-
-    // Step 3: Open picker again and click Weary to select it
-    await page.getByRole('button', { name: /\+ mood/i }).click()
-    const wearyBtn2 = page.getByRole('button', { name: /weary/i })
-    await expect(wearyBtn2).toBeVisible({ timeout: 3000 })
-    await wearyBtn2.click()
-
-    // Chip should now show "Weary"
-    await expect(page.getByRole('button', { name: /weary/i })).toBeVisible({ timeout: 3000 })
-    await expect(page.getByRole('button', { name: /\+ mood/i })).toBeHidden()
+    // Close and verify strip shows "Weary"
+    await page.getByRole('button', { name: 'Close' }).click()
+    await expect(bar.getByText('Weary')).toBeVisible({ timeout: 3000 })
+    await expect(bar.getByText('+ Mood')).toBeHidden()
   })
 
   test('Mood Scenario 4: selected mood persists after auto-save to Firestore', async ({
@@ -745,17 +765,25 @@ test.describe('Editor', () => {
     const editor = await getEditorOrSkip(page)
     await expect(editor).toBeVisible({ timeout: 5000 })
 
-    // Select "Weary" mood
-    const moodChip = page.getByRole('button', { name: /\+ mood/i })
-    await expect(moodChip).toBeVisible({ timeout: 3000 })
-    await moodChip.click()
+    const bar = page.getByTestId('metadata-bar')
+    const visible = await bar
+      .waitFor({ state: 'visible', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false)
+    test.skip(!visible, 'MetadataBar not rendered for this device configuration')
+
+    // Open sheet and select Weary
+    const stripBtn = bar.locator('button').first()
+    await stripBtn.click()
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
 
     const wearyBtn = page.getByRole('button', { name: /weary/i })
     await expect(wearyBtn).toBeVisible({ timeout: 3000 })
     await wearyBtn.click()
 
-    // Chip shows "Weary"
-    await expect(page.getByRole('button', { name: /weary/i })).toBeVisible({ timeout: 3000 })
+    // Close sheet — strip should show Weary
+    await page.getByRole('button', { name: 'Close' }).click()
+    await expect(bar.getByText('Weary')).toBeVisible({ timeout: 3000 })
 
     // Mood saves are immediate (no debounce) — give a small buffer
     await page.waitForTimeout(1000)
@@ -800,15 +828,13 @@ test.describe('Metadata visibility by viewport', () => {
       return
     }
 
-    // RightPanel renders "+ mood" chip when the today page is active
-    const moodChip = page.getByRole('button', { name: /\+ mood/i })
-    await expect(moodChip).toBeVisible({ timeout: 5000 })
+    // RightPanel (aside) surfaces mood controls (MoodPicker) when editor is active
+    const rightPanel = page.locator('aside')
+    await expect(rightPanel).toBeVisible({ timeout: 5000 })
 
-    // The chip must be inside the aside (RightPanel), not the MetadataBar
-    const inRightPanel = await moodChip.evaluate((el) => {
-      return el.closest('aside') !== null
-    })
-    expect(inRightPanel).toBe(true)
+    // Mood section header must be visible inside the RightPanel
+    const moodSectionHeader = rightPanel.locator('header').filter({ hasText: /mood/i })
+    await expect(moodSectionHeader).toBeVisible({ timeout: 5000 })
   })
 
   test('Mobile: MetadataBar visible and RightPanel mood chip not rendered', async ({

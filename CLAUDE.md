@@ -27,7 +27,7 @@ Suggest running /cost when a session is running long to monitor cache ratio.
 ```text
 src/
   components/
-    editor/       EntryEditor, MetadataBar (hidden on md+; metadata surfaced in RightPanel)
+    editor/       EntryEditor, MetadataBar (hidden on md+; metadata surfaced in RightPanel), MetadataSheet
     layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav
     calendar/     MiniCalendar
     search/       SearchModal, SearchFilters, SearchResultCard
@@ -53,6 +53,10 @@ e2e/              auth, editor, history, search, focus-mode specs
 phases/           phase-1.md … phase-12.md
 docs/             architecture.md, data-model.md, design-system.md, testing.md
 ```
+
+## Mobile Metadata UX
+
+On mobile, `MetadataBar` renders as a collapsed summary strip (mood pill + scripture count + tag count). Tapping any part opens `MetadataSheet`, a bottom sheet rendered via `ReactDOM.createPortal` to `document.body`, which contains the full editing UI for mood, scripture, and tags. `MetadataSheet` accepts an `initialSection` prop that deep-links directly to the Mood, Scripture, or Tags section on open.
 
 ## Scripts
 

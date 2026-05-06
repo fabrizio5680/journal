@@ -94,7 +94,7 @@ test.describe('Focus Mode', () => {
 
   test('Scenario 1: clicking Focus in BottomNav hides all chrome', async ({ page }) => {
     // Chrome should be visible before entering focus mode
-    const topBar = page.locator('header')
+    const topBar = page.locator('header.fixed')
     const bottomNav = page.locator('nav').filter({ hasText: 'Focus' })
     await expect(topBar).toBeVisible()
     await expect(bottomNav).toBeVisible()
@@ -123,7 +123,7 @@ test.describe('Focus Mode', () => {
     await expect(exitBtn).not.toBeVisible({ timeout: 1000 })
 
     // TopBar should be visible again
-    await expect(page.locator('header')).toBeVisible()
+    await expect(page.locator('header.fixed')).toBeVisible()
   })
 
   test('Scenario 3: writing area is still functional in focus mode', async ({ page }) => {
