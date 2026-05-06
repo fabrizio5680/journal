@@ -2,7 +2,6 @@ import { useState } from 'react'
 import clsx from 'clsx'
 
 import { MOODS } from '@/lib/moods'
-import { useFocusMode } from '@/context/FocusModeContext'
 import MoodPicker from '@/components/mood/MoodPicker'
 import TagInput from '@/components/tags/TagInput'
 import ScriptureChip from '@/components/scripture/ScriptureChip'
@@ -36,7 +35,6 @@ export default function MetadataBar({
   scriptureTranslation,
   onScriptureRefsChange,
 }: MetadataBarProps) {
-  const { isFocused } = useFocusMode()
   const [activePicker, setActivePicker] = useState<ActivePicker>(null)
 
   const moodEntry =
@@ -81,14 +79,11 @@ export default function MetadataBar({
         'bg-surface/90 border-outline-variant/10 z-20 border-b py-2 backdrop-blur-sm',
         // Mobile: sticky within content flow
         'sticky top-16 -mx-6 px-6',
-        // Desktop: fixed toolbar spanning center panel; hidden on XL+ (RightPanel handles metadata)
-        'md:fixed md:top-0 md:right-0 md:left-64 md:mx-0 md:px-0 xl:right-80 xl:hidden',
-        // Focus mode: slide up on desktop
-        'md:transition-[transform,opacity] md:duration-500',
-        isFocused && 'md:pointer-events-none md:-translate-y-full md:opacity-0',
+        // Hidden on md+ (RightPanel handles metadata)
+        'md:hidden',
       )}
     >
-      <div className="md:mx-auto md:max-w-2xl md:px-6">
+      <div>
         {/* Chips row */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Mood chip */}

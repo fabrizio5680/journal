@@ -612,6 +612,14 @@ test.describe('Editor', () => {
     await expect(page.getByTestId('mood-picker-inline')).toBeHidden()
   })
 
+  test('MetadataBar 8: bar is hidden on tablet-width viewport (md+)', async ({ page }) => {
+    // Resize to a tablet-width viewport (≥768px triggers md:hidden)
+    await page.setViewportSize({ width: 768, height: 1024 })
+    const bar = page.getByTestId('metadata-bar')
+    // md:hidden means display:none — element should not be visible
+    await expect(bar).toBeHidden()
+  })
+
   // ── End MetadataBar E2E scenarios ──────────────────────────────────────────
 
   test("Today page loads with today's date in the document title", async ({ page }) => {

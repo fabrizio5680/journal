@@ -317,4 +317,10 @@ describe('MetadataBar', () => {
     expect(onMoodChange).toHaveBeenCalledWith(3, 'Hopeful')
     expect(screen.queryByTestId('mood-picker')).not.toBeInTheDocument()
   })
+
+  it('has md:hidden class on the root element', () => {
+    renderWithProviders(<MetadataBar {...defaultProps} />)
+    const bar = screen.getByTestId('metadata-bar')
+    expect(bar.className).toContain('md:hidden')
+  })
 })
