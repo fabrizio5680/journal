@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, fireEvent, waitFor, within } from '@testing-library/react'
+import React from 'react'
 
 import MetadataBar from './MetadataBar'
 
@@ -131,9 +132,7 @@ describe('MetadataBar', () => {
   // 2. Strip shows mood emoji when mood is set
   it('shows mood emoji in the strip when mood is set', () => {
     const mood = MOODS[0] // Sorrowful, value=1
-    renderWithProviders(
-      <MetadataBar {...defaultProps} mood={mood.value} moodLabel={mood.label} />,
-    )
+    renderWithProviders(<MetadataBar {...defaultProps} mood={mood.value} moodLabel={mood.label} />)
     const bar = screen.getByTestId('metadata-bar')
     // The strip pill (inside the outer button, not in the sheet) shows the emoji
     const outerButton = bar.querySelector('button') as HTMLButtonElement
@@ -340,9 +339,7 @@ describe('MetadataBar', () => {
   })
 
   it('strip shows correct tag count when tags are passed', () => {
-    renderWithProviders(
-      <MetadataBar {...defaultProps} tags={['prayer', 'gratitude', 'faith']} />,
-    )
+    renderWithProviders(<MetadataBar {...defaultProps} tags={['prayer', 'gratitude', 'faith']} />)
     const bar = screen.getByTestId('metadata-bar')
     const outerBtn = bar.querySelector('button') as HTMLButtonElement
     // The tag count is in the strip's tag pill
