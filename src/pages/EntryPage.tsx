@@ -173,7 +173,7 @@ function EntryEditorView({ date }: { date: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 pt-4 md:pt-12">
+    <div className="mx-auto max-w-2xl px-6 pt-1 md:pt-12">
       <div className="mb-6 flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}

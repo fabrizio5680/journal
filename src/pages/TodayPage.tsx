@@ -155,7 +155,7 @@ export default function TodayPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-2xl animate-pulse px-6 pt-4">
+      <div className="mx-auto max-w-2xl animate-pulse px-6 pt-1">
         <div className="bg-surface-container mb-6 h-4 w-32 rounded-xl" />
         <div className="bg-surface-container mb-3 h-8 w-2/3 rounded-xl" />
         <div className="bg-surface-container mb-2 h-5 w-full rounded-xl" />
@@ -166,7 +166,7 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 pt-4">
+    <div className="mx-auto max-w-2xl px-6 pt-1">
       <MetadataBar
         mood={entry?.mood ?? null}
         moodLabel={entry?.moodLabel ?? null}

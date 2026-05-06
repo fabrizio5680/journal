@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import clsx from 'clsx'
 
 import { MOODS } from '@/lib/moods'
 import MetadataSheet from '@/components/editor/MetadataSheet'
+import { useFocusMode } from '@/context/FocusModeContext'
 import type { ScriptureRef } from '@/types'
 
 interface MetadataBarProps {
@@ -29,6 +31,7 @@ export default function MetadataBar({
   scriptureTranslation,
   onScriptureRefsChange,
 }: MetadataBarProps) {
+  const { isFocused } = useFocusMode()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetSection, setSheetSection] = useState<'mood' | 'scripture' | 'tags' | undefined>()
 
@@ -45,7 +48,10 @@ export default function MetadataBar({
   return (
     <div
       data-testid="metadata-bar"
-      className="bg-surface/90 border-outline-variant/10 sticky top-16 z-20 -mx-6 border-b px-6 py-2 backdrop-blur-sm md:hidden"
+      className={clsx(
+        'bg-surface/90 border-outline-variant/10 sticky top-16 z-20 -mx-6 border-b px-6 py-2 backdrop-blur-sm transition-all duration-500 md:hidden',
+        isFocused && 'pointer-events-none -translate-y-full opacity-0',
+      )}
     >
       <button
         type="button"

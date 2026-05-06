@@ -7,8 +7,19 @@ import MetadataBar from './MetadataBar'
 import { renderWithProviders } from '@/test/render'
 import { MOODS } from '@/lib/moods'
 import type { ScriptureRef } from '@/types'
+import * as FocusModeContext from '@/context/FocusModeContext'
 
 // ---- module mocks ----
+
+vi.mock('@/context/FocusModeContext', async () => {
+  const actual = await vi.importActual<typeof import('@/context/FocusModeContext')>(
+    '@/context/FocusModeContext',
+  )
+  return {
+    ...actual,
+    useFocusMode: vi.fn().mockReturnValue({ isFocused: false, toggle: vi.fn(), exit: vi.fn() }),
+  }
+})
 
 // Render portal content inline so jsdom can query it
 vi.mock('react-dom', async () => {
@@ -345,5 +356,17 @@ describe('MetadataBar', () => {
     // The tag count is in the strip's tag pill
     const tagPill = within(outerBtn).getAllByRole('presentation')[2]
     expect(within(tagPill).getByText('3')).toBeInTheDocument()
+  })
+
+  it('hides with opacity-0 and pointer-events-none when focus mode is active', () => {
+    vi.mocked(FocusModeContext.useFocusMode).mockReturnValueOnce({
+      isFocused: true,
+      toggle: vi.fn(),
+      exit: vi.fn(),
+    })
+    renderWithProviders(<MetadataBar {...defaultProps} />)
+    const bar = screen.getByTestId('metadata-bar')
+    expect(bar.className).toContain('opacity-0')
+    expect(bar.className).toContain('pointer-events-none')
   })
 })
