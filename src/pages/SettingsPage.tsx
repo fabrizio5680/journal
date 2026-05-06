@@ -271,8 +271,16 @@ export default function SettingsPage() {
           />
         </SettingsRow>
         <div className="border-outline-variant/20 mt-4 border-t pt-4">
-          <SettingsRow icon="format_size" label="Editor Text Size (this device)">
-            <div className="flex gap-1.5">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary text-[20px]">
+                format_size
+              </span>
+              <span className="text-on-surface text-sm font-medium">
+                Editor Text Size (this device)
+              </span>
+            </div>
+            <div className="flex gap-1.5 pl-8">
               {(['small', 'medium', 'large'] as EditorFontSize[]).map((size) => (
                 <button
                   key={size}
@@ -287,7 +295,7 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
-          </SettingsRow>
+          </div>
         </div>
         {!isMobileDevice() && (
           <div className="border-outline-variant/20 mt-4 border-t pt-4">
