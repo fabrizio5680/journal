@@ -862,3 +862,145 @@ test.describe('Metadata visibility by viewport', () => {
     await expect(rightPanelAside).toBeHidden()
   })
 })
+
+// ── Phase 2: RightPanel behaviour tests ──────────────────────────────────────
+
+test.describe('RightPanel Phase 2 behaviour', () => {
+  let testEmail: string
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    testEmail = testEmailForProject(`rp-phase2-${testInfo.project.name}`)
+    await clearTestUser(testEmail)
+    await createEmulatorUser(testEmail, TEST_PASSWORD)
+    await page.goto('/login')
+    await signInAsTestUser(page, testEmail)
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+  })
+
+  test('RightPanel Phase2-1: "Today\'s Word" appears exactly once on desktop', async ({
+    page,
+  }, testInfo) => {
+    if (testInfo.project.name !== 'chromium') {
+      test.skip()
+      return
+    }
+
+    const rightPanel = page.locator('aside')
+    await expect(rightPanel).toBeVisible({ timeout: 5000 })
+
+    // DailyScripture owns the "Today's Word" label — RightPanel must not duplicate it
+    const todaysWordElements = rightPanel.getByText("Today's Word")
+    await expect(todaysWordElements).toHaveCount(1, { timeout: 5000 })
+  })
+
+  test('RightPanel Phase2-2: no "Add as verse" button is rendered', async ({ page }, testInfo) => {
+    if (testInfo.project.name !== 'chromium') {
+      test.skip()
+      return
+    }
+
+    const rightPanel = page.locator('aside')
+    await expect(rightPanel).toBeVisible({ timeout: 5000 })
+
+    // The "Add as verse" button was removed in Phase 2
+    await expect(rightPanel.getByRole('button', { name: /add as verse/i })).toHaveCount(0)
+    await expect(rightPanel.getByRole('button', { name: /added as verse/i })).toHaveCount(0)
+  })
+
+  test('RightPanel Phase2-3: mood section is collapsed by default on desktop', async ({
+    page,
+  }, testInfo) => {
+    if (testInfo.project.name !== 'chromium') {
+      test.skip()
+      return
+    }
+
+    const rightPanel = page.locator('aside')
+    await expect(rightPanel).toBeVisible({ timeout: 5000 })
+
+    // Mood section header must exist (the existing desktop test confirms this renders)
+    const moodHeader = rightPanel.locator('header').filter({ hasText: /mood/i })
+    await expect(moodHeader).toBeVisible({ timeout: 5000 })
+
+    // "Tap to set mood" placeholder should be visible in collapsed state (no mood selected yet)
+    await expect(rightPanel.getByText('Tap to set mood')).toBeVisible({ timeout: 5000 })
+
+    // The expand chevron button must be present (confirms collapsible)
+    const chevron = rightPanel.getByRole('button', { name: /expand section/i })
+    await expect(chevron).toBeVisible({ timeout: 3000 })
+  })
+
+  test('RightPanel Phase2-4: clicking mood chevron expands MoodPicker grid', async ({
+    page,
+  }, testInfo) => {
+    if (testInfo.project.name !== 'chromium') {
+      test.skip()
+      return
+    }
+
+    const rightPanel = page.locator('aside')
+    await expect(rightPanel).toBeVisible({ timeout: 5000 })
+
+    // Wait for mood section to appear (requires editor active + metadata)
+    const moodHeader = rightPanel.locator('header').filter({ hasText: /mood/i })
+    await expect(moodHeader).toBeVisible({ timeout: 5000 })
+
+    // Click the expand/collapse chevron button in the mood section header
+    const chevron = rightPanel.getByRole('button', { name: /expand section/i })
+    await expect(chevron).toBeVisible({ timeout: 3000 })
+    await chevron.click()
+
+    // After expansion, mood buttons should be visible
+    const hopefulBtn = rightPanel.getByRole('button', { name: /hopeful/i })
+    await expect(hopefulBtn).toBeVisible({ timeout: 3000 })
+  })
+
+  test('RightPanel Phase2-5: scripture label changes from "Scriptures" to "Scripture" when 1 ref added', async ({
+    page,
+  }, testInfo) => {
+    if (testInfo.project.name !== 'chromium') {
+      test.skip()
+      return
+    }
+
+    // Intercept Bible API so test is offline-capable
+    await page.route('**/rest.api.bible/**', (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            reference: 'John 3:16',
+            content: 'For God so loved the world.',
+          },
+        }),
+      })
+    })
+
+    const rightPanel = page.locator('aside')
+    await expect(rightPanel).toBeVisible({ timeout: 5000 })
+
+    // Initially 0 refs → label is "Scriptures"
+    const scripturesLabel = rightPanel.getByText('Scriptures')
+    await expect(scripturesLabel).toBeVisible({ timeout: 5000 })
+
+    // Add one ref via the panel
+    const addBtn = rightPanel.getByRole('button', { name: /add scripture reference/i })
+    await expect(addBtn).toBeVisible({ timeout: 5000 })
+    await addBtn.click()
+
+    const refInput = page.getByPlaceholder('e.g. John 3:16 or Psalm 23:1-4')
+    await expect(refInput).toBeVisible({ timeout: 3000 })
+    await refInput.fill('John 3:16')
+    await page.keyboard.press('Enter')
+
+    // Wait for the scripture card to appear — RightPanel shows reference text inline
+    await expect(rightPanel.getByText('John 3:16')).toBeVisible({ timeout: 5000 })
+
+    // Label must now be "Scripture" (singular) — the section header span text changes
+    // Use a strict regex to match "Scripture" but not "Scriptures"
+    await expect(rightPanel.locator('span').filter({ hasText: /^Scripture$/ })).toBeVisible({
+      timeout: 5000,
+    })
+  })
+})

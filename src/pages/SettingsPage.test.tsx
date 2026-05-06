@@ -399,4 +399,144 @@ describe('SettingsPage', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/login')
     })
   })
+
+  describe('FCM token rotation', () => {
+    beforeEach(() => {
+      localStorage.clear()
+    })
+
+    afterEach(() => {
+      localStorage.clear()
+    })
+
+    it('swaps tokens in Firestore and updates localStorage when token rotates on mount', async () => {
+      Object.defineProperty(window, 'Notification', {
+        value: { permission: 'granted', requestPermission: vi.fn().mockResolvedValue('granted') },
+        writable: true,
+        configurable: true,
+      })
+      mockGetToken.mockResolvedValue('new-token')
+      localStorage.setItem('fcm_device_token_test-uid', 'old-token')
+
+      renderPage()
+      fireAuth()
+      fireSnapshot({ reminderEnabled: true, reminderTime: '09:00', fcmTokens: ['new-token'] })
+
+      // arrayUnion('new-token') called
+      await waitFor(() => {
+        expect(mockUpdateDoc).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ fcmTokens: expect.objectContaining({ _type: 'arrayUnion' }) }),
+        )
+      })
+
+      // arrayRemove('old-token') called
+      await waitFor(() => {
+        expect(mockUpdateDoc).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ fcmTokens: expect.objectContaining({ _type: 'arrayRemove' }) }),
+        )
+      })
+
+      // Verify the exact values passed to arrayUnion and arrayRemove
+      expect(mockArrayUnion).toHaveBeenCalledWith('new-token')
+      expect(mockArrayRemove).toHaveBeenCalledWith('old-token')
+
+      // localStorage updated to new token
+      expect(localStorage.getItem('fcm_device_token_test-uid')).toBe('new-token')
+
+      // Toggle shows ON (currentDeviceToken is 'new-token', fcmTokens includes 'new-token')
+      await waitFor(() => {
+        expect(screen.getByRole('switch', { name: /reminder/i })).toHaveAttribute(
+          'aria-checked',
+          'true',
+        )
+      })
+    })
+
+    it('does not call updateDoc for token swap when token is unchanged on mount', async () => {
+      Object.defineProperty(window, 'Notification', {
+        value: { permission: 'granted', requestPermission: vi.fn().mockResolvedValue('granted') },
+        writable: true,
+        configurable: true,
+      })
+      mockGetToken.mockResolvedValue('same-token')
+      localStorage.setItem('fcm_device_token_test-uid', 'same-token')
+
+      renderPage()
+      fireAuth()
+      fireSnapshot({ reminderEnabled: true, reminderTime: '09:00', fcmTokens: ['same-token'] })
+
+      // Wait for mount effect to resolve
+      await waitFor(() => {
+        expect(screen.getByRole('switch', { name: /reminder/i })).toHaveAttribute(
+          'aria-checked',
+          'true',
+        )
+      })
+
+      // No arrayUnion/arrayRemove swap calls should have been made
+      expect(mockArrayUnion).not.toHaveBeenCalled()
+      expect(mockArrayRemove).not.toHaveBeenCalled()
+      expect(mockUpdateDoc).not.toHaveBeenCalled()
+    })
+
+    it('writes FCM token to localStorage when reminder is enabled', async () => {
+      Object.defineProperty(window, 'Notification', {
+        value: { permission: 'default', requestPermission: vi.fn().mockResolvedValue('granted') },
+        writable: true,
+        configurable: true,
+      })
+      mockGetToken.mockResolvedValue('mock-fcm-token')
+
+      renderPage()
+      fireAuth()
+      fireSnapshot({ reminderEnabled: false, reminderTime: '20:00', fcmTokens: [] })
+
+      await userEvent.click(screen.getByRole('switch', { name: /reminder/i }))
+
+      await waitFor(() => {
+        expect(mockUpdateDoc).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ reminderEnabled: true }),
+        )
+      })
+
+      expect(localStorage.getItem('fcm_device_token_test-uid')).toBe('mock-fcm-token')
+    })
+
+    it('removes FCM token from localStorage when reminder is disabled', async () => {
+      Object.defineProperty(window, 'Notification', {
+        value: { permission: 'granted', requestPermission: vi.fn().mockResolvedValue('granted') },
+        writable: true,
+        configurable: true,
+      })
+      mockGetToken.mockResolvedValue('mock-fcm-token')
+      localStorage.setItem('fcm_device_token_test-uid', 'mock-fcm-token')
+      mockGetDoc.mockResolvedValue({ data: () => ({ fcmTokens: [] }) })
+
+      renderPage()
+      fireAuth()
+      fireSnapshot({ reminderEnabled: true, reminderTime: '09:00', fcmTokens: ['mock-fcm-token'] })
+
+      // Wait for toggle to show ON
+      await waitFor(() => {
+        expect(screen.getByRole('switch', { name: /reminder/i })).toHaveAttribute(
+          'aria-checked',
+          'true',
+        )
+      })
+
+      await userEvent.click(screen.getByRole('switch', { name: /reminder/i }))
+
+      await waitFor(() => {
+        expect(mockUpdateDoc).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ fcmTokens: expect.objectContaining({ _type: 'arrayRemove' }) }),
+        )
+      })
+
+      expect(localStorage.getItem('fcm_device_token_test-uid')).toBeNull()
+    })
+  })
 })

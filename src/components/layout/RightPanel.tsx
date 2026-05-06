@@ -8,7 +8,6 @@ import TagInput from '@/components/tags/TagInput'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
 import { useScriptureRef } from '@/hooks/useScriptureRef'
-import { useDailyVerse, getDailyVerseId } from '@/hooks/useDailyVerse'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import type { ScriptureRef } from '@/types'
 
@@ -17,21 +16,46 @@ const FONT_SIZE_STEPS: EditorFontSize[] = ['small', 'medium', 'large']
 function Section({
   label,
   count,
+  collapsible,
+  expanded,
+  onToggle,
   children,
 }: {
   label: string
   count?: number
+  collapsible?: boolean
+  expanded?: boolean
+  onToggle?: () => void
   children: ReactNode
 }) {
   return (
-    <section className="border-outline-variant/15 border-t px-5 py-5">
+    <section className="border-outline-variant/15 border-t px-5 py-3">
       <header className="mb-3 flex items-center justify-between">
         <span className="text-on-surface-variant/50 text-[10.5px] font-semibold tracking-[0.14em] uppercase">
           {label}
         </span>
-        {count !== undefined && (
-          <span className="text-on-surface-variant/30 text-[10.5px] font-medium">{count}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {count !== undefined && (
+            <span className="text-on-surface-variant/30 text-[10.5px] font-medium">{count}</span>
+          )}
+          {collapsible && onToggle && (
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-label={expanded ? 'Collapse section' : 'Expand section'}
+              className="text-on-surface-variant/40 hover:text-on-surface-variant flex p-0.5 transition-colors"
+            >
+              <span
+                className={clsx(
+                  'material-symbols-outlined text-[16px] transition-transform duration-200',
+                  expanded && 'rotate-180',
+                )}
+              >
+                expand_more
+              </span>
+            </button>
+          )}
+        </div>
       </header>
       {children}
     </section>
@@ -97,20 +121,16 @@ function ScriptureExpandableCard({
 export default function RightPanel() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [showScriptureInput, setShowScriptureInput] = useState(false)
+  const [moodExpanded, setMoodExpanded] = useState(false)
   const { scriptureTranslation } = useUserPreferences()
   const { isEditorActive, dictation, fontSize, onFontSizeChange, wordCount, metadata } =
     useEditorControls()
-  const { verse } = useDailyVerse(scriptureTranslation)
-  const todayPassageId = getDailyVerseId(new Date())
 
   const currentIndex = FONT_SIZE_STEPS.indexOf(fontSize)
   const nextSize = FONT_SIZE_STEPS[(currentIndex + 1) % FONT_SIZE_STEPS.length]
 
   const isListening = dictation?.state === 'listening'
   const hasError = dictation?.state === 'error'
-
-  const verseAlreadyAdded =
-    metadata?.scriptureRefs.some((r) => r.passageId === todayPassageId) ?? false
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true)
@@ -138,11 +158,6 @@ export default function RightPanel() {
     metadata.onScriptureRefsChange(metadata.scriptureRefs.filter((r) => r.passageId !== passageId))
   }
 
-  function handleAddVerseAsRef() {
-    if (!metadata || verseAlreadyAdded) return
-    handleAddScriptureRef({ reference: verse.reference, passageId: todayPassageId })
-  }
-
   const syncStatus = (
     <div className="text-on-surface-variant/40 flex items-center gap-1.5 text-[10px]">
       {isOnline ? (
@@ -163,42 +178,38 @@ export default function RightPanel() {
     <aside className="bg-surface-container-low border-outline-variant/10 fixed top-0 right-0 z-30 hidden h-screen w-80 flex-col border-l md:flex">
       <div className="flex-1 overflow-y-auto">
         {/* Today's Word */}
-        <div className="px-5 py-6">
-          <p className="text-on-surface-variant/50 mb-4 text-[10.5px] font-semibold tracking-[0.14em] uppercase">
-            Today's Word
-          </p>
+        <div className="px-5 py-4">
           <DailyScripture translation={scriptureTranslation} />
-          {isEditorActive && metadata && (
-            <button
-              type="button"
-              onClick={handleAddVerseAsRef}
-              disabled={verseAlreadyAdded}
-              aria-label={verseAlreadyAdded ? 'Verse already added' : 'Add as verse'}
-              className={clsx(
-                'mt-4 flex items-center gap-1.5 text-xs font-medium transition-colors',
-                verseAlreadyAdded
-                  ? 'text-on-surface-variant/30 cursor-not-allowed'
-                  : 'text-primary hover:text-primary/80 cursor-pointer',
-              )}
-            >
-              <span className="material-symbols-outlined text-[14px]">add</span>
-              {verseAlreadyAdded ? 'Added as verse' : 'Add as verse'}
-            </button>
-          )}
         </div>
 
         {/* Metadata — visible when editor active */}
         {isEditorActive && metadata && (
           <>
-            <Section label="Mood">
-              <MoodPicker
-                value={metadata.mood}
-                label={metadata.moodLabel}
-                onChange={handleMoodChange}
-              />
+            <Section
+              label="Mood"
+              collapsible
+              expanded={moodExpanded}
+              onToggle={() => setMoodExpanded((v) => !v)}
+            >
+              {moodExpanded ? (
+                <MoodPicker
+                  value={metadata.mood}
+                  label={metadata.moodLabel}
+                  onChange={handleMoodChange}
+                />
+              ) : metadata.mood !== null && metadata.moodLabel !== null ? (
+                <span className="bg-primary-container text-on-primary-container inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold">
+                  {metadata.moodLabel}
+                </span>
+              ) : (
+                <span className="text-on-surface-variant/30 text-xs">Tap to set mood</span>
+              )}
             </Section>
 
-            <Section label="Scripture" count={metadata.scriptureRefs.length}>
+            <Section
+              label={metadata.scriptureRefs.length === 1 ? 'Scripture' : 'Scriptures'}
+              count={metadata.scriptureRefs.length}
+            >
               <div className="flex flex-col gap-2">
                 {metadata.scriptureRefs.map((ref) => (
                   <ScriptureExpandableCard

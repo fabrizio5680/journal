@@ -26,14 +26,17 @@ vi.mock('firebase/firestore', () => ({
 
 import { useEntryDates } from './useEntryDates'
 
-function makeDoc(id: string) {
-  return { id }
+function makeDoc(id: string, deleted?: boolean) {
+  return {
+    id,
+    data: () => (deleted === undefined ? {} : { deleted }),
+  }
 }
 
-function fireSnapshot(docs: Array<{ id: string }>, fromCache = false) {
+function fireSnapshot(docs: Array<ReturnType<typeof makeDoc>>, fromCache = false) {
   act(() => {
     snapshotCallback?.({
-      forEach: (cb: (doc: { id: string }) => void) => docs.forEach(cb),
+      forEach: (cb: (doc: ReturnType<typeof makeDoc>) => void) => docs.forEach(cb),
       metadata: { fromCache },
     })
   })
@@ -73,11 +76,27 @@ describe('useEntryDates', () => {
     })
   })
 
-  it('excludes deleted entries (filter applied via Firestore query)', () => {
-    renderHook(() => useEntryDates('test-uid', 2026, 4))
+  it('excludes entries with deleted: true', async () => {
+    const { result } = renderHook(() => useEntryDates('test-uid', 2026, 4))
 
-    // Verify the query was called with a `deleted == false` where clause
-    expect(mockWhere).toHaveBeenCalledWith('deleted', '==', false)
+    fireSnapshot([makeDoc('2026-04-01', false), makeDoc('2026-04-10', true), makeDoc('2026-04-15')])
+
+    await waitFor(() => {
+      expect(result.current.size).toBe(2)
+      expect(result.current.has('2026-04-01')).toBe(true)
+      expect(result.current.has('2026-04-10')).toBe(false)
+      expect(result.current.has('2026-04-15')).toBe(true)
+    })
+  })
+
+  it('includes entries with missing deleted field', async () => {
+    const { result } = renderHook(() => useEntryDates('test-uid', 2026, 4))
+
+    fireSnapshot([makeDoc('2026-04-05')])
+
+    await waitFor(() => {
+      expect(result.current.has('2026-04-05')).toBe(true)
+    })
   })
 
   it('updates when new entry added to snapshot', async () => {

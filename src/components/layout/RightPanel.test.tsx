@@ -39,14 +39,6 @@ vi.mock('@/hooks/useScriptureRef', () => ({
   useScriptureRef: () => ({ text: 'Mocked verse text.', isLoading: false, error: null }),
 }))
 
-vi.mock('@/hooks/useDailyVerse', () => ({
-  useDailyVerse: () => ({
-    verse: { reference: 'Isaiah 26:4', text: 'Trust in the Lord always.' },
-    isLoading: false,
-  }),
-  getDailyVerseId: () => 'ISA.26.4',
-}))
-
 vi.mock('@/context/UserPreferencesContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/context/UserPreferencesContext')>()
   return {
@@ -446,7 +438,7 @@ describe('RightPanel — metadata section', () => {
     expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
   })
 
-  it('shows MoodPicker always when editor is active with metadata', () => {
+  it('MoodPicker is NOT visible by default (mood section collapsed)', () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
     render(
@@ -470,10 +462,10 @@ describe('RightPanel — metadata section', () => {
       })
     })
 
-    expect(screen.getByTestId('mood-picker-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
   })
 
-  it('selecting a mood calls onMoodChange', async () => {
+  it('selecting a mood calls onMoodChange after expanding the mood section', async () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
     const onMoodChange = vi.fn()
 
@@ -498,6 +490,8 @@ describe('RightPanel — metadata section', () => {
       })
     })
 
+    // Expand mood section first
+    await userEvent.click(screen.getByRole('button', { name: /expand section/i }))
     await userEvent.click(screen.getByRole('button', { name: /pick hopeful/i }))
     expect(onMoodChange).toHaveBeenCalledWith(3, 'Hopeful')
   })
@@ -660,8 +654,27 @@ describe('RightPanel — metadata section', () => {
       { reference: 'John 3:16', passageId: 'JHN.3.16' },
     ])
   })
+})
 
-  it('shows "Add as verse" button when editor is active with metadata', () => {
+// ── Phase 2 changes ───────────────────────────────────────────────────────────
+
+describe('RightPanel — Phase 2: "Today\'s Word" not duplicated', () => {
+  it('renders "Today\'s Word" text exactly once (owned by DailyScripture)', () => {
+    render(
+      <Wrapper>
+        <RightPanel />
+      </Wrapper>,
+    )
+
+    // DailyScripture mock renders a div — the label is NOT duplicated in RightPanel
+    // There must be no standalone "Today's Word" text node rendered by RightPanel itself
+    const allMatches = screen.queryAllByText(/today's word/i)
+    expect(allMatches.length).toBe(0)
+  })
+})
+
+describe('RightPanel — Phase 2: no "Add as verse" button', () => {
+  it('does not render "Add as verse" or "Added as verse" button', () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
     render(
@@ -685,12 +698,15 @@ describe('RightPanel — metadata section', () => {
       })
     })
 
-    expect(screen.getByRole('button', { name: /add as verse/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /add as verse/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /added as verse/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /verse already added/i })).not.toBeInTheDocument()
   })
+})
 
-  it('"Add as verse" calls onScriptureRefsChange with daily verse', async () => {
+describe('RightPanel — Phase 2: scripture label singular vs plural', () => {
+  function renderWithRefs(scriptureRefs: MetadataControls['scriptureRefs']) {
     let doRegister: ReturnType<typeof useEditorControls>['register']
-    const onScriptureRefsChange = vi.fn()
 
     render(
       <Wrapper>
@@ -709,18 +725,35 @@ describe('RightPanel — metadata section', () => {
         fontSize: 'medium',
         onFontSizeChange: vi.fn(),
         wordCount: 0,
-        metadata: buildMetadata({ onScriptureRefsChange }),
+        metadata: buildMetadata({ scriptureRefs }),
       })
     })
+  }
 
-    await userEvent.click(screen.getByRole('button', { name: /add as verse/i }))
+  it('shows "Scripture" (singular) when exactly 1 ref is present', () => {
+    renderWithRefs([{ reference: 'John 3:16', passageId: 'JHN.3.16' }])
+    expect(screen.getByText('Scripture')).toBeInTheDocument()
+    expect(screen.queryByText('Scriptures')).not.toBeInTheDocument()
+  })
 
-    expect(onScriptureRefsChange).toHaveBeenCalledWith([
-      { reference: 'Isaiah 26:4', passageId: 'ISA.26.4' },
+  it('shows "Scriptures" (plural) when 0 refs are present', () => {
+    renderWithRefs([])
+    expect(screen.getByText('Scriptures')).toBeInTheDocument()
+    expect(screen.queryByText('Scripture')).not.toBeInTheDocument()
+  })
+
+  it('shows "Scriptures" (plural) when 2+ refs are present', () => {
+    renderWithRefs([
+      { reference: 'John 3:16', passageId: 'JHN.3.16' },
+      { reference: 'Psalm 23:1', passageId: 'PSA.23.1' },
     ])
+    expect(screen.getByText('Scriptures')).toBeInTheDocument()
+    expect(screen.queryByText('Scripture')).not.toBeInTheDocument()
   })
+})
 
-  it('"Add as verse" is disabled when verse is already in refs', () => {
+describe('RightPanel — Phase 2: mood collapsible', () => {
+  function renderWithMoodMetadata(moodOverrides: Partial<MetadataControls> = {}) {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
     render(
@@ -740,13 +773,49 @@ describe('RightPanel — metadata section', () => {
         fontSize: 'medium',
         onFontSizeChange: vi.fn(),
         wordCount: 0,
-        metadata: buildMetadata({
-          scriptureRefs: [{ reference: 'Isaiah 26:4', passageId: 'ISA.26.4' }],
-        }),
+        metadata: buildMetadata(moodOverrides),
       })
     })
+  }
 
-    const btn = screen.getByRole('button', { name: /verse already added/i })
-    expect(btn).toBeDisabled()
+  it('MoodPicker grid is NOT visible when collapsed by default', () => {
+    renderWithMoodMetadata({ mood: 3, moodLabel: 'Hopeful' })
+
+    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
+  })
+
+  it('shows mood pill when mood is set and collapsed', () => {
+    renderWithMoodMetadata({ mood: 3, moodLabel: 'Hopeful' })
+
+    expect(screen.getByText('Hopeful')).toBeInTheDocument()
+    expect(screen.queryByText('Tap to set mood')).not.toBeInTheDocument()
+  })
+
+  it('shows "Tap to set mood" placeholder when no mood set and collapsed', () => {
+    renderWithMoodMetadata({ mood: null, moodLabel: null })
+
+    expect(screen.getByText('Tap to set mood')).toBeInTheDocument()
+    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
+  })
+
+  it('expands to show MoodPicker after clicking the chevron toggle', async () => {
+    renderWithMoodMetadata({ mood: null, moodLabel: null })
+
+    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /expand section/i }))
+
+    expect(screen.getByTestId('mood-picker-panel')).toBeInTheDocument()
+  })
+
+  it('collapses MoodPicker again after clicking the chevron a second time', async () => {
+    renderWithMoodMetadata({ mood: null, moodLabel: null })
+
+    const chevron = screen.getByRole('button', { name: /expand section/i })
+    await userEvent.click(chevron)
+    expect(screen.getByTestId('mood-picker-panel')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /collapse section/i }))
+    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
   })
 })

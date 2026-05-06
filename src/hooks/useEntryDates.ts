@@ -17,7 +17,6 @@ export function useEntryDates(userId: string, year: number, month: number): Set<
     const entriesRef = collection(db, 'users', userId, 'entries')
     const q = query(
       entriesRef,
-      where('deleted', '==', false),
       where('date', '>=', startDate),
       where('date', '<=', endDate),
       orderBy('date', 'desc'),
@@ -28,7 +27,8 @@ export function useEntryDates(userId: string, year: number, month: number): Set<
       (snapshot) => {
         const dateSet = new Set<string>()
         snapshot.forEach((doc) => {
-          dateSet.add(doc.id)
+          // treat missing `deleted` field as false — matches useEntry behaviour
+          if (doc.data().deleted !== true) dateSet.add(doc.id)
         })
         setDates(dateSet)
       },

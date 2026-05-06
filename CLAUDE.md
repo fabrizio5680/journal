@@ -106,11 +106,12 @@ VITE_FIREBASE_VAPID_KEY=
 
 ## Device-local Storage
 
-| Key                     | Values                         | Description                                                                                                                                                   |
-| ----------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pref_editor_font_size` | `small` \| `medium` \| `large` | Editor font size — device-local, never synced via Firestore. Seeded once from Firestore on first snapshot if absent; ignored and never written to after that. |
-| `pref_spellcheck`       | `true` \| `false`              | Spellcheck enabled — device-local. Default `true`. Always `false` on mobile regardless of setting.                                                            |
-| `scripture_<T>_<date>`  | JSON `{ text, reference }`     | Daily verse cache per translation and date.                                                                                                                   |
+| Key                      | Values                         | Description                                                                                                                                                                                                  |
+| ------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pref_editor_font_size`  | `small` \| `medium` \| `large` | Editor font size — device-local, never synced via Firestore. Seeded once from Firestore on first snapshot if absent; ignored and never written to after that.                                                |
+| `pref_spellcheck`        | `true` \| `false`              | Spellcheck enabled — device-local. Default `true`. Always `false` on mobile regardless of setting.                                                                                                           |
+| `scripture_<T>_<date>`   | JSON `{ text, reference }`     | Daily verse cache per translation and date.                                                                                                                                                                  |
+| `fcm_device_token_<uid>` | FCM registration token string  | Per-device FCM token stored on reminder enable; cleared on disable. Compared against `getToken()` on mount to detect token rotation; if rotated, old token is swapped out in Firestore `fcmTokens` silently. |
 
 `UserPreferencesContext` manages `pref_editor_font_size`: initializes state from localStorage on mount (before Firestore arrives), seeds from Firestore on first snapshot when absent, and writes only to localStorage via `updateEditorFontSize` — no Firestore `updateDoc` call for font size.
 

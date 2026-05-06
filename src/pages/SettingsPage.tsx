@@ -114,6 +114,19 @@ export default function SettingsPage() {
           if (!vapidKey) return
           try {
             const token = await getToken(messaging, { vapidKey })
+            const storedToken = localStorage.getItem(`fcm_device_token_${u.uid}`)
+            if (storedToken && storedToken !== token) {
+              // Token rotated — swap in Firestore silently
+              const userRef = doc(db, 'users', u.uid)
+              await updateDoc(userRef, {
+                fcmTokens: arrayUnion(token),
+              })
+              // Remove old token separately (arrayRemove needs the exact value)
+              await updateDoc(userRef, {
+                fcmTokens: arrayRemove(storedToken),
+              })
+              localStorage.setItem(`fcm_device_token_${u.uid}`, token)
+            }
             setCurrentDeviceToken(token)
           } catch {
             // permission granted but token unavailable — treat device as unregistered
@@ -144,6 +157,7 @@ export default function SettingsPage() {
         if (remaining.length === 0) {
           await updateDoc(userRef, { reminderEnabled: false })
         }
+        localStorage.removeItem(`fcm_device_token_${user.uid}`)
         setCurrentDeviceToken(null)
       }
       return
@@ -177,6 +191,7 @@ export default function SettingsPage() {
         reminderTime,
         reminderTimezone: timezone,
       })
+      if (user) localStorage.setItem(`fcm_device_token_${user.uid}`, token)
     } catch {
       setNotifError('Failed to register for notifications. Please try again.')
     }
