@@ -96,7 +96,7 @@ export default function EntryListCard({ entry }: EntryListCardProps) {
         (entry.scriptureRefs && entry.scriptureRefs.length > 0)) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {entry.tags?.map((tag) => (
-            <Chip key={tag}>{tag}</Chip>
+            <Chip key={tag}>#{tag}</Chip>
           ))}
           {entry.scriptureRefs?.map((ref) => (
             <Chip key={ref.passageId} icon="menu_book">

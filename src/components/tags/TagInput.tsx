@@ -15,7 +15,7 @@ const MAX_TAGS = 10
 const MAX_TAG_LENGTH = 30
 
 function normalizeTag(raw: string): string {
-  return raw.toLowerCase().trim().slice(0, MAX_TAG_LENGTH)
+  return raw.replace(/^#+/, '').toLowerCase().trim().slice(0, MAX_TAG_LENGTH)
 }
 
 export default function TagInput({ tags, vocabulary, onChange, onNewTag }: TagInputProps) {
@@ -75,7 +75,7 @@ export default function TagInput({ tags, vocabulary, onChange, onNewTag }: TagIn
       <div className="flex flex-wrap items-center gap-1.5 py-2">
         {tags.map((tag) => (
           <Chip key={tag} onRemove={() => removeTag(tag)}>
-            {tag}
+            #{tag}
           </Chip>
         ))}
 
@@ -109,7 +109,7 @@ export default function TagInput({ tags, vocabulary, onChange, onNewTag }: TagIn
               }}
               className="hover:bg-surface-container w-full cursor-pointer px-4 py-2 text-left text-sm"
             >
-              {suggestion}
+              #{suggestion}
             </button>
           ))}
           {showCreate && (
@@ -121,7 +121,7 @@ export default function TagInput({ tags, vocabulary, onChange, onNewTag }: TagIn
               }}
               className="hover:bg-surface-container text-on-surface-variant w-full cursor-pointer px-4 py-2 text-left text-sm"
             >
-              Create tag: {inputValue.toLowerCase().trim()}
+              Create tag: #{inputValue.toLowerCase().trim()}
             </button>
           )}
         </div>

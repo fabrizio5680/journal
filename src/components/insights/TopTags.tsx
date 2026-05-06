@@ -17,7 +17,13 @@ export default function TopTags({ data }: Props) {
     <ResponsiveContainer width="100%" height={data.length * 36}>
       <BarChart data={data} layout="vertical" margin={{ left: 16 }}>
         <XAxis type="number" hide />
-        <YAxis type="category" dataKey="tag" tick={{ fontSize: 12 }} width={80} />
+        <YAxis
+          type="category"
+          dataKey="tag"
+          tick={{ fontSize: 12 }}
+          width={80}
+          tickFormatter={(value: string) => `#${value}`}
+        />
         <Bar dataKey="count" fill="var(--color-primary-container)" radius={[0, 4, 4, 0]}>
           <LabelList
             dataKey="count"
