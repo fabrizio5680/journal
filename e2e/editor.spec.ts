@@ -1004,3 +1004,70 @@ test.describe('RightPanel Phase 2 behaviour', () => {
     })
   })
 })
+
+// ── Phase 3: Tag # prefix display tests ──────────────────────────────────────
+
+test.describe('Tag # prefix display', () => {
+  let testEmail: string
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    testEmail = testEmailForProject(`tag-prefix-${testInfo.project.name}`)
+    await clearTestUser(testEmail)
+    await createEmulatorUser(testEmail, TEST_PASSWORD)
+    await page.goto('/login')
+    await signInAsTestUser(page, testEmail)
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+  })
+
+  test('Tag prefix 1: tag chip added via RightPanel TagInput displays # prefix on desktop', async ({
+    page,
+  }, testInfo) => {
+    if (testInfo.project.name !== 'chromium') {
+      test.skip()
+      return
+    }
+
+    const rightPanel = page.locator('aside')
+    await expect(rightPanel).toBeVisible({ timeout: 5000 })
+
+    // Type a tag into the TagInput inside the RightPanel Tags section
+    const tagInput = rightPanel.getByPlaceholder('Add tag…')
+    await expect(tagInput).toBeVisible({ timeout: 5000 })
+    await tagInput.fill('gratitude')
+    await page.keyboard.press('Enter')
+
+    // The chip must appear with the # prefix
+    await expect(rightPanel.getByText('#gratitude')).toBeVisible({ timeout: 3000 })
+  })
+
+  test('Tag prefix 2: tag chip added via MetadataSheet TagInput displays # prefix on mobile', async ({
+    page,
+  }, testInfo) => {
+    // mobile-safari project uses iPhone 14 (390px wide)
+    if (testInfo.project.name !== 'mobile-safari') {
+      test.skip()
+      return
+    }
+
+    const bar = page.getByTestId('metadata-bar')
+    const visible = await bar
+      .waitFor({ state: 'visible', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false)
+    test.skip(!visible, 'MetadataBar not rendered for this device configuration')
+
+    // Open the metadata sheet
+    const stripBtn = bar.locator('button').first()
+    await stripBtn.click()
+    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
+
+    // Type a tag into the TagInput inside the sheet
+    const tagInput = page.getByPlaceholder('Add tag…')
+    await expect(tagInput).toBeVisible({ timeout: 3000 })
+    await tagInput.fill('morning')
+    await page.keyboard.press('Enter')
+
+    // The chip must appear with the # prefix
+    await expect(page.getByText('#morning')).toBeVisible({ timeout: 3000 })
+  })
+})

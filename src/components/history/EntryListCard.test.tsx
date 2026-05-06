@@ -101,6 +101,21 @@ describe('EntryListCard', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/entry/2026-04-10')
   })
 
+  it('renders tag chips with # prefix', () => {
+    const entry = makeEntry({ tags: ['gratitude', 'morning'] })
+    renderWithProviders(<EntryListCard entry={entry} />)
+    expect(screen.getByText('#gratitude')).toBeTruthy()
+    expect(screen.getByText('#morning')).toBeTruthy()
+  })
+
+  it('does not render tags without # prefix', () => {
+    const entry = makeEntry({ tags: ['faith'] })
+    renderWithProviders(<EntryListCard entry={entry} />)
+    // The chip should show "#faith", not bare "faith" as a standalone element
+    expect(screen.getByText('#faith')).toBeTruthy()
+    expect(screen.queryByText('faith')).toBeNull()
+  })
+
   it('navigates when Enter key is pressed on card', async () => {
     const user = userEvent.setup()
     renderWithProviders(<EntryListCard entry={makeEntry({ date: '2026-04-10' })} />)

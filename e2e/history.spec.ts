@@ -105,7 +105,11 @@ async function seedEntry(
         mood: data.mood != null ? { integerValue: data.mood } : { nullValue: null },
         moodLabel:
           data.moodLabel != null ? { stringValue: data.moodLabel as string } : { nullValue: null },
-        tags: { arrayValue: { values: [] } },
+        tags: {
+          arrayValue: {
+            values: ((data.tags as string[]) ?? []).map((t) => ({ stringValue: t })),
+          },
+        },
         wordCount: { integerValue: (data.contentText as string)?.split(' ').length ?? 0 },
         deleted: { booleanValue: false },
         deletedAt: { nullValue: null },
@@ -228,5 +232,27 @@ test.describe('History', () => {
       name: `${monthName} 1, ${year}`,
     })
     await expect(day1Button.locator('span.absolute.rounded-full')).toBeVisible({ timeout: 5000 })
+  })
+
+  test('Scenario 5: tag chips in entry cards display # prefix', async ({ page, request }) => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+
+    // Seed an additional entry with tags
+    await seedEntry(request, testUid, testIdToken, `${year}-${month}-15`, {
+      contentText: 'Entry with tags for testing',
+      mood: null,
+      moodLabel: null,
+      tags: ['faith', 'gratitude'],
+    })
+
+    // Reload so the new entry appears
+    await page.reload()
+    await expect(page.getByText('Past Chapters')).toBeVisible({ timeout: 5000 })
+
+    // Tag chips on the entry card must show # prefix
+    await expect(page.getByText('#faith')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('#gratitude')).toBeVisible({ timeout: 5000 })
   })
 })

@@ -23,16 +23,38 @@ describe('TagInput', () => {
 
   it('renders existing tags as chips with remove buttons', () => {
     render(<TagInput {...defaultProps} />)
-    expect(screen.getByText('gratitude')).toBeInTheDocument()
-    expect(screen.getByLabelText('Remove gratitude')).toBeInTheDocument()
+    expect(screen.getByText('#gratitude')).toBeInTheDocument()
+    // aria-label is built from children which renders as "#" + tag text nodes
+    expect(screen.getByLabelText('Remove #,gratitude')).toBeInTheDocument()
+  })
+
+  it('selected tag chips display # prefix', () => {
+    render(<TagInput {...defaultProps} tags={['work', 'faith']} />)
+    expect(screen.getByText('#work')).toBeInTheDocument()
+    expect(screen.getByText('#faith')).toBeInTheDocument()
   })
 
   it('typing filters vocabulary suggestions', async () => {
     render(<TagInput {...defaultProps} tags={[]} />)
     const input = screen.getByPlaceholderText('Add tag…')
     await userEvent.type(input, 'mor')
-    expect(screen.getByText('morning')).toBeInTheDocument()
-    expect(screen.queryByText('prayer')).not.toBeInTheDocument()
+    expect(screen.getByText('#morning')).toBeInTheDocument()
+    expect(screen.queryByText('#prayer')).not.toBeInTheDocument()
+  })
+
+  it('dropdown suggestions show # prefix', async () => {
+    render(<TagInput {...defaultProps} tags={[]} />)
+    const input = screen.getByPlaceholderText('Add tag…')
+    await userEvent.type(input, 'pray')
+    expect(screen.getByText('#prayer')).toBeInTheDocument()
+  })
+
+  it('typing #tag in input adds tag without # in stored value', async () => {
+    const onChange = vi.fn()
+    render(<TagInput {...defaultProps} tags={[]} onChange={onChange} />)
+    const input = screen.getByPlaceholderText('Add tag…')
+    await userEvent.type(input, '#work{Enter}')
+    expect(onChange).toHaveBeenCalledWith(['work'])
   })
 
   it('clicking a suggestion calls onChange with tag added', async () => {
@@ -40,7 +62,7 @@ describe('TagInput', () => {
     render(<TagInput {...defaultProps} tags={[]} onChange={onChange} />)
     const input = screen.getByPlaceholderText('Add tag…')
     await userEvent.type(input, 'mor')
-    fireEvent.pointerDown(screen.getByText('morning'))
+    fireEvent.pointerDown(screen.getByText('#morning'))
     expect(onChange).toHaveBeenCalledWith(['morning'])
   })
 
@@ -55,15 +77,16 @@ describe('TagInput', () => {
   it('clicking × on a chip removes it and calls onChange', () => {
     const onChange = vi.fn()
     render(<TagInput {...defaultProps} onChange={onChange} />)
-    fireEvent.click(screen.getByLabelText('Remove gratitude'))
+    // aria-label is built from children: "#" + tag text nodes joined with comma
+    fireEvent.click(screen.getByLabelText('Remove #,gratitude'))
     expect(onChange).toHaveBeenCalledWith([])
   })
 
-  it("shows 'Create tag: {value}' when input doesn't match vocabulary", async () => {
+  it("shows 'Create tag: #{value}' when input doesn't match vocabulary", async () => {
     render(<TagInput {...defaultProps} tags={[]} />)
     const input = screen.getByPlaceholderText('Add tag…')
     await userEvent.type(input, 'sunset')
-    expect(screen.getByText('Create tag: sunset')).toBeInTheDocument()
+    expect(screen.getByText('Create tag: #sunset')).toBeInTheDocument()
   })
 
   it('input has spellCheck=true when spellcheckEnabled is true and not mobile', () => {
