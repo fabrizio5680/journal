@@ -240,4 +240,40 @@ test.describe('Search', () => {
 
     await expect(input).not.toBeVisible({ timeout: 2000 })
   })
+
+  test('Scenario 6: mood filter toggles active styling by moodLabel string', async ({ page }) => {
+    await openSearchModal(page)
+
+    const input = page.getByRole('textbox', { name: 'Search entries' })
+    await expect(input).toBeVisible({ timeout: 3000 })
+
+    // Type a query so the client resolves and renders the filter bar
+    await input.fill('peace')
+
+    // The filter bar is the flex-wrap strip directly inside the modal container.
+    // Scope mood buttons within it to avoid collisions with result cards or nav.
+    const filterBar = page.locator('.border-outline-variant\\/10.flex.flex-wrap')
+
+    // Wait for the filter bar to appear (renders once InstantSearch client is ready)
+    await expect(filterBar).toBeVisible({ timeout: 5000 })
+
+    // Use aria-label scoped to the filter bar to target the exact mood filter buttons
+    const peacefulBtn = filterBar.getByRole('button', { name: 'Peaceful', exact: true })
+    await expect(peacefulBtn).toBeVisible({ timeout: 3000 })
+
+    // Initially not active
+    await expect(peacefulBtn).not.toHaveClass(/bg-primary/)
+
+    // Click to select — button should gain active styling
+    await peacefulBtn.click()
+    await expect(peacefulBtn).toHaveClass(/bg-primary/)
+
+    // A different mood sharing no value overlap should remain inactive
+    const hopefulBtn = filterBar.getByRole('button', { name: 'Hopeful', exact: true })
+    await expect(hopefulBtn).not.toHaveClass(/bg-primary/)
+
+    // Click 'Peaceful' again to deselect — active styling should be removed
+    await peacefulBtn.click()
+    await expect(peacefulBtn).not.toHaveClass(/bg-primary/)
+  })
 })

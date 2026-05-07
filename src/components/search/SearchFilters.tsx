@@ -30,23 +30,23 @@ function TagFilter() {
 }
 
 interface MoodFilterProps {
-  selectedMoods: number[]
-  onToggleMood: (value: number) => void
+  selectedMoods: string[]
+  onToggleMood: (label: string) => void
 }
 
 function MoodFilter({ selectedMoods, onToggleMood }: MoodFilterProps) {
-  const refinedValues = new Set(selectedMoods)
+  const refinedLabels = new Set(selectedMoods)
 
   return (
     <>
       {MOODS.map((m) => (
         <button
           key={m.label}
-          onClick={() => onToggleMood(m.value)}
+          onClick={() => onToggleMood(m.label)}
           aria-label={m.label}
           className={clsx(
             'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors',
-            refinedValues.has(m.value)
+            refinedLabels.has(m.label)
               ? 'bg-primary text-on-primary'
               : 'bg-secondary-container text-on-secondary-container hover:opacity-80',
           )}
@@ -100,8 +100,8 @@ interface SearchFiltersProps {
   dateFrom: string
   dateTo: string
   onDateChange: (from: string, to: string) => void
-  selectedMoods: number[]
-  onToggleMood: (value: number) => void
+  selectedMoods: string[]
+  onToggleMood: (label: string) => void
 }
 
 export default function SearchFilters({

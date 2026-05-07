@@ -72,7 +72,7 @@ export default function SearchModal() {
   const [query, setQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [selectedMoods, setSelectedMoods] = useState<number[]>([])
+  const [selectedMoods, setSelectedMoods] = useState<string[]>([])
 
   // Fetch secured Algolia client when modal opens; reset state when it closes
   useEffect(() => {
@@ -133,9 +133,9 @@ export default function SearchModal() {
     setDateTo(to)
   }, [])
 
-  const handleToggleMood = useCallback((value: number) => {
+  const handleToggleMood = useCallback((label: string) => {
     setSelectedMoods((prev) =>
-      prev.includes(value) ? prev.filter((mood) => mood !== value) : [...prev, value],
+      prev.includes(label) ? prev.filter((mood) => mood !== label) : [...prev, label],
     )
   }, [])
 
@@ -143,11 +143,10 @@ export default function SearchModal() {
   const numericFilters: Array<string | string[]> = []
   if (dateFrom) numericFilters.push(`dateTimestamp >= ${dateToTimestamp(dateFrom)}`)
   if (dateTo) numericFilters.push(`dateTimestamp <= ${dateToTimestamp(dateTo)}`)
-  if (selectedMoods.length === 1) {
-    numericFilters.push(`mood = ${selectedMoods[0]}`)
-  } else if (selectedMoods.length > 1) {
-    numericFilters.push(selectedMoods.map((mood) => `mood = ${mood}`))
-  }
+
+  // Build facet filters for moodLabel (OR logic: inner array)
+  const facetFilters: Array<string[]> =
+    selectedMoods.length > 0 ? [selectedMoods.map((label) => `moodLabel:${label}`)] : []
 
   if (!isSearchOpen) return null
 
@@ -191,6 +190,7 @@ export default function SearchModal() {
               hitsPerPage={20}
               query={query}
               numericFilters={numericFilters.length > 0 ? numericFilters : undefined}
+              facetFilters={facetFilters.length > 0 ? facetFilters : undefined}
             />
 
             <SearchFilters

@@ -18,7 +18,7 @@ Suggest running /cost when a session is running long to monitor cache ratio.
 - React Router v7
 - Firebase 12 (Auth, Firestore, Hosting, Cloud Functions — Node 22)
 - Tiptap v3 — rich text, JSON serialization; extensions: StarterKit, Placeholder, CharacterCount, BubbleMenu, Heading (H2 only); BubbleMenu shows bold + italic only (no persistent toolbar)
-- Algolia — algoliasearch v5 + react-instantsearch v7, secured API keys via Cloud Function
+- Algolia — algoliasearch v5 + react-instantsearch v7, secured API keys via Cloud Function; `moodLabel` must be set as a `filterOnly` attribute in `attributesForFaceting` in the Algolia dashboard (mood filtering uses `moodLabel` facet, not the numeric `mood` field)
 - date-fns v4, Recharts v3, clsx v2
 - Icons: Material Symbols Outlined | Font: Manrope (both Google Fonts)
 
