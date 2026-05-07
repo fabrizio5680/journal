@@ -13,8 +13,16 @@ export default defineConfig({
       registerType: 'prompt',
       workbox: {
         navigateFallbackDenylist: [/^\/__\/auth\/.*/],
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
+          {
+            urlPattern: /\.woff2$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'local-fonts',
+              expiration: { maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com/,
             handler: 'CacheFirst',
