@@ -572,7 +572,7 @@ test.describe('Editor', () => {
     await closeBtn.click()
 
     // Sheet should be dismissed (transform back to translateY(100%))
-    const sheet = page.locator('.fixed.bottom-0')
+    const sheet = page.locator('[data-testid="metadata-sheet"]')
     await expect(sheet).toHaveCSS('transform', /translateY\(100%\)/, { timeout: 2000 })
   })
 
