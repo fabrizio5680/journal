@@ -9,8 +9,7 @@ const canonicalAuthHost = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
 if (
   import.meta.env.PROD &&
   typeof window !== 'undefined' &&
-  window.location.hostname.endsWith('.web.app') &&
-  canonicalAuthHost.endsWith('.firebaseapp.com')
+  window.location.hostname !== canonicalAuthHost
 ) {
   const targetUrl = `${window.location.protocol}//${canonicalAuthHost}${window.location.pathname}${window.location.search}${window.location.hash}`
   if (targetUrl !== window.location.href) {
