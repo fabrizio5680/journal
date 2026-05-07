@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.thequietdwelling.app",
+      "sha256_cert_fingerprints": [
+        "16:F8:1E:4C:74:7C:8D:28:FE:EA:00:B2:5D:49:AE:29:8B:8B:1D:85:2F:49:C5:55:25:3F:BE:5A:8F:7A:7D:1B"
+      ]
+    }
+  }
+]
