@@ -530,7 +530,7 @@ test.describe('Editor', () => {
     const bar = await getMetadataBarOrSkip(page)
 
     // Sheet must not be open initially (translateY(100%))
-    const sheet = page.locator('.fixed.bottom-0')
+    const sheet = page.locator('[data-testid="metadata-sheet"]')
     await expect(sheet).toHaveCSS('transform', /translateY\(100%\)/, { timeout: 3000 })
 
     // Click the outer strip button
@@ -551,10 +551,11 @@ test.describe('Editor', () => {
     await stripBtn.click()
 
     // All three section labels should be visible in the sheet
-    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
-    await expect(page.locator('text=Mood').first()).toBeVisible({ timeout: 3000 })
-    await expect(page.locator('text=Scripture').first()).toBeVisible({ timeout: 3000 })
-    await expect(page.locator('text=Tags').first()).toBeVisible({ timeout: 3000 })
+    const sheet = page.locator('[data-testid="metadata-sheet"]')
+    await expect(sheet.getByText('Entry details')).toBeVisible({ timeout: 3000 })
+    await expect(sheet.locator('text=Mood').first()).toBeVisible({ timeout: 3000 })
+    await expect(sheet.locator('text=Scripture').first()).toBeVisible({ timeout: 3000 })
+    await expect(sheet.locator('text=Tags').first()).toBeVisible({ timeout: 3000 })
   })
 
   test('MetadataBar 5: close button dismisses the metadata sheet', async ({ page }) => {
