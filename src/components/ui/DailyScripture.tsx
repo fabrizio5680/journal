@@ -22,12 +22,10 @@ export default function DailyScripture({ translation = 'NLT' }: DailyScripturePr
   if (isLoading) return <DailyScriptureSkeleton />
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       <p className="text-on-surface-variant/50 text-[9px] tracking-[0.25em] uppercase">
         Today's Word
       </p>
-
-      <div className="font-display text-primary/20 -mb-4 text-7xl leading-none select-none">"</div>
 
       <p className="font-display text-on-surface text-lg leading-relaxed font-light italic">
         {verse.text}

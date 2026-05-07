@@ -103,4 +103,44 @@ describe('TagInput', () => {
     const input = screen.getByPlaceholderText('Add tag…')
     expect(input.getAttribute('spellcheck')).toBe('false')
   })
+
+  // --- Phase 2: dropdown opens upward ---
+
+  it('dropdown container has bottom-full class (opens upward)', async () => {
+    render(<TagInput {...defaultProps} tags={[]} />)
+    const input = screen.getByPlaceholderText('Add tag…')
+    await userEvent.type(input, 'mor')
+
+    // Dropdown should be visible
+    expect(screen.getByText('#morning')).toBeInTheDocument()
+
+    // Find the dropdown container — it wraps the suggestion buttons
+    const suggestion = screen.getByText('#morning')
+    const dropdown = suggestion.closest('div')
+    expect(dropdown).toHaveClass('bottom-full')
+  })
+
+  it('dropdown container does not have mt-1 class (does not open downward)', async () => {
+    render(<TagInput {...defaultProps} tags={[]} />)
+    const input = screen.getByPlaceholderText('Add tag…')
+    await userEvent.type(input, 'mor')
+
+    expect(screen.getByText('#morning')).toBeInTheDocument()
+
+    const suggestion = screen.getByText('#morning')
+    const dropdown = suggestion.closest('div')
+    expect(dropdown).not.toHaveClass('mt-1')
+  })
+
+  it('dropdown has mb-1 class for upward spacing gap', async () => {
+    render(<TagInput {...defaultProps} tags={[]} />)
+    const input = screen.getByPlaceholderText('Add tag…')
+    await userEvent.type(input, 'mor')
+
+    expect(screen.getByText('#morning')).toBeInTheDocument()
+
+    const suggestion = screen.getByText('#morning')
+    const dropdown = suggestion.closest('div')
+    expect(dropdown).toHaveClass('mb-1')
+  })
 })

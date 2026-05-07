@@ -98,7 +98,7 @@ export default function TagInput({ tags, vocabulary, onChange, onNewTag }: TagIn
       </div>
 
       {showDropdown && (filtered.length > 0 || showCreate) && (
-        <div className="bg-surface-container-lowest border-outline-variant/10 absolute left-0 z-50 mt-1 max-h-48 w-full min-w-[160px] overflow-y-auto rounded-xl border shadow-lg">
+        <div className="bg-surface-container-lowest border-outline-variant/10 absolute bottom-full left-0 z-50 mb-1 max-h-48 w-full min-w-[160px] overflow-y-auto rounded-xl border shadow-lg">
           {filtered.map((suggestion) => (
             <button
               key={suggestion}

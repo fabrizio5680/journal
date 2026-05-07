@@ -114,4 +114,29 @@ describe('MoodPicker', () => {
     const button = screen.getByText('😢 Sorrowful')
     expect(button).not.toHaveClass('bg-primary-container')
   })
+
+  // --- Phase 2: horizontal scrollable row layout ---
+
+  it('all mood buttons render inside a single flex container (not a grid)', () => {
+    const { container } = render(<MoodPicker value={null} label={null} onChange={vi.fn()} />)
+    // The wrapper div should have flex and flex-nowrap
+    const wrapper = container.firstChild as HTMLElement
+    expect(wrapper).toHaveClass('flex')
+    expect(wrapper).toHaveClass('flex-nowrap')
+  })
+
+  it('container has overflow-x-auto class for horizontal scrolling', () => {
+    const { container } = render(<MoodPicker value={null} label={null} onChange={vi.fn()} />)
+    const wrapper = container.firstChild as HTMLElement
+    expect(wrapper).toHaveClass('overflow-x-auto')
+  })
+
+  it('each mood button has shrink-0 class to prevent squishing', () => {
+    render(<MoodPicker value={null} label={null} onChange={vi.fn()} />)
+    const buttons = screen.getAllByRole('button')
+    expect(buttons).toHaveLength(10)
+    buttons.forEach((btn) => {
+      expect(btn).toHaveClass('shrink-0')
+    })
+  })
 })

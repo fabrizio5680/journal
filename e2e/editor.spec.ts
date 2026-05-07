@@ -907,7 +907,7 @@ test.describe('RightPanel Phase 2 behaviour', () => {
     await expect(rightPanel.getByRole('button', { name: /added as verse/i })).toHaveCount(0)
   })
 
-  test('RightPanel Phase2-3: mood section is collapsed by default on desktop', async ({
+  test('RightPanel Phase2-3: mood section always shows MoodPicker (not collapsible)', async ({
     page,
   }, testInfo) => {
     if (testInfo.project.name !== 'chromium') {
@@ -918,19 +918,20 @@ test.describe('RightPanel Phase 2 behaviour', () => {
     const rightPanel = page.locator('aside')
     await expect(rightPanel).toBeVisible({ timeout: 5000 })
 
-    // Mood section header must exist (the existing desktop test confirms this renders)
+    // Mood section header must exist
     const moodHeader = rightPanel.locator('header').filter({ hasText: /mood/i })
     await expect(moodHeader).toBeVisible({ timeout: 5000 })
 
-    // "Tap to set mood" placeholder should be visible in collapsed state (no mood selected yet)
-    await expect(rightPanel.getByText('Tap to set mood')).toBeVisible({ timeout: 5000 })
+    // MoodPicker buttons must be directly visible — no expand needed
+    const hopefulBtn = rightPanel.getByRole('button', { name: /hopeful/i })
+    await expect(hopefulBtn).toBeVisible({ timeout: 5000 })
 
-    // The expand chevron button must be present (confirms collapsible)
-    const chevron = rightPanel.getByRole('button', { name: /expand section/i })
-    await expect(chevron).toBeVisible({ timeout: 3000 })
+    // No expand/collapse chevron button in mood section
+    await expect(rightPanel.getByRole('button', { name: /expand section/i })).toHaveCount(0)
+    await expect(rightPanel.getByRole('button', { name: /collapse section/i })).toHaveCount(0)
   })
 
-  test('RightPanel Phase2-4: clicking mood chevron expands MoodPicker grid', async ({
+  test('RightPanel Phase2-4: mood buttons are selectable without any expand click', async ({
     page,
   }, testInfo) => {
     if (testInfo.project.name !== 'chromium') {
@@ -945,13 +946,13 @@ test.describe('RightPanel Phase 2 behaviour', () => {
     const moodHeader = rightPanel.locator('header').filter({ hasText: /mood/i })
     await expect(moodHeader).toBeVisible({ timeout: 5000 })
 
-    // Click the expand/collapse chevron button in the mood section header
-    const chevron = rightPanel.getByRole('button', { name: /expand section/i })
-    await expect(chevron).toBeVisible({ timeout: 3000 })
-    await chevron.click()
-
-    // After expansion, mood buttons should be visible
+    // Mood buttons are immediately visible — click one directly
     const hopefulBtn = rightPanel.getByRole('button', { name: /hopeful/i })
+    await expect(hopefulBtn).toBeVisible({ timeout: 5000 })
+    await hopefulBtn.click()
+
+    // After clicking, Hopeful should appear as selected (the strip or section should reflect it)
+    // Verify the button remains visible (mood selected, section stays open)
     await expect(hopefulBtn).toBeVisible({ timeout: 3000 })
   })
 

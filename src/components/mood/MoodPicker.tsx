@@ -19,7 +19,7 @@ const MOOD_PAIRS = MOODS.reduce<(typeof MOODS)[number][][]>((acc, mood) => {
 
 export default function MoodPicker({ value, label, onChange }: MoodPickerProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 py-2">
+    <div className="flex flex-nowrap gap-2 overflow-x-auto py-2 pb-1">
       {MOOD_PAIRS.map((pair) =>
         pair.map((mood) => {
           const isSelected = label !== null ? mood.label === label : value === mood.value
@@ -32,8 +32,8 @@ export default function MoodPicker({ value, label, onChange }: MoodPickerProps) 
               }
               className={
                 isSelected
-                  ? 'border-primary/20 bg-primary-container text-on-primary-container rounded-xl border px-4 py-2 text-sm font-semibold'
-                  : 'bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed rounded-xl px-4 py-2 text-sm transition-colors'
+                  ? 'border-primary/20 bg-primary-container text-on-primary-container shrink-0 rounded-xl border px-4 py-2 text-sm font-semibold'
+                  : 'bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed shrink-0 rounded-xl px-4 py-2 text-sm transition-colors'
               }
             >
               {mood.emoji} {mood.label}

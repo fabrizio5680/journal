@@ -121,7 +121,6 @@ function ScriptureExpandableCard({
 export default function RightPanel() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [showScriptureInput, setShowScriptureInput] = useState(false)
-  const [moodExpanded, setMoodExpanded] = useState(false)
   const { scriptureTranslation } = useUserPreferences()
   const { isEditorActive, dictation, fontSize, onFontSizeChange, wordCount, metadata } =
     useEditorControls()
@@ -178,32 +177,19 @@ export default function RightPanel() {
     <aside className="bg-surface-container-low border-outline-variant/10 fixed top-0 right-0 z-30 hidden h-screen w-80 flex-col border-l md:flex">
       <div className="flex-1 overflow-y-auto">
         {/* Today's Word */}
-        <div className="px-5 py-4">
+        <div className="px-5 py-2">
           <DailyScripture translation={scriptureTranslation} />
         </div>
 
         {/* Metadata — visible when editor active */}
         {isEditorActive && metadata && (
           <>
-            <Section
-              label="Mood"
-              collapsible
-              expanded={moodExpanded}
-              onToggle={() => setMoodExpanded((v) => !v)}
-            >
-              {moodExpanded ? (
-                <MoodPicker
-                  value={metadata.mood}
-                  label={metadata.moodLabel}
-                  onChange={handleMoodChange}
-                />
-              ) : metadata.mood !== null && metadata.moodLabel !== null ? (
-                <span className="bg-primary-container text-on-primary-container inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold">
-                  {metadata.moodLabel}
-                </span>
-              ) : (
-                <span className="text-on-surface-variant/30 text-xs">Tap to set mood</span>
-              )}
+            <Section label="Mood">
+              <MoodPicker
+                value={metadata.mood}
+                label={metadata.moodLabel}
+                onChange={handleMoodChange}
+              />
             </Section>
 
             <Section
@@ -259,7 +245,7 @@ export default function RightPanel() {
             {hasError && dictation?.errorMessage && (
               <p className="text-error mb-2 text-xs">{dictation.errorMessage}</p>
             )}
-            <div className="mb-2 flex items-center gap-3">
+            <div className="flex items-center gap-3">
               {dictation?.isSupported && (
                 <button
                   onClick={isListening ? dictation.onStop : dictation.onStart}
@@ -291,18 +277,21 @@ export default function RightPanel() {
                 </button>
               )}
 
-              <span className="text-on-surface-variant/40 flex-1 text-right text-[11px] tabular-nums">
-                {wordCount} {wordCount === 1 ? 'word' : 'words'}
-              </span>
+              <div className="flex flex-1 flex-col items-end gap-0.5">
+                <span className="text-on-surface-variant/40 text-[11px] tabular-nums">
+                  {wordCount} {wordCount === 1 ? 'word' : 'words'}
+                </span>
+                {syncStatus}
+              </div>
             </div>
             {isListening && dictation?.interimTranscript && (
-              <p className="text-on-surface-variant/50 mb-2 text-xs leading-snug italic">
+              <p className="text-on-surface-variant/50 mt-2 text-xs leading-snug italic">
                 {dictation.interimTranscript}
               </p>
             )}
           </>
         )}
-        {syncStatus}
+        {!isEditorActive && syncStatus}
       </div>
     </aside>
   )

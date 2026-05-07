@@ -62,9 +62,10 @@ On mobile, `MetadataBar` renders as a collapsed summary strip (mood pill + scrip
 
 `RightPanel` (desktop/tablet sidebar) contains Mood, Scripture, Tags, and Daily Scripture sections. Key behaviors:
 
-- **Mood section is collapsible** — collapsed by default, showing either the current mood pill or a "Tap to set mood" placeholder. A chevron toggles the full `MoodPicker` grid open/closed. The internal `Section` component accepts optional `collapsible`, `expanded`, and `onToggle` props to support this pattern.
+- **Mood section is always expanded** — always shows the full `MoodPicker`, which renders as a single horizontal scrollable row of pills. The internal `Section` component still accepts `collapsible`, `expanded`, and `onToggle` props (available for future use) but the Mood section no longer uses them.
 - **Scripture section label is pluralized dynamically** — renders "Scripture" when count is exactly 1, "Scriptures" otherwise.
 - **Tags are stored without `#` and displayed with it** — Firestore stores raw values (e.g. `work`, `faith`); every UI surface (chips, dropdowns, chart axes) renders them as `#work`, `#faith`. `normalizeTag` strips any leading `#` from user input before storing. When adding a new tag surface, always apply the `#` prefix at render time, never at storage time.
+- **TagInput dropdown opens upward** — avoids clipping when the Tags section sits near the bottom of the panel.
 
 ## Scripts
 

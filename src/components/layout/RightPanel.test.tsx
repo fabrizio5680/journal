@@ -289,6 +289,56 @@ describe('RightPanel — editor controls section', () => {
     expect(screen.getByText('1 word')).toBeInTheDocument()
   })
 
+  it('word count and sync status are in the same row container when editor is active', () => {
+    let doRegister: ReturnType<typeof useEditorControls>['register']
+
+    render(
+      <Wrapper>
+        <EditorRegistrar
+          onReady={(r) => {
+            doRegister = r
+          }}
+        />
+        <RightPanel />
+      </Wrapper>,
+    )
+
+    act(() => {
+      doRegister!({
+        dictation: null,
+        fontSize: 'medium',
+        onFontSizeChange: vi.fn(),
+        wordCount: 7,
+      })
+    })
+
+    // Both word count and sync status text should be present and in the same container
+    const wordCount = screen.getByText(/7 words/i)
+    const syncStatus = screen.getByText(/synced|offline/i)
+    expect(wordCount).toBeInTheDocument()
+    expect(syncStatus).toBeInTheDocument()
+
+    // They should share a common ancestor — the stacked right column flex container
+    // wordCount is a <span>, syncStatus is inside a nested <div>; walk up to find shared parent
+    const wordCountParent = wordCount.parentElement
+    expect(wordCountParent).toContainElement(syncStatus)
+  })
+
+  it('sync status appears standalone when editor is inactive', () => {
+    render(
+      <Wrapper>
+        <RightPanel />
+      </Wrapper>,
+    )
+
+    // No editor active — sync status should still be present (standalone in footer)
+    const syncStatus = screen.getByText(/synced|offline/i)
+    expect(syncStatus).toBeInTheDocument()
+
+    // Word count should NOT appear
+    expect(screen.queryByText(/\d+ words?/)).not.toBeInTheDocument()
+  })
+
   it('shows dictation error message when state is error', () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
@@ -438,7 +488,7 @@ describe('RightPanel — metadata section', () => {
     expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
   })
 
-  it('MoodPicker is NOT visible by default (mood section collapsed)', () => {
+  it('MoodPicker is visible by default (mood section always expanded, not collapsible)', () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
     render(
@@ -462,10 +512,10 @@ describe('RightPanel — metadata section', () => {
       })
     })
 
-    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
+    expect(screen.getByTestId('mood-picker-panel')).toBeInTheDocument()
   })
 
-  it('selecting a mood calls onMoodChange after expanding the mood section', async () => {
+  it('selecting a mood calls onMoodChange without needing to expand first', async () => {
     let doRegister: ReturnType<typeof useEditorControls>['register']
     const onMoodChange = vi.fn()
 
@@ -490,8 +540,7 @@ describe('RightPanel — metadata section', () => {
       })
     })
 
-    // Expand mood section first
-    await userEvent.click(screen.getByRole('button', { name: /expand section/i }))
+    // MoodPicker is directly visible — no expand click needed
     await userEvent.click(screen.getByRole('button', { name: /pick hopeful/i }))
     expect(onMoodChange).toHaveBeenCalledWith(3, 'Hopeful')
   })
@@ -752,7 +801,7 @@ describe('RightPanel — Phase 2: scripture label singular vs plural', () => {
   })
 })
 
-describe('RightPanel — Phase 2: mood collapsible', () => {
+describe('RightPanel — Phase 2: mood always visible (not collapsible)', () => {
   function renderWithMoodMetadata(moodOverrides: Partial<MetadataControls> = {}) {
     let doRegister: ReturnType<typeof useEditorControls>['register']
 
@@ -778,44 +827,22 @@ describe('RightPanel — Phase 2: mood collapsible', () => {
     })
   }
 
-  it('MoodPicker grid is NOT visible when collapsed by default', () => {
+  it('MoodPicker is always visible by default (no expand/collapse needed)', () => {
     renderWithMoodMetadata({ mood: 3, moodLabel: 'Hopeful' })
-
-    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
-  })
-
-  it('shows mood pill when mood is set and collapsed', () => {
-    renderWithMoodMetadata({ mood: 3, moodLabel: 'Hopeful' })
-
-    expect(screen.getByText('Hopeful')).toBeInTheDocument()
-    expect(screen.queryByText('Tap to set mood')).not.toBeInTheDocument()
-  })
-
-  it('shows "Tap to set mood" placeholder when no mood set and collapsed', () => {
-    renderWithMoodMetadata({ mood: null, moodLabel: null })
-
-    expect(screen.getByText('Tap to set mood')).toBeInTheDocument()
-    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
-  })
-
-  it('expands to show MoodPicker after clicking the chevron toggle', async () => {
-    renderWithMoodMetadata({ mood: null, moodLabel: null })
-
-    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /expand section/i }))
 
     expect(screen.getByTestId('mood-picker-panel')).toBeInTheDocument()
   })
 
-  it('collapses MoodPicker again after clicking the chevron a second time', async () => {
+  it('MoodPicker is visible even when no mood is set', () => {
     renderWithMoodMetadata({ mood: null, moodLabel: null })
 
-    const chevron = screen.getByRole('button', { name: /expand section/i })
-    await userEvent.click(chevron)
     expect(screen.getByTestId('mood-picker-panel')).toBeInTheDocument()
+  })
 
-    await userEvent.click(screen.getByRole('button', { name: /collapse section/i }))
-    expect(screen.queryByTestId('mood-picker-panel')).not.toBeInTheDocument()
+  it('no expand/collapse toggle button in the mood section', () => {
+    renderWithMoodMetadata({ mood: null, moodLabel: null })
+
+    expect(screen.queryByRole('button', { name: /expand section/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /collapse section/i })).not.toBeInTheDocument()
   })
 })
