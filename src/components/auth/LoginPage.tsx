@@ -81,13 +81,13 @@ export default function LoginPage() {
       <div className="z-10 flex w-full flex-col justify-between px-10 py-12 md:w-[44%] md:px-14">
         {/* Top: Logo */}
         <div className="flex items-center gap-2.5">
-          <img src="/icons/favicon.svg" alt="Reflect" className="h-9 w-9 rounded-xl" />
+          <img src="/icons/favicon.svg" alt="Quiet Dwelling" className="h-9 w-9 rounded-xl" />
           <div>
             <span className="font-display text-on-surface text-2xl leading-none font-semibold tracking-tight">
-              Reflect
+              Quiet Dwelling
             </span>
             <p className="text-on-surface-variant/50 mt-0.5 text-[9px] leading-none tracking-[0.2em] uppercase">
-              The Quiet Sanctuary
+              A quiet place to reflect, pray, and journal.
             </p>
           </div>
         </div>

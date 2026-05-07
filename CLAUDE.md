@@ -1,4 +1,4 @@
-# The Quiet Sanctuary — Project Bible
+# Quiet Dwelling — Project Bible
 
 ## Approach
 
@@ -7,8 +7,8 @@ Suggest running /cost when a session is running long to monitor cache ratio.
 
 ## Identity
 
-- App name: "The Quiet Sanctuary" | Brand mark: "Reflect"
-- Firebase project: `journal-manna` | Hosting: `journal-manna.web.app`
+- App name: "Quiet Dwelling" | Tagline: "A quiet place to reflect, pray, and journal."
+- Domain: `thequietdwelling.com` | Firebase project: `journal-manna` | Hosting: `journal-manna.web.app`
 
 ## Tech Stack
 

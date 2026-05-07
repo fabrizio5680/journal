@@ -39,13 +39,17 @@ export default function SideNav() {
       {/* Brand */}
       <div className="mb-8 px-1">
         <div className="mb-1 flex items-center gap-2.5">
-          <img src="/icons/favicon.svg" alt="Reflect" className="h-8 w-8 shrink-0 rounded-xl" />
+          <img
+            src="/icons/favicon.svg"
+            alt="Quiet Dwelling"
+            className="h-8 w-8 shrink-0 rounded-xl"
+          />
           <span className="font-display text-on-surface text-2xl leading-none font-semibold tracking-tight">
-            Reflect
+            Quiet Dwelling
           </span>
         </div>
         <p className="text-on-surface-variant/60 pl-10 text-[10px] tracking-[0.18em] uppercase">
-          The Quiet Sanctuary
+          A quiet place to reflect, pray, and journal.
         </p>
       </div>
 

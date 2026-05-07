@@ -1,4 +1,4 @@
-# The Quiet Sanctuary
+# Quiet Dwelling
 
 ## Working Guidelines
 
@@ -9,8 +9,9 @@
 
 ## Project Identity
 
-- App name: The Quiet Sanctuary
-- Brand mark: Reflect
+- App name: Quiet Dwelling
+- Tagline: A quiet place to reflect, pray, and journal.
+- Domain: thequietdwelling.com
 - Firebase project: `journal-manna`
 - Hosting target: `journal-manna.web.app`
 

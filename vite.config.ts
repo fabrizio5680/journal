@@ -34,9 +34,9 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'The Quiet Sanctuary',
-        short_name: 'Reflect',
-        description: 'Your personal journalling sanctuary',
+        name: 'Quiet Dwelling',
+        short_name: 'Quiet Dwelling',
+        description: 'A quiet place to reflect, pray, and journal.',
         theme_color: '#e3dfd1',
         background_color: '#faf9f7',
         display: 'standalone',

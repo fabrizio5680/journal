@@ -15,7 +15,7 @@ if (getApps().length === 0) {
 
 const ALGOLIA_APP_ID = defineSecret('ALGOLIA_APP_ID')
 const ALGOLIA_SEARCH_ONLY_KEY = defineSecret('ALGOLIA_SEARCH_ONLY_KEY')
-const APP_BASE_URL = 'https://journal-manna.web.app'
+const APP_BASE_URL = 'https://thequietdwelling.com'
 
 const FUNCTIONS_REGION = 'europe-west2'
 const SEARCH_INDEX_NAME = 'journal_entries'
