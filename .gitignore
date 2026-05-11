@@ -15,6 +15,7 @@ functions/lib/
 .env.*.local
 *.secret.local
 service-account.json
+google-oauth-client.json
 .migration-auth/
 .migration-reports/
 
