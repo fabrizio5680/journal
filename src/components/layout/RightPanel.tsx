@@ -7,7 +7,9 @@ import ScriptureRefInput from '@/components/scripture/ScriptureRefInput'
 import TagInput from '@/components/tags/TagInput'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
+import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useScriptureRef } from '@/hooks/useScriptureRef'
+import { syncStatusIcon, syncStatusLabel } from '@/lib/storage/syncStatusLabel'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import type { ScriptureRef } from '@/types'
 
@@ -122,6 +124,12 @@ export default function RightPanel() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [showScriptureInput, setShowScriptureInput] = useState(false)
   const { scriptureTranslation } = useUserPreferences()
+  const {
+    syncStatus: currentSyncStatus,
+    storageProvider,
+    storageAccountEmail,
+    appAccountEmail,
+  } = useSaveStatus()
   const { isEditorActive, dictation, fontSize, onFontSizeChange, wordCount, metadata } =
     useEditorControls()
 
@@ -159,17 +167,24 @@ export default function RightPanel() {
 
   const syncStatus = (
     <div className="text-on-surface-variant/40 flex items-center gap-1.5 text-[10px]">
-      {isOnline ? (
-        <>
-          <span className="material-symbols-outlined text-primary text-[13px]">cloud_done</span>
-          <span>Synced</span>
-        </>
-      ) : (
-        <>
-          <span className="material-symbols-outlined text-[13px]">cloud_off</span>
-          <span>Offline — changes will sync</span>
-        </>
-      )}
+      <span
+        className={clsx(
+          'material-symbols-outlined text-[13px]',
+          isOnline && currentSyncStatus === 'synced' && 'text-primary',
+        )}
+      >
+        {syncStatusIcon(currentSyncStatus, isOnline)}
+      </span>
+      <span>
+        {isOnline
+          ? syncStatusLabel({
+              syncStatus: currentSyncStatus,
+              storageProvider,
+              storageAccountEmail,
+              appAccountEmail,
+            })
+          : 'Offline — changes will sync'}
+      </span>
     </div>
   )
 

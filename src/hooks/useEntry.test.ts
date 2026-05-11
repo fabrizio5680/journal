@@ -13,22 +13,25 @@ vi.mock('firebase/auth', () => ({
   },
 }))
 
-const { repositoryListeners, mockGetEntry, mockSaveEntry, mockSubscribe } = vi.hoisted(() => {
-  const listeners = new Map<string, () => void>()
-  return {
-    repositoryListeners: listeners,
-    mockGetEntry: vi.fn(),
-    mockSaveEntry: vi.fn(),
-    mockSubscribe: vi.fn((uid: string, listener: () => void) => {
-      listeners.set(uid, listener)
-      return vi.fn()
-    }),
-  }
-})
+const { repositoryListeners, mockGetEntry, mockListMetadata, mockSaveEntry, mockSubscribe } =
+  vi.hoisted(() => {
+    const listeners = new Map<string, () => void>()
+    return {
+      repositoryListeners: listeners,
+      mockGetEntry: vi.fn(),
+      mockListMetadata: vi.fn(),
+      mockSaveEntry: vi.fn(),
+      mockSubscribe: vi.fn((uid: string, listener: () => void) => {
+        listeners.set(uid, listener)
+        return vi.fn()
+      }),
+    }
+  })
 
 vi.mock('@/lib/storage/entryRepository', () => ({
   EntryRepository: {
     getEntry: mockGetEntry,
+    listMetadata: mockListMetadata,
     saveEntry: mockSaveEntry,
     subscribe: mockSubscribe,
   },
@@ -65,6 +68,7 @@ describe('useEntry', () => {
     authCallback = null
     repositoryListeners.clear()
     mockGetEntry.mockResolvedValue(null)
+    mockListMetadata.mockResolvedValue([])
     mockSaveEntry.mockResolvedValue({ entry: makeEntry({ contentText: 'saved' }), metadata: {} })
   })
 

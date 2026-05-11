@@ -17,6 +17,11 @@ const mockOnSnapshot = vi.fn((_: unknown, cb: (snap: unknown) => void) => {
   return mockUnsub
 })
 
+const { mockConnectGoogleDriveProvider, mockDisconnectGoogleDriveProvider } = vi.hoisted(() => ({
+  mockConnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
+  mockDisconnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('firebase/firestore', () => ({
   doc: (...args: unknown[]) => mockDoc(...(args as [unknown, ...unknown[]])),
   onSnapshot: (ref: unknown, cb: (snap: unknown) => void) => mockOnSnapshot(ref, cb),
@@ -66,6 +71,21 @@ vi.mock('@/lib/firebase', () => ({
     return mockMessagingPromise
   },
   default: {},
+}))
+
+vi.mock('@/lib/storage/providerConnection', () => ({
+  connectGoogleDriveProvider: (...args: unknown[]) => mockConnectGoogleDriveProvider(...args),
+  disconnectGoogleDriveProvider: (...args: unknown[]) => mockDisconnectGoogleDriveProvider(...args),
+  getDeviceProviderState: (_userId: string, metadata: Record<string, unknown>) => {
+    if (metadata.activeStorageProvider !== 'googleDrive') {
+      return { status: 'disconnected', deviceConnected: false }
+    }
+    return {
+      ...metadata,
+      status: metadata.storageRootFolderId === 'reconnect-root' ? 'reconnect' : 'connected',
+      deviceConnected: metadata.storageRootFolderId !== 'reconnect-root',
+    }
+  },
 }))
 
 // --- UserPreferencesContext mock ---
@@ -130,6 +150,8 @@ describe('SettingsPage', () => {
     mockGetDoc.mockResolvedValue({ data: () => ({ fcmTokens: [] }) })
     mockGetToken.mockResolvedValue('mock-fcm-token')
     mockUpdateEditorFontSize.mockResolvedValue(undefined)
+    mockConnectGoogleDriveProvider.mockResolvedValue(undefined)
+    mockDisconnectGoogleDriveProvider.mockResolvedValue(undefined)
     mockPrefs.grainEnabled = true
     mockPrefs.scriptureTranslation = 'NLT'
     mockPrefs.editorFontSize = 'medium'
@@ -385,6 +407,91 @@ describe('SettingsPage', () => {
     fireSnapshot({ reminderEnabled: false })
 
     expect(screen.getByText('Editor Text Size (this device)')).toBeInTheDocument()
+  })
+
+  it('renders disconnected Google Drive storage state', () => {
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false })
+
+    expect(screen.getByText('Storage')).toBeInTheDocument()
+    expect(screen.getByText(/Drive connection is per device/i)).toBeInTheDocument()
+    expect(screen.getByText('Not connected')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /connect google drive/i })).toBeInTheDocument()
+  })
+
+  it('renders connected Google Drive storage account when emails match', () => {
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: false,
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'test@example.com',
+      storageRootFolderId: 'drive-root',
+    })
+
+    expect(screen.getByText(/Google Drive · test@example.com · connected/i)).toBeInTheDocument()
+    expect(screen.queryByText(/differs from app account/i)).not.toBeInTheDocument()
+  })
+
+  it('shows the Drive account clearly when it differs from the app account', () => {
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: false,
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'drive@example.com',
+      storageRootFolderId: 'drive-root',
+    })
+
+    expect(screen.getByText(/Google Drive · drive@example.com · connected/i)).toBeInTheDocument()
+    expect(screen.getByText(/Drive account differs from app account/i)).toBeInTheDocument()
+  })
+
+  it('renders reconnect state for Google Drive', () => {
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: false,
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'drive@example.com',
+      storageRootFolderId: 'reconnect-root',
+    })
+
+    expect(screen.getByText(/Google Drive · reconnect needed/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reconnect google drive/i })).toBeInTheDocument()
+  })
+
+  it('connect action starts Google Drive provider connection for the current user', async () => {
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false })
+
+    await userEvent.click(screen.getByRole('button', { name: /connect google drive/i }))
+
+    await waitFor(() => {
+      expect(mockConnectGoogleDriveProvider).toHaveBeenCalledWith('test-uid', 'test@example.com')
+    })
+  })
+
+  it('disconnect action confirms and disconnects Google Drive', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: false,
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'test@example.com',
+      storageRootFolderId: 'drive-root',
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: /disconnect google drive/i }))
+
+    await waitFor(() => {
+      expect(mockDisconnectGoogleDriveProvider).toHaveBeenCalledWith('test-uid')
+    })
+    confirmSpy.mockRestore()
   })
 
   it('sign out calls signOut and navigates to /login', async () => {

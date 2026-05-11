@@ -57,7 +57,11 @@ export function createEntryFile(date: string, draft: EntryDraft, existing?: Entr
   }
 }
 
-export function toMetadata(entry: EntryFile, syncStatus: SyncStatus): EntryMetadata {
+export function toMetadata(
+  entry: EntryFile,
+  syncStatus: SyncStatus,
+  previous?: EntryMetadata | null,
+): EntryMetadata {
   const bodyText = bodyTextFromSearchText(entry.searchText)
 
   return {
@@ -68,8 +72,12 @@ export function toMetadata(entry: EntryFile, syncStatus: SyncStatus): EntryMetad
     wordCount: entry.wordCount,
     hasContent: entry.wordCount > 0 || bodyText.length > 0,
     updatedAt: entry.updatedAt,
-    lastSeenRevisionId: null,
+    provider: previous?.provider,
+    providerFileId: previous?.providerFileId,
+    lastSeenRevisionId: previous?.lastSeenRevisionId ?? null,
+    lastSyncedAt: previous?.lastSyncedAt,
     syncStatus,
+    syncError: syncStatus === 'sync-pending' ? undefined : previous?.syncError,
     deletedAt: null,
   }
 }

@@ -8,12 +8,14 @@ import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useFocusMode } from '@/context/FocusModeContext'
 import { useSearch } from '@/context/SearchContext'
 import ProfileSheet from '@/components/ui/ProfileSheet'
+import { syncStatusLabel } from '@/lib/storage/syncStatusLabel'
 
 export default function TopBar() {
   const [user, setUser] = useState<User | null>(null)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const now = new Date()
-  const { isDirty, lastSaved } = useSaveStatus()
+  const { isDirty, lastSaved, syncStatus, storageProvider, storageAccountEmail, appAccountEmail } =
+    useSaveStatus()
   const { isFocused } = useFocusMode()
   const { openSearch } = useSearch()
 
@@ -24,7 +26,13 @@ export default function TopBar() {
   const saveLabel = isDirty
     ? 'Saving…'
     : lastSaved
-      ? `Saved locally ${formatDistanceToNow(lastSaved, { addSuffix: true })}`
+      ? syncStatusLabel({
+          syncStatus,
+          storageProvider,
+          storageAccountEmail,
+          appAccountEmail,
+          savedLocalSuffix: formatDistanceToNow(lastSaved, { addSuffix: true }),
+        })
       : null
 
   return (

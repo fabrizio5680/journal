@@ -39,8 +39,12 @@ export interface EntryMetadata {
   wordCount: number
   hasContent: boolean
   updatedAt: string
+  provider?: StorageProvider
+  providerFileId?: string
   lastSeenRevisionId: string | null
+  lastSyncedAt?: string
   syncStatus: SyncStatus
+  syncError?: string
   deletedAt: string | null
 }
 

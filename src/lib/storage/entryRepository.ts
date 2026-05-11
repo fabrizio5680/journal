@@ -2,6 +2,9 @@ import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
 
 import { bodyTextFromSearchText, createEntryFile, toEntry } from './entryFormat'
 import { localEntryCache } from './localEntryCache'
+import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
+import { GOOGLE_DRIVE_PROVIDER, GoogleDriveError } from './providers/googleDriveTypes'
+import { syncCoordinator } from './syncCoordinator'
 import type { DateRange, EntryDraft, EntryMetadata, SearchFilters, SearchHit } from './types'
 
 import { db } from '@/lib/firebase'
@@ -39,13 +42,45 @@ export const EntryRepository = {
 
   async getEntry(userId: string, date: string) {
     const entry = await localEntryCache.getEntry(userId, date)
-    return entry ? toEntry(entry) : null
+    if (entry) return toEntry(entry)
+    if (!syncCoordinator.isConnectedOnDevice(userId)) return null
+
+    try {
+      const adapter = new GoogleDriveAdapter(userId)
+      const driveEntry = await adapter.getEntry(date)
+      if (!driveEntry) return null
+      const [driveMetadata] = await adapter.listEntryMetadata({ from: date, to: date })
+      await localEntryCache.saveEntry(userId, driveEntry, 'synced', {
+        provider: GOOGLE_DRIVE_PROVIDER,
+        providerFileId: driveMetadata?.providerFileId,
+        lastSeenRevisionId: driveMetadata?.lastSeenRevisionId ?? null,
+        lastSyncedAt: new Date().toISOString(),
+      })
+      return toEntry(driveEntry)
+    } catch (error) {
+      if (error instanceof GoogleDriveError && error.code === 'reconnect') {
+        const [metadata] = await localEntryCache.listMetadata(userId, { from: date, to: date })
+        if (metadata) {
+          await localEntryCache.updateMetadata(userId, date, {
+            provider: GOOGLE_DRIVE_PROVIDER,
+            syncStatus: 'reconnect',
+            syncError: error.message,
+          })
+        }
+      }
+      return null
+    }
   },
 
   async saveEntry(userId: string, date: string, draft: EntryDraft) {
     const existing = await localEntryCache.getEntry(userId, date)
     const entry = createEntryFile(date, draft, existing ?? undefined)
-    const metadata = await localEntryCache.saveEntry(userId, entry, 'saved-local')
+    const shouldSync = syncCoordinator.isConnectedOnDevice(userId)
+    const metadata = await localEntryCache.saveEntry(
+      userId,
+      entry,
+      shouldSync ? 'sync-pending' : 'saved-local',
+    )
 
     await setDoc(
       doc(db, 'users', userId),
@@ -57,6 +92,7 @@ export const EntryRepository = {
     )
 
     emit(userId)
+    if (shouldSync) void syncCoordinator.enqueue(userId, date)
     return { entry: toEntry(entry), metadata }
   },
 
@@ -98,6 +134,8 @@ export const EntryRepository = {
       .sort((a, b) => b.date.localeCompare(a.date))
   },
 }
+
+syncCoordinator.subscribe(emit)
 
 if (import.meta.env.VITE_USE_EMULATOR === 'true' && typeof window !== 'undefined') {
   ;(

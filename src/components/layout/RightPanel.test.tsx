@@ -48,6 +48,15 @@ vi.mock('@/context/UserPreferencesContext', async (importOriginal) => {
   }
 })
 
+vi.mock('@/context/SaveStatusContext', () => ({
+  useSaveStatus: () => ({
+    syncStatus: 'synced',
+    storageProvider: 'googleDrive',
+    storageAccountEmail: 'test@example.com',
+    appAccountEmail: 'test@example.com',
+  }),
+}))
+
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
     <EditorControlsProvider>

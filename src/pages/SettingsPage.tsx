@@ -9,6 +9,12 @@ import { useUserPreferences } from '@/context/UserPreferencesContext'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { isMobileDevice } from '@/lib/device'
+import {
+  connectGoogleDriveProvider,
+  disconnectGoogleDriveProvider,
+  getDeviceProviderState,
+  type ProviderConnectionState,
+} from '@/lib/storage/providerConnection'
 
 type Translation = 'NLT' | 'MSG' | 'ESV'
 
@@ -67,6 +73,33 @@ function SettingsRow({
   )
 }
 
+function StorageStatusText({
+  state,
+  appEmail,
+}: {
+  state: ProviderConnectionState
+  appEmail?: string | null
+}) {
+  if (state.status === 'disconnected') {
+    return <span className="text-on-surface-variant/60 text-xs">Not connected</span>
+  }
+
+  if (state.status === 'reconnect') {
+    return <span className="text-error text-xs font-medium">Google Drive · reconnect needed</span>
+  }
+
+  const differs = state.storageAccountEmail && state.storageAccountEmail !== appEmail
+
+  return (
+    <span className="text-on-surface-variant/70 text-xs">
+      Google Drive · {state.storageAccountEmail ?? 'connected'} · connected
+      {differs ? (
+        <span className="text-primary block pt-1">Drive account differs from app account.</span>
+      ) : null}
+    </span>
+  )
+}
+
 export default function SettingsPage() {
   usePageTitle('Settings')
   const [user, setUser] = useState<User | null>(null)
@@ -85,12 +118,21 @@ export default function SettingsPage() {
   const [fcmTokens, setFcmTokens] = useState<string[]>([])
   const [currentDeviceToken, setCurrentDeviceToken] = useState<string | null>(null)
   const [notifError, setNotifError] = useState<string | null>(null)
+  const [storageState, setStorageState] = useState<ProviderConnectionState>({
+    status: 'disconnected',
+    deviceConnected: false,
+  })
+  const [storageError, setStorageError] = useState<string | null>(null)
+  const [storageAction, setStorageAction] = useState<'connect' | 'disconnect' | null>(null)
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u)
-      if (!u) return
+      if (!u) {
+        setStorageState({ status: 'disconnected', deviceConnected: false })
+        return
+      }
       unsubscribe = onSnapshot(
         doc(db, 'users', u.uid),
         (snap) => {
@@ -99,11 +141,20 @@ export default function SettingsPage() {
           setReminderEnabled(data.reminderEnabled ?? false)
           setReminderTime(data.reminderTime ?? '20:00')
           setFcmTokens(data.fcmTokens ?? [])
+          setStorageState(
+            getDeviceProviderState(u.uid, {
+              activeStorageProvider: data.activeStorageProvider,
+              storageAccountEmail: data.storageAccountEmail,
+              storageRootFolderId: data.storageRootFolderId,
+              storageConnectedAt: data.storageConnectedAt,
+            }),
+          )
         },
         () => {
           setReminderEnabled(false)
           setReminderTime('20:00')
           setFcmTokens([])
+          setStorageState({ status: 'disconnected', deviceConnected: false })
         },
       )
 
@@ -215,6 +266,38 @@ export default function SettingsPage() {
     })
   }
 
+  async function handleConnectDrive() {
+    if (!user) return
+    setStorageError(null)
+    setStorageAction('connect')
+    try {
+      await connectGoogleDriveProvider(user.uid, user.email)
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Google Drive connection failed.')
+    } finally {
+      setStorageAction(null)
+    }
+  }
+
+  async function handleDisconnectDrive() {
+    if (!user) return
+    const confirmed = window.confirm(
+      'Disconnect Google Drive on this device? Your journal entries will remain saved locally.',
+    )
+    if (!confirmed) return
+
+    setStorageError(null)
+    setStorageAction('disconnect')
+    try {
+      await disconnectGoogleDriveProvider(user.uid)
+      setStorageState({ status: 'disconnected', deviceConnected: false })
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Google Drive disconnect failed.')
+    } finally {
+      setStorageAction(null)
+    }
+  }
+
   async function handleSignOut() {
     await signOut(auth)
     navigate('/login')
@@ -242,6 +325,63 @@ export default function SettingsPage() {
           <p className="text-on-surface-variant/60 text-sm">{user?.email}</p>
         </div>
       </div>
+
+      {/* Storage */}
+      <SettingsSection>
+        <div className="mb-4 flex items-start gap-3">
+          <span className="material-symbols-outlined text-primary text-[20px]">cloud</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-on-surface text-sm font-medium">Storage</p>
+            <p className="text-on-surface-variant/60 mt-1 text-xs leading-relaxed">
+              Drive connection is per device. Entries keep saving locally even without Drive access.
+            </p>
+          </div>
+        </div>
+
+        <div className="border-outline-variant/20 space-y-3 border-t pt-4">
+          <div className="flex items-start justify-between gap-4">
+            <span className="text-on-surface-variant/50 text-xs font-medium">App account</span>
+            <span className="text-on-surface-variant/70 text-right text-xs">
+              {user?.email ?? user?.providerId ?? 'Signed in'} · signed in
+            </span>
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <span className="text-on-surface-variant/50 text-xs font-medium">Storage account</span>
+            <span className="text-right">
+              <StorageStatusText state={storageState} appEmail={user?.email} />
+            </span>
+          </div>
+        </div>
+
+        {storageError && <p className="text-error mt-3 text-xs">{storageError}</p>}
+
+        <div className="mt-5 flex justify-end gap-2">
+          {storageState.status === 'connected' && (
+            <button
+              type="button"
+              onClick={handleDisconnectDrive}
+              disabled={storageAction !== null}
+              className="text-on-surface-variant/60 hover:text-error rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              Disconnect Google Drive
+            </button>
+          )}
+          {storageState.status !== 'connected' && (
+            <button
+              type="button"
+              onClick={handleConnectDrive}
+              disabled={storageAction !== null}
+              className="bg-primary text-on-primary rounded-full px-4 py-2 text-xs font-semibold transition-opacity disabled:opacity-50"
+            >
+              {storageAction === 'connect'
+                ? 'Connecting...'
+                : storageState.status === 'reconnect'
+                  ? 'Reconnect Google Drive'
+                  : 'Connect Google Drive'}
+            </button>
+          )}
+        </div>
+      </SettingsSection>
 
       {/* Notifications */}
       <SettingsSection>

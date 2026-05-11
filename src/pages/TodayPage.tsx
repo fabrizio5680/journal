@@ -16,9 +16,9 @@ import MetadataBar from '@/components/editor/MetadataBar'
 export default function TodayPage() {
   usePageTitle("Today's Entry")
   const today = useToday()
-  const { entry, isLoading, markDirty, save } = useEntry(today)
+  const { entry, isLoading, markDirty, save, metadata: entryMetadata } = useEntry(today)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
-  const { setDirty, setLastSaved } = useSaveStatus()
+  const { setDirty, setLastSaved, setEntrySyncStatus } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
   const { register, unregister } = useEditorControls()
   const { verse } = useDailyVerse(scriptureTranslation)
@@ -146,6 +146,10 @@ export default function TodayPage() {
   ])
 
   useEffect(() => () => unregister(), [unregister])
+
+  useEffect(() => {
+    setEntrySyncStatus(entryMetadata?.syncStatus ?? 'saved-local')
+  }, [entryMetadata?.syncStatus, setEntrySyncStatus])
 
   useEffect(() => {
     return () => {
