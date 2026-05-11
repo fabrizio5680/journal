@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns'
 
 import Chip from '@/components/ui/Chip'
 import { MOODS } from '@/lib/moods'
+import { bodyTextFromSearchText } from '@/lib/storage/entryFormat'
 import type { Entry } from '@/types'
 
 interface EntryListCardProps {
@@ -24,7 +25,8 @@ function extractTitle(entry: Entry): string {
   } catch {
     // fall through
   }
-  return entry.contentText?.slice(0, 60) || 'Untitled'
+  const text = entry.searchText ? bodyTextFromSearchText(entry.searchText) : entry.contentText
+  return text?.slice(0, 60) || 'Untitled'
 }
 
 export function EntryListCardSkeleton() {
@@ -42,7 +44,9 @@ export default function EntryListCard({ entry }: EntryListCardProps) {
   const navigate = useNavigate()
   const mood = entry.mood !== null ? MOODS.find((m) => m.value === entry.mood) : null
   const title = extractTitle(entry)
-  const excerpt = entry.contentText?.slice(0, 130) ?? ''
+  const excerpt = entry.searchText
+    ? bodyTextFromSearchText(entry.searchText).slice(0, 130)
+    : (entry.contentText?.slice(0, 130) ?? '')
 
   const handleClick = () => {
     navigate(`/entry/${entry.date}`)

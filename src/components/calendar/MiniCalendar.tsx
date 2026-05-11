@@ -17,6 +17,8 @@ import MoodSummaryBar from '@/components/history/MoodSummaryBar'
 import type { Entry } from '@/types'
 
 interface MiniCalendarProps {
+  currentYear?: number
+  currentMonth?: number
   selectedDate?: string
   onDateSelect: (date: string) => void
   onMonthChange?: (year: number, month: number) => void
@@ -49,13 +51,17 @@ export function MiniCalendarSkeleton() {
 }
 
 export default function MiniCalendar({
+  currentYear,
+  currentMonth,
   selectedDate,
   onDateSelect,
   onMonthChange,
   entryDates = new Set(),
   entries = [],
 }: MiniCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(() => new Date())
+  const [uncontrolledDate, setUncontrolledDate] = useState(() => new Date())
+  const isControlled = currentYear !== undefined && currentMonth !== undefined
+  const currentDate = isControlled ? new Date(currentYear, currentMonth - 1) : uncontrolledDate
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
@@ -65,13 +71,13 @@ export default function MiniCalendar({
 
   const navigatePrev = () => {
     const prev = subMonths(currentDate, 1)
-    setCurrentDate(prev)
+    if (!isControlled) setUncontrolledDate(prev)
     onMonthChange?.(prev.getFullYear(), prev.getMonth() + 1)
   }
 
   const navigateNext = () => {
     const next = addMonths(currentDate, 1)
-    setCurrentDate(next)
+    if (!isControlled) setUncontrolledDate(next)
     onMonthChange?.(next.getFullYear(), next.getMonth() + 1)
   }
 

@@ -9,6 +9,7 @@ export interface Entry {
   dateTimestamp?: number
   content: object // Tiptap JSON
   contentText: string
+  searchText?: string
   mood: 1 | 2 | 3 | 4 | 5 | null
   moodLabel: string | null
   tags: string[]
@@ -16,8 +17,8 @@ export interface Entry {
   wordCount: number
   deleted: boolean
   deletedAt: import('firebase/firestore').Timestamp | null
-  createdAt: import('firebase/firestore').Timestamp
-  updatedAt: import('firebase/firestore').Timestamp
+  createdAt: import('firebase/firestore').Timestamp | string
+  updatedAt: import('firebase/firestore').Timestamp | string
 }
 
 export interface User {

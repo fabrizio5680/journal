@@ -1,13 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 
-import { auth, db } from '@/lib/firebase'
+import { auth } from '@/lib/firebase'
+import { EntryRepository } from '@/lib/storage/entryRepository'
 import type { Entry } from '@/types'
-
-function toDateTimestamp(date: string): number {
-  return Math.floor(new Date(`${date}T00:00:00Z`).getTime() / 1000)
-}
 
 export interface UseEntryReturn {
   entry: Entry | null
@@ -19,21 +15,12 @@ export interface UseEntryReturn {
 }
 
 export function useEntry(date: string): UseEntryReturn {
-  // undefined = auth not yet resolved; null = not signed in; string = signed in
   const [uid, setUid] = useState<string | null | undefined>(undefined)
   const [entry, setEntry] = useState<Entry | null>(null)
   const [isDirty, setIsDirty] = useState(false)
-  // Track which "uid/date" key has been loaded so we can derive isLoading without
-  // calling setState synchronously inside an effect body.
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
 
-  // Use a ref so the snapshot callback always reads the latest isDirty value
-  // without causing the effect to re-subscribe.
   const isDirtyRef = useRef(false)
-  // Counts how many save echoes to suppress. Each save increments this before
-  // clearing isDirty; the snapshot listener decrements and skips setEntry once
-  // per echo so our own writes never cause a setContent / cursor reset.
-  const expectingEchoRef = useRef(0)
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -44,44 +31,30 @@ export function useEntry(date: string): UseEntryReturn {
   useEffect(() => {
     if (!uid) return
 
-    const entryRef = doc(db, 'users', uid, 'entries', date)
+    const activeUid = uid
     const currentKey = `${uid}/${date}`
+    let cancelled = false
 
-    const unsub = onSnapshot(
-      entryRef,
-      (snap) => {
-        // Mark this key as loaded (in callback — not synchronous in effect body)
+    async function loadEntry() {
+      try {
+        const nextEntry = await EntryRepository.getEntry(activeUid, date)
+        if (cancelled) return
         setLoadedKey(currentKey)
-        if (snap.exists()) {
-          const data = snap.data() as Entry
-
-          // Guard invariant: entry payload date must match the document day key.
-          if (data.date !== date) {
-            if (!isDirtyRef.current) setEntry(null)
-            return
-          }
-
-          // Ignore remote updates while the user is typing.
-          // Also treat soft-deleted entries as non-existent so the editor stays empty.
-          if (!isDirtyRef.current) {
-            if (expectingEchoRef.current > 0) {
-              expectingEchoRef.current -= 1
-              return
-            }
-            setEntry(data.deleted ? null : data)
-          }
-        } else {
-          if (!isDirtyRef.current) setEntry(null)
-        }
-      },
-      () => {
-        // Avoid uncaught listener errors from bubbling to the console.
+        if (!isDirtyRef.current) setEntry(nextEntry)
+      } catch {
+        if (cancelled) return
         setLoadedKey(currentKey)
         if (!isDirtyRef.current) setEntry(null)
-      },
-    )
+      }
+    }
 
-    return unsub
+    void loadEntry()
+    const unsubscribe = EntryRepository.subscribe(activeUid, () => void loadEntry())
+
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [uid, date])
 
   const queryKey = uid != null ? `${uid}/${date}` : null
@@ -96,37 +69,15 @@ export function useEntry(date: string): UseEntryReturn {
     async (data: Partial<Entry>) => {
       if (!uid) return
 
-      // Explicitly ignore caller-provided date to keep doc id/date 1:1.
       const entryPatch: Partial<Entry> = { ...data }
       delete entryPatch.date
 
-      const entryRef = doc(db, 'users', uid, 'entries', date)
-      const isNew = entry === null
-
-      await setDoc(
-        entryRef,
-        {
-          ...entryPatch,
-          userId: uid,
-          date,
-          dateTimestamp: toDateTimestamp(date),
-          updatedAt: serverTimestamp(),
-          ...(isNew
-            ? {
-                createdAt: serverTimestamp(),
-                deleted: false,
-                deletedAt: null,
-              }
-            : {}),
-        },
-        { merge: true },
-      )
-
-      expectingEchoRef.current += 1
+      const result = await EntryRepository.saveEntry(uid, date, entryPatch)
+      setEntry(result.entry)
       setIsDirty(false)
       isDirtyRef.current = false
     },
-    [uid, date, entry],
+    [uid, date],
   )
 
   return {

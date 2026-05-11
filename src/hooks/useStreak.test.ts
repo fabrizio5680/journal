@@ -2,26 +2,16 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { format, subDays } from 'date-fns'
 
-// --- Firebase mocks ---
-let snapshotCallback: ((snap: unknown) => void) | null = null
-const mockUnsub = vi.fn()
-const mockCollection = vi.fn().mockReturnValue({ id: 'mock-collection' })
-const mockQuery = vi.fn().mockReturnValue({ id: 'mock-query' })
-const mockWhere = vi.fn().mockReturnValue({ id: 'mock-where' })
-const mockOrderBy = vi.fn().mockReturnValue({ id: 'mock-order' })
-const mockLimit = vi.fn().mockReturnValue({ id: 'mock-limit' })
-const mockOnSnapshot = vi.fn((_, cb: (snap: unknown) => void) => {
-  snapshotCallback = cb
-  return mockUnsub
-})
+const { mockListMetadata, mockSubscribe } = vi.hoisted(() => ({
+  mockListMetadata: vi.fn(),
+  mockSubscribe: vi.fn(() => vi.fn()),
+}))
 
-vi.mock('firebase/firestore', () => ({
-  collection: (...args: unknown[]) => mockCollection(...(args as [unknown, ...unknown[]])),
-  query: (...args: unknown[]) => mockQuery(...(args as [unknown, ...unknown[]])),
-  where: (...args: unknown[]) => mockWhere(...(args as [unknown, ...unknown[]])),
-  orderBy: (...args: unknown[]) => mockOrderBy(...(args as [unknown, ...unknown[]])),
-  limit: (...args: unknown[]) => mockLimit(...(args as [unknown, ...unknown[]])),
-  onSnapshot: (ref: unknown, cb: (snap: unknown) => void) => mockOnSnapshot(ref, cb),
+vi.mock('@/lib/storage/entryRepository', () => ({
+  EntryRepository: {
+    listMetadata: mockListMetadata,
+    subscribe: mockSubscribe,
+  },
 }))
 
 let authCallback: ((user: { uid: string } | null) => void) | null = null
@@ -37,17 +27,24 @@ import { useStreak } from './useStreak'
 const FAKE_NOW = new Date('2026-04-15T12:00:00Z')
 const TODAY = '2026-04-15'
 
+function metadata(date: string) {
+  return {
+    date,
+    mood: null,
+    moodLabel: null,
+    tags: [],
+    wordCount: 0,
+    hasContent: true,
+    updatedAt: '2026-04-01T00:00:00.000Z',
+    lastSeenRevisionId: null,
+    syncStatus: 'saved-local',
+    deletedAt: null,
+  }
+}
+
 function fireAuth(uid: string | null = 'test-uid') {
   act(() => {
     authCallback?.(uid ? { uid } : null)
-  })
-}
-
-function fireSnapshot(dates: string[]) {
-  act(() => {
-    snapshotCallback?.({
-      docs: dates.map((id) => ({ id })),
-    })
   })
 }
 
@@ -56,12 +53,8 @@ describe('useStreak', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(FAKE_NOW)
     vi.clearAllMocks()
-    snapshotCallback = null
     authCallback = null
-    mockOnSnapshot.mockImplementation((_, cb: (snap: unknown) => void) => {
-      snapshotCallback = cb
-      return mockUnsub
-    })
+    mockListMetadata.mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -71,7 +64,6 @@ describe('useStreak', () => {
   it('returns { current: 0, longest: 0 } when no entries', async () => {
     const { result } = renderHook(() => useStreak())
     fireAuth()
-    fireSnapshot([])
 
     await waitFor(() => {
       expect(result.current).toEqual({ current: 0, longest: 0 })
@@ -79,15 +71,14 @@ describe('useStreak', () => {
   })
 
   it('consecutive dates from today return correct current streak', async () => {
+    mockListMetadata.mockResolvedValue([
+      metadata(TODAY),
+      metadata(format(subDays(FAKE_NOW, 1), 'yyyy-MM-dd')),
+      metadata(format(subDays(FAKE_NOW, 2), 'yyyy-MM-dd')),
+    ])
+
     const { result } = renderHook(() => useStreak())
     fireAuth()
-
-    const dates = [
-      TODAY,
-      format(subDays(FAKE_NOW, 1), 'yyyy-MM-dd'),
-      format(subDays(FAKE_NOW, 2), 'yyyy-MM-dd'),
-    ]
-    fireSnapshot(dates)
 
     await waitFor(() => {
       expect(result.current.current).toBe(3)
@@ -95,34 +86,29 @@ describe('useStreak', () => {
   })
 
   it('streak broken by a missing day resets current to days since last gap', async () => {
+    mockListMetadata.mockResolvedValue([
+      metadata(TODAY),
+      metadata(format(subDays(FAKE_NOW, 2), 'yyyy-MM-dd')),
+      metadata(format(subDays(FAKE_NOW, 3), 'yyyy-MM-dd')),
+    ])
+
     const { result } = renderHook(() => useStreak())
     fireAuth()
 
-    // Today is present, yesterday is missing, two days ago is present
-    const dates = [
-      TODAY,
-      format(subDays(FAKE_NOW, 2), 'yyyy-MM-dd'),
-      format(subDays(FAKE_NOW, 3), 'yyyy-MM-dd'),
-    ]
-    fireSnapshot(dates)
-
     await waitFor(() => {
-      expect(result.current.current).toBe(1) // only today
+      expect(result.current.current).toBe(1)
     })
   })
 
   it('longest streak tracks the maximum consecutive run across all entries', async () => {
+    const longRun = Array.from({ length: 5 }, (_, i) =>
+      metadata(format(subDays(FAKE_NOW, 20 + i), 'yyyy-MM-dd')),
+    )
+    const recentRun = [metadata(TODAY), metadata(format(subDays(FAKE_NOW, 1), 'yyyy-MM-dd'))]
+    mockListMetadata.mockResolvedValue([...recentRun, ...longRun])
+
     const { result } = renderHook(() => useStreak())
     fireAuth()
-
-    // 5-day run starting 20 days ago
-    const longRun = Array.from({ length: 5 }, (_, i) =>
-      format(subDays(FAKE_NOW, 20 + i), 'yyyy-MM-dd'),
-    )
-    // 2-day run now (today + yesterday)
-    const recentRun = [TODAY, format(subDays(FAKE_NOW, 1), 'yyyy-MM-dd')]
-
-    fireSnapshot([...recentRun, ...longRun])
 
     await waitFor(() => {
       expect(result.current.longest).toBe(5)
@@ -131,15 +117,13 @@ describe('useStreak', () => {
   })
 
   it('entries from the future do not extend the current streak', async () => {
+    const tomorrow = format(subDays(FAKE_NOW, -1), 'yyyy-MM-dd')
+    mockListMetadata.mockResolvedValue([metadata(tomorrow), metadata(TODAY)])
+
     const { result } = renderHook(() => useStreak())
     fireAuth()
 
-    const tomorrow = format(subDays(FAKE_NOW, -1), 'yyyy-MM-dd')
-    // Future entry plus today — current streak should still anchor at today
-    fireSnapshot([tomorrow, TODAY])
-
     await waitFor(() => {
-      // current: starts at today (in set), yesterday not in set → current = 1
       expect(result.current.current).toBe(1)
     })
   })

@@ -10,41 +10,33 @@ function testEmailForProject(projectName: string) {
   return `${TEST_EMAIL_BASE}+${projectName}@example.com`
 }
 
-// Fake Algolia search client injected via window.__mockAlgoliaClient
-// Returns a fixed list of hits that mirror the seeded entries.
-const MOCK_HITS = [
+const MOCK_ENTRIES = [
   {
-    objectID: 'mock-uid_2026-04-10',
     date: '2026-04-10',
-    excerpt: 'Grace abounds in every season',
+    content: { type: 'doc', content: [] },
+    contentText: 'Grace abounds in every season',
     mood: 5,
     moodLabel: 'Radiant',
     tags: ['faith', 'gratitude'],
     wordCount: 5,
-    userId: 'mock-uid',
-    deleted: false,
   },
   {
-    objectID: 'mock-uid_2026-04-05',
     date: '2026-04-05',
-    excerpt: 'Quiet morning reflections on peace',
+    content: { type: 'doc', content: [] },
+    contentText: 'Quiet morning reflections on peace',
     mood: 3,
     moodLabel: 'Calm',
     tags: ['peace', 'morning'],
     wordCount: 5,
-    userId: 'mock-uid',
-    deleted: false,
   },
   {
-    objectID: 'mock-uid_2026-04-01',
     date: '2026-04-01',
-    excerpt: 'Grateful for a new month ahead',
+    content: { type: 'doc', content: [] },
+    contentText: 'Grateful for a new month ahead',
     mood: 4,
     moodLabel: 'Peaceful',
     tags: ['gratitude'],
     wordCount: 6,
-    userId: 'mock-uid',
-    deleted: false,
   },
 ]
 
@@ -113,37 +105,19 @@ async function signInAsTestUser(page: import('@playwright/test').Page, email: st
   }
 }
 
-/** Inject a mock Algolia client that returns fixed hits regardless of the query */
-async function injectMockAlgoliaClient(
-  page: import('@playwright/test').Page,
-  hits: typeof MOCK_HITS = MOCK_HITS,
-) {
-  await page.evaluate((mockHits) => {
-    const mockClient = {
-      search: async () => ({
-        results: [
-          {
-            hits: mockHits,
-            nbHits: mockHits.length,
-            page: 0,
-            nbPages: 1,
-            hitsPerPage: 20,
-            exhaustiveNbHits: true,
-            processingTimeMS: 1,
-            query: '',
-            params: '',
-            index: 'journal_entries',
-          },
-        ],
-      }),
-      searchForFacetValues: async () => ({ facetHits: [], exhaustiveFacetsCount: true }),
-    }
-    ;(
-      window as typeof window & {
-        __mockAlgoliaClient?: typeof mockClient
-      }
-    ).__mockAlgoliaClient = mockClient
-  }, hits)
+async function seedLocalEntries(page: import('@playwright/test').Page, uid: string) {
+  await page.evaluate(
+    async ({ uid, entries }: { uid: string; entries: typeof MOCK_ENTRIES }) => {
+      const seed = (
+        window as typeof window & {
+          __seedEntriesForTest?: (uid: string, entries: typeof MOCK_ENTRIES) => Promise<void>
+        }
+      ).__seedEntriesForTest
+      if (!seed) throw new Error('__seedEntriesForTest not available')
+      await seed(uid, entries)
+    },
+    { uid, entries: MOCK_ENTRIES },
+  )
 }
 
 async function openSearchModal(page: import('@playwright/test').Page) {
@@ -159,14 +133,12 @@ test.describe('Search', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     const testEmail = testEmailForProject(testInfo.project.name)
     await clearTestUser(testEmail)
-    await createEmulatorUser(testEmail, TEST_PASSWORD)
+    const uid = await createEmulatorUser(testEmail, TEST_PASSWORD)
 
     await page.goto('/login')
     await signInAsTestUser(page, testEmail)
     await expect(page).toHaveURL('/', { timeout: 5000 })
-
-    // Inject mock client before any search interaction
-    await injectMockAlgoliaClient(page)
+    await seedLocalEntries(page, uid)
   })
 
   test('Scenario 1: Cmd+K opens search modal with focused input', async ({ page }) => {
@@ -185,22 +157,18 @@ test.describe('Search', () => {
 
     await input.fill('grace')
 
-    // All mock hits should appear (mock returns fixed hits regardless of query)
     await expect(page.getByRole('heading', { name: 'Grace abounds in every season' })).toBeVisible({
       timeout: 3000,
     })
     await expect(
       page.getByRole('heading', { name: 'Quiet morning reflections on peace' }),
-    ).toBeVisible()
+    ).not.toBeVisible()
     await expect(
       page.getByRole('heading', { name: 'Grateful for a new month ahead' }),
-    ).toBeVisible()
+    ).not.toBeVisible()
   })
 
   test('Scenario 3: empty state shown when no results', async ({ page }) => {
-    // Inject client that returns no hits
-    await injectMockAlgoliaClient(page, [])
-
     await openSearchModal(page)
 
     const input = page.getByRole('textbox', { name: 'Search entries' })
@@ -254,7 +222,7 @@ test.describe('Search', () => {
     // Scope mood buttons within it to avoid collisions with result cards or nav.
     const filterBar = page.locator('.border-outline-variant\\/10.flex.flex-wrap')
 
-    // Wait for the filter bar to appear (renders once InstantSearch client is ready)
+    // Wait for the filter bar to appear.
     await expect(filterBar).toBeVisible({ timeout: 5000 })
 
     // Use aria-label scoped to the filter bar to target the exact mood filter buttons

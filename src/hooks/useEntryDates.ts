@@ -1,44 +1,41 @@
-import { useState, useEffect } from 'react'
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
+import { useEffect, useState } from 'react'
 import { endOfMonth, format } from 'date-fns'
 
-import { db } from '@/lib/firebase'
+import { EntryRepository } from '@/lib/storage/entryRepository'
 
 export function useEntryDates(userId: string, year: number, month: number): Set<string> {
   const [dates, setDates] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId) {
+      const t = setTimeout(() => setDates(new Set()), 0)
+      return () => clearTimeout(t)
+    }
 
+    let cancelled = false
     const monthStr = String(month).padStart(2, '0')
     const startDate = `${year}-${monthStr}-01`
     const endDate = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd')
 
-    const entriesRef = collection(db, 'users', userId, 'entries')
-    const q = query(
-      entriesRef,
-      where('date', '>=', startDate),
-      where('date', '<=', endDate),
-      orderBy('date', 'desc'),
-    )
-
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        const dateSet = new Set<string>()
-        snapshot.forEach((doc) => {
-          // treat missing `deleted` field as false — matches useEntry behaviour
-          if (doc.data().deleted !== true) dateSet.add(doc.id)
+    async function loadDates() {
+      try {
+        const metadata = await EntryRepository.listMetadata(userId, {
+          from: startDate,
+          to: endDate,
         })
-        setDates(dateSet)
-      },
-      (err) => {
-        console.error('[useEntryDates] onSnapshot error:', err)
-        setDates(new Set())
-      },
-    )
+        if (!cancelled) setDates(new Set(metadata.map((entry) => entry.date)))
+      } catch {
+        if (!cancelled) setDates(new Set())
+      }
+    }
 
-    return unsub
+    void loadDates()
+    const unsubscribe = EntryRepository.subscribe(userId, () => void loadDates())
+
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [userId, year, month])
 
   return dates

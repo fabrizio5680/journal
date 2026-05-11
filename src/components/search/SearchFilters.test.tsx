@@ -6,13 +6,6 @@ import SearchFilters from './SearchFilters'
 
 import { MOODS } from '@/lib/moods'
 
-// TagFilter inside SearchFilters uses useRefinementList which requires Algolia context.
-// We mock react-instantsearch at the module level so the hook returns an empty list,
-// letting us render SearchFilters without a real Algolia provider.
-vi.mock('react-instantsearch', () => ({
-  useRefinementList: () => ({ items: [], refine: vi.fn() }),
-}))
-
 const defaultProps = {
   dateFrom: '',
   dateTo: '',

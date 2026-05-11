@@ -24,7 +24,7 @@ export default function TopBar() {
   const saveLabel = isDirty
     ? 'Saving…'
     : lastSaved
-      ? `Saved ${formatDistanceToNow(lastSaved, { addSuffix: true })}`
+      ? `Saved locally ${formatDistanceToNow(lastSaved, { addSuffix: true })}`
       : null
 
   return (

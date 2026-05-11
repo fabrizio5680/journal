@@ -1,22 +1,9 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// --- Firebase mocks ---
-let snapshotCallback: ((snap: unknown) => void) | null = null
-const mockUnsub = vi.fn()
-const mockSetDoc = vi.fn().mockResolvedValue(undefined)
-const mockDoc = vi.fn().mockReturnValue({ id: 'mock-ref' })
-const mockOnSnapshot = vi.fn((_, cb: (snap: unknown) => void) => {
-  snapshotCallback = cb
-  return mockUnsub
-})
+import { useEntry } from './useEntry'
 
-vi.mock('firebase/firestore', () => ({
-  doc: (...args: unknown[]) => mockDoc(...(args as [unknown, ...unknown[]])),
-  onSnapshot: (ref: unknown, cb: (snap: unknown) => void) => mockOnSnapshot(ref, cb),
-  setDoc: (...args: unknown[]) => mockSetDoc(...(args as [unknown, ...unknown[]])),
-  serverTimestamp: vi.fn(() => 'SERVER_TIMESTAMP'),
-}))
+import type { Entry } from '@/types'
 
 let authCallback: ((user: { uid: string } | null) => void) | null = null
 vi.mock('firebase/auth', () => ({
@@ -26,9 +13,45 @@ vi.mock('firebase/auth', () => ({
   },
 }))
 
-// firebase.ts mock is already in setup.ts
+const { repositoryListeners, mockGetEntry, mockSaveEntry, mockSubscribe } = vi.hoisted(() => {
+  const listeners = new Map<string, () => void>()
+  return {
+    repositoryListeners: listeners,
+    mockGetEntry: vi.fn(),
+    mockSaveEntry: vi.fn(),
+    mockSubscribe: vi.fn((uid: string, listener: () => void) => {
+      listeners.set(uid, listener)
+      return vi.fn()
+    }),
+  }
+})
 
-import { useEntry } from './useEntry'
+vi.mock('@/lib/storage/entryRepository', () => ({
+  EntryRepository: {
+    getEntry: mockGetEntry,
+    saveEntry: mockSaveEntry,
+    subscribe: mockSubscribe,
+  },
+}))
+
+function makeEntry(overrides: Partial<Entry> = {}): Entry {
+  return {
+    date: '2026-04-13',
+    content: { type: 'doc', content: [] },
+    contentText: 'Hello',
+    searchText: 'Hello',
+    mood: null,
+    moodLabel: null,
+    tags: [],
+    scriptureRefs: [],
+    wordCount: 1,
+    deleted: false,
+    deletedAt: null,
+    createdAt: '2026-04-13T00:00:00.000Z',
+    updatedAt: '2026-04-13T00:00:00.000Z',
+    ...overrides,
+  }
+}
 
 function fireAuth(uid: string | null = 'test-uid') {
   act(() => {
@@ -36,53 +59,38 @@ function fireAuth(uid: string | null = 'test-uid') {
   })
 }
 
-function fireSnapshot(data: Record<string, unknown> | null) {
-  act(() => {
-    snapshotCallback?.({
-      exists: () => data !== null,
-      data: () => data,
-    })
-  })
-}
-
 describe('useEntry', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    snapshotCallback = null
     authCallback = null
-    mockSetDoc.mockResolvedValue(undefined)
+    repositoryListeners.clear()
+    mockGetEntry.mockResolvedValue(null)
+    mockSaveEntry.mockResolvedValue({ entry: makeEntry({ contentText: 'saved' }), metadata: {} })
   })
 
-  it('returns isLoading: true and entry: null before snapshot fires', () => {
+  it('returns isLoading: true and entry: null before repository load finishes', () => {
     const { result } = renderHook(() => useEntry('2026-04-13'))
     fireAuth()
     expect(result.current.isLoading).toBe(true)
     expect(result.current.entry).toBe(null)
   })
 
-  it('returns entry data after snapshot fires', async () => {
+  it('loads entry data from the repository', async () => {
+    const entry = makeEntry({ contentText: 'Loaded locally' })
+    mockGetEntry.mockResolvedValue(entry)
+
     const { result } = renderHook(() => useEntry('2026-04-13'))
     fireAuth()
-
-    const entryData = {
-      date: '2026-04-13',
-      contentText: 'Hello',
-      wordCount: 1,
-      mood: null,
-      tags: [],
-    }
-    fireSnapshot(entryData)
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false)
-      expect(result.current.entry).toMatchObject(entryData)
+      expect(result.current.entry).toMatchObject(entry)
     })
   })
 
-  it('returns entry: null when snapshot doc does not exist', async () => {
+  it('returns entry: null when the repository has no entry', async () => {
     const { result } = renderHook(() => useEntry('2026-04-13'))
     fireAuth()
-    fireSnapshot(null)
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false)
@@ -93,11 +101,7 @@ describe('useEntry', () => {
   it('isDirty becomes true after markDirty(), false after save()', async () => {
     const { result } = renderHook(() => useEntry('2026-04-13'))
     fireAuth()
-    fireSnapshot(null)
-
     await waitFor(() => expect(result.current.isLoading).toBe(false))
-
-    expect(result.current.isDirty).toBe(false)
 
     act(() => result.current.markDirty())
     expect(result.current.isDirty).toBe(true)
@@ -105,139 +109,13 @@ describe('useEntry', () => {
     await act(async () => {
       await result.current.save({ contentText: 'hi', wordCount: 1 })
     })
+
     expect(result.current.isDirty).toBe(false)
   })
 
-  it('save() calls setDoc with correct fields', async () => {
+  it('save() writes through the repository using requested date', async () => {
     const { result } = renderHook(() => useEntry('2026-04-13'))
     fireAuth()
-    fireSnapshot(null)
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-
-    await act(async () => {
-      await result.current.save({
-        contentText: 'Hello world',
-        wordCount: 2,
-        content: { type: 'doc' },
-      })
-    })
-
-    expect(mockSetDoc).toHaveBeenCalledOnce()
-    const [, payload, options] = mockSetDoc.mock.calls[0]
-    expect(payload).toMatchObject({
-      date: '2026-04-13',
-      contentText: 'Hello world',
-      wordCount: 2,
-      updatedAt: 'SERVER_TIMESTAMP',
-      createdAt: 'SERVER_TIMESTAMP', // new doc
-    })
-    expect(options).toEqual({ merge: true })
-  })
-
-  it('remote snapshot is ignored when isDirty is true', async () => {
-    const { result } = renderHook(() => useEntry('2026-04-13'))
-    fireAuth()
-
-    // Load initial entry
-    fireSnapshot({ date: '2026-04-13', contentText: 'original', wordCount: 5 })
-    await waitFor(() => expect(result.current.entry?.contentText).toBe('original'))
-
-    // Mark dirty (user is typing)
-    act(() => result.current.markDirty())
-
-    // Remote snapshot arrives with different data
-    fireSnapshot({ date: '2026-04-13', contentText: 'from server', wordCount: 10 })
-
-    // Entry should NOT be updated
-    expect(result.current.entry?.contentText).toBe('original')
-  })
-
-  it('save() uses merge: true so existing fields are preserved', async () => {
-    const { result } = renderHook(() => useEntry('2026-04-13'))
-    fireAuth()
-
-    // Simulate existing entry
-    fireSnapshot({ date: '2026-04-13', contentText: 'existing', wordCount: 1, mood: 3 })
-    await waitFor(() => expect(result.current.entry).not.toBeNull())
-
-    await act(async () => {
-      await result.current.save({ contentText: 'updated', wordCount: 1 })
-    })
-
-    const [, , options] = mockSetDoc.mock.calls[0]
-    expect(options).toEqual({ merge: true })
-    // createdAt should NOT be in payload (doc already exists)
-    const [, payload] = mockSetDoc.mock.calls[0]
-    expect(payload).not.toHaveProperty('createdAt')
-  })
-
-  it('entry is null when snapshot has deleted: true', async () => {
-    const { result } = renderHook(() => useEntry('2026-04-13'))
-    fireAuth()
-    fireSnapshot({ date: '2026-04-13', contentText: 'deleted entry', wordCount: 1, deleted: true })
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.entry).toBe(null)
-  })
-
-  it('entry is null when snapshot date does not match requested date', async () => {
-    const { result } = renderHook(() => useEntry('2026-04-13'))
-    fireAuth()
-    fireSnapshot({ date: '2026-04-12', contentText: 'wrong day', wordCount: 2, deleted: false })
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.entry).toBe(null)
-  })
-
-  it('snapshot arriving immediately after save is suppressed (echo skip)', async () => {
-    const { result } = renderHook(() => useEntry('2026-04-13'))
-    fireAuth()
-
-    const original = { date: '2026-04-13', contentText: 'original', wordCount: 1 }
-    fireSnapshot(original)
-    await waitFor(() => expect(result.current.entry?.contentText).toBe('original'))
-
-    // User types, then save fires
-    act(() => result.current.markDirty())
-    await act(async () => {
-      await result.current.save({ contentText: 'updated', wordCount: 1 })
-    })
-
-    // The Firestore echo arrives right after save clears isDirty
-    fireSnapshot({ date: '2026-04-13', contentText: 'updated', wordCount: 1 })
-
-    // Entry state must NOT change — the echo is suppressed
-    expect(result.current.entry?.contentText).toBe('original')
-  })
-
-  it('genuine remote snapshot after echo is applied', async () => {
-    const { result } = renderHook(() => useEntry('2026-04-13'))
-    fireAuth()
-
-    fireSnapshot({ date: '2026-04-13', contentText: 'original', wordCount: 1 })
-    await waitFor(() => expect(result.current.entry?.contentText).toBe('original'))
-
-    act(() => result.current.markDirty())
-    await act(async () => {
-      await result.current.save({ contentText: 'updated', wordCount: 1 })
-    })
-
-    // First snapshot = echo, suppressed
-    fireSnapshot({ date: '2026-04-13', contentText: 'updated', wordCount: 1 })
-    // Second snapshot = genuine remote update (e.g. another device)
-    fireSnapshot({ date: '2026-04-13', contentText: 'from another device', wordCount: 3 })
-
-    await waitFor(() => {
-      expect(result.current.entry?.contentText).toBe('from another device')
-    })
-  })
-
-  it('save() ignores caller-provided date and writes requested date', async () => {
-    const { result } = renderHook(() => useEntry('2026-04-13'))
-    fireAuth()
-    fireSnapshot(null)
-
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
     await act(async () => {
@@ -248,11 +126,28 @@ describe('useEntry', () => {
       })
     })
 
-    const [, payload] = mockSetDoc.mock.calls[0]
-    expect(payload).toMatchObject({
-      date: '2026-04-13',
-      contentText: 'today only',
-      wordCount: 2,
+    expect(mockSaveEntry).toHaveBeenCalledWith(
+      'test-uid',
+      '2026-04-13',
+      expect.objectContaining({ contentText: 'today only', wordCount: 2 }),
+    )
+    expect(mockSaveEntry.mock.calls[0][2]).not.toHaveProperty('date')
+  })
+
+  it('repository refresh is ignored while the user is typing', async () => {
+    mockGetEntry.mockResolvedValueOnce(makeEntry({ contentText: 'original' }))
+
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+    await waitFor(() => expect(result.current.entry?.contentText).toBe('original'))
+
+    act(() => result.current.markDirty())
+    mockGetEntry.mockResolvedValueOnce(makeEntry({ contentText: 'from repository' }))
+
+    await act(async () => {
+      await repositoryListeners.get('test-uid')?.()
     })
+
+    expect(result.current.entry?.contentText).toBe('original')
   })
 })

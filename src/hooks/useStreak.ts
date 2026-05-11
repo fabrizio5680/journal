@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 import { format, subDays, parseISO, differenceInDays } from 'date-fns'
 
-import { auth, db } from '@/lib/firebase'
+import { auth } from '@/lib/firebase'
+import { EntryRepository } from '@/lib/storage/entryRepository'
 
 interface StreakResult {
   current: number
@@ -13,10 +13,8 @@ interface StreakResult {
 function computeStreaks(dates: string[]): StreakResult {
   if (dates.length === 0) return { current: 0, longest: 0 }
 
-  // Sort ascending for longest streak calculation
   const ascending = [...dates].sort()
 
-  // Longest streak via sliding window
   let longest = 1
   let window = 1
   for (let i = 1; i < ascending.length; i++) {
@@ -29,7 +27,6 @@ function computeStreaks(dates: string[]): StreakResult {
     }
   }
 
-  // Current streak — count back from today (or yesterday if today has no entry)
   const dateSet = new Set(dates)
   const todayStr = format(new Date(), 'yyyy-MM-dd')
   const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd')
@@ -57,40 +54,35 @@ export function useStreak(): StreakResult {
   const [streak, setStreak] = useState<StreakResult>({ current: 0, longest: 0 })
 
   useEffect(() => {
-    let unsubscribeSnapshot: (() => void) | null = null
+    let unsubscribeRepository: (() => void) | null = null
+    let cancelled = false
+
+    async function refresh(userId: string) {
+      try {
+        const metadata = await EntryRepository.listMetadata(userId)
+        if (!cancelled) setStreak(computeStreaks(metadata.map((entry) => entry.date)))
+      } catch {
+        if (!cancelled) setStreak({ current: 0, longest: 0 })
+      }
+    }
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      unsubscribeSnapshot?.()
-      unsubscribeSnapshot = null
+      unsubscribeRepository?.()
+      unsubscribeRepository = null
 
       if (!user) {
         setStreak({ current: 0, longest: 0 })
         return
       }
 
-      const entriesRef = collection(db, 'users', user.uid, 'entries')
-      const q = query(
-        entriesRef,
-        where('deleted', '==', false),
-        orderBy('date', 'desc'),
-        limit(365),
-      )
-
-      unsubscribeSnapshot = onSnapshot(
-        q,
-        (snapshot) => {
-          const dates = snapshot.docs.map((doc) => doc.id)
-          setStreak(computeStreaks(dates))
-        },
-        () => {
-          setStreak({ current: 0, longest: 0 })
-        },
-      )
+      void refresh(user.uid)
+      unsubscribeRepository = EntryRepository.subscribe(user.uid, () => void refresh(user.uid))
     })
 
     return () => {
+      cancelled = true
       unsubscribeAuth()
-      unsubscribeSnapshot?.()
+      unsubscribeRepository?.()
     }
   }, [])
 

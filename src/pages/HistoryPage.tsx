@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 import { endOfMonth, format, parseISO } from 'date-fns'
 
-import { auth, db } from '@/lib/firebase'
+import { auth } from '@/lib/firebase'
+import { EntryRepository } from '@/lib/storage/entryRepository'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useEntryDates } from '@/hooks/useEntryDates'
 import { useToday } from '@/hooks/useToday'
@@ -38,6 +38,8 @@ export default function HistoryPage() {
   useEffect(() => {
     if (!uid) return
 
+    const activeUid = uid
+    let cancelled = false
     const monthStr = String(selectedMonth.month).padStart(2, '0')
     const startDate = `${selectedMonth.year}-${monthStr}-01`
     const endDate = format(
@@ -45,28 +47,26 @@ export default function HistoryPage() {
       'yyyy-MM-dd',
     )
 
-    const q = query(
-      collection(db, 'users', uid, 'entries'),
-      where('deleted', '==', false),
-      where('date', '>=', startDate),
-      where('date', '<=', endDate),
-      orderBy('date', 'desc'),
-    )
-
-    return onSnapshot(
-      q,
-      (snap) => {
-        const list: Entry[] = []
-        snap.forEach((doc) => list.push(doc.data() as Entry))
+    async function loadEntries() {
+      try {
+        const list = await EntryRepository.listEntries(activeUid, { from: startDate, to: endDate })
+        if (cancelled) return
         setEntries(list)
         setEntriesLoading(false)
-      },
-      (err) => {
-        console.error('[HistoryPage] onSnapshot error:', err)
+      } catch {
+        if (cancelled) return
         setEntries([])
         setEntriesLoading(false)
-      },
-    )
+      }
+    }
+
+    void loadEntries()
+    const unsubscribe = EntryRepository.subscribe(activeUid, () => void loadEntries())
+
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [uid, selectedMonth.year, selectedMonth.month])
 
   const handleDateSelect = (date: string) => {
@@ -109,6 +109,8 @@ export default function HistoryPage() {
             <MiniCalendarSkeleton />
           ) : (
             <MiniCalendar
+              currentYear={selectedMonth.year}
+              currentMonth={selectedMonth.month}
               selectedDate={selectedDate}
               onDateSelect={handleDateSelect}
               onMonthChange={handleMonthChange}

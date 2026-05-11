@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 
-import { auth, db } from '@/lib/firebase'
+import { auth } from '@/lib/firebase'
+import { EntryRepository } from '@/lib/storage/entryRepository'
 
 interface InsightsData {
   moodByDate: Array<{ date: string; mood: number; moodLabel: string | null }>
@@ -20,63 +20,72 @@ const EMPTY: InsightsData = {
   isLoading: true,
 }
 
+async function loadInsights(userId: string): Promise<InsightsData> {
+  const entries = await EntryRepository.listMetadata(userId)
+
+  const moodByDate = entries
+    .filter((entry) => entry.mood != null)
+    .map((entry) => ({
+      date: entry.date,
+      mood: entry.mood as number,
+      moodLabel: entry.moodLabel,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  const tagCounts = new Map<string, number>()
+  for (const entry of entries) {
+    for (const tag of entry.tags) {
+      tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
+    }
+  }
+
+  const topTags = Array.from(tagCounts.entries())
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+    .slice(0, 10)
+
+  return {
+    moodByDate,
+    topTags,
+    totalEntries: entries.length,
+    totalWords: entries.reduce((sum, entry) => sum + entry.wordCount, 0),
+    isLoading: false,
+  }
+}
+
 export function useInsights(): InsightsData {
   const [data, setData] = useState<InsightsData>(EMPTY)
 
   useEffect(() => {
     let cancelled = false
+    let unsubscribeRepository: (() => void) | null = null
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+    async function refresh(userId: string) {
+      try {
+        const nextData = await loadInsights(userId)
+        if (!cancelled) setData(nextData)
+      } catch {
+        if (!cancelled) setData({ ...EMPTY, isLoading: false })
+      }
+    }
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      unsubscribeRepository?.()
+      unsubscribeRepository = null
+
       if (!user) {
         setData({ ...EMPTY, isLoading: false })
         return
       }
 
-      const entriesRef = collection(db, 'users', user.uid, 'entries')
-      const q = query(entriesRef, where('deleted', '==', false), orderBy('date', 'desc'))
-
-      try {
-        const snapshot = await getDocs(q)
-        if (cancelled) return
-
-        const entries = snapshot.docs.map((doc) => doc.data())
-
-        // moodByDate: entries with mood set, sorted ASC for chart display
-        const moodByDate = entries
-          .filter((e) => e.mood != null)
-          .map((e) => ({
-            date: e.date as string,
-            mood: e.mood as number,
-            moodLabel: (e.moodLabel as string | null) ?? null,
-          }))
-          .sort((a, b) => a.date.localeCompare(b.date))
-
-        // topTags: flatten all tags, count occurrences, sort DESC then alpha, top 10
-        const tagCounts = new Map<string, number>()
-        for (const e of entries) {
-          const tags = (e.tags as string[]) ?? []
-          for (const tag of tags) {
-            tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
-          }
-        }
-        const topTags = Array.from(tagCounts.entries())
-          .map(([tag, count]) => ({ tag, count }))
-          .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
-          .slice(0, 10)
-
-        const totalEntries = entries.length
-        const totalWords = entries.reduce((sum, e) => sum + ((e.wordCount as number) ?? 0), 0)
-
-        setData({ moodByDate, topTags, totalEntries, totalWords, isLoading: false })
-      } catch {
-        if (cancelled) return
-        setData({ ...EMPTY, isLoading: false })
-      }
+      void refresh(user.uid)
+      unsubscribeRepository = EntryRepository.subscribe(user.uid, () => void refresh(user.uid))
     })
 
     return () => {
       cancelled = true
       unsubscribeAuth()
+      unsubscribeRepository?.()
     }
   }, [])
 

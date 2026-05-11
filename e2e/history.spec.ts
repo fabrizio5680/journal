@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test'
 
 const EMULATOR_AUTH_URL = 'http://localhost:9099'
-const FIRESTORE_EMULATOR_URL = 'http://localhost:8080'
-const PROJECT_ID = 'journal-manna'
 const FAKE_API_KEY = 'fake-api-key'
 
 const TEST_EMAIL_BASE = 'history-test'
@@ -42,10 +40,7 @@ async function clearTestUser(email: string) {
   }
 }
 
-async function createEmulatorUser(
-  email: string,
-  password: string,
-): Promise<{ uid: string; idToken: string }> {
+async function createEmulatorUser(email: string, password: string): Promise<{ uid: string }> {
   const res = await fetch(
     `${EMULATOR_AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FAKE_API_KEY}`,
     {
@@ -55,7 +50,7 @@ async function createEmulatorUser(
     },
   )
   const data = await res.json()
-  return { uid: data.localId as string, idToken: data.idToken as string }
+  return { uid: data.localId as string }
 }
 
 async function signInAsTestUser(page: import('@playwright/test').Page, email: string) {
@@ -80,84 +75,79 @@ async function signInAsTestUser(page: import('@playwright/test').Page, email: st
   }
 }
 
-async function seedEntry(
-  request: import('@playwright/test').APIRequestContext,
+async function seedLocalEntries(
+  page: import('@playwright/test').Page,
   uid: string,
-  idToken: string,
-  date: string,
-  data: Record<string, unknown>,
+  entries: Array<{
+    date: string
+    content: object
+    contentText: string
+    mood: number | null
+    moodLabel: string | null
+    tags?: string[]
+    wordCount: number
+  }>,
 ) {
-  const url = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${uid}/entries/${date}`
-  await request.patch(url, {
-    headers: { Authorization: `Bearer ${idToken}` },
-    data: {
-      fields: {
-        date: { stringValue: date },
-        contentText: { stringValue: (data.contentText as string) ?? '' },
-        content: {
-          mapValue: {
-            fields: {
-              type: { stringValue: 'doc' },
-              content: { arrayValue: { values: [] } },
-            },
-          },
-        },
-        mood: data.mood != null ? { integerValue: data.mood } : { nullValue: null },
-        moodLabel:
-          data.moodLabel != null ? { stringValue: data.moodLabel as string } : { nullValue: null },
-        tags: {
-          arrayValue: {
-            values: ((data.tags as string[]) ?? []).map((t) => ({ stringValue: t })),
-          },
-        },
-        wordCount: { integerValue: (data.contentText as string)?.split(' ').length ?? 0 },
-        deleted: { booleanValue: false },
-        deletedAt: { nullValue: null },
-        createdAt: { timestampValue: new Date().toISOString() },
-        updatedAt: { timestampValue: new Date().toISOString() },
-      },
+  await page.evaluate(
+    async ({ uid, entries }) => {
+      const seed = (
+        window as typeof window & {
+          __seedEntriesForTest?: (uid: string, entries: unknown[]) => Promise<void>
+        }
+      ).__seedEntriesForTest
+      if (!seed) throw new Error('__seedEntriesForTest not available')
+      await seed(uid, entries)
     },
-  })
+    { uid, entries },
+  )
 }
 
 test.describe.configure({ mode: 'serial' })
 
 test.describe('History', () => {
   let testUid: string
-  let testIdToken: string
   let testEmail: string
 
-  test.beforeEach(async ({ page, request }, testInfo) => {
+  test.beforeEach(async ({ page }, testInfo) => {
     testEmail = testEmailForProject(testInfo.project.name)
     await clearTestUser(testEmail)
     const user = await createEmulatorUser(testEmail, TEST_PASSWORD)
     testUid = user.uid
-    testIdToken = user.idToken
-
-    // Seed 3 entries with different dates in the current month
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-
-    await seedEntry(request, testUid, testIdToken, `${year}-${month}-01`, {
-      contentText: 'First entry of the month',
-      mood: 5,
-      moodLabel: 'Radiant',
-    })
-    await seedEntry(request, testUid, testIdToken, `${year}-${month}-05`, {
-      contentText: 'Mid month reflection',
-      mood: 3,
-      moodLabel: 'Calm',
-    })
-    await seedEntry(request, testUid, testIdToken, `${year}-${month}-10`, {
-      contentText: 'Another quiet day of writing',
-      mood: 4,
-      moodLabel: 'Peaceful',
-    })
 
     await page.goto('/login')
     await signInAsTestUser(page, testEmail)
     await expect(page).toHaveURL('/', { timeout: 5000 })
+
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    await seedLocalEntries(page, testUid, [
+      {
+        date: `${year}-${month}-01`,
+        content: { type: 'doc', content: [] },
+        contentText: 'First entry of the month',
+        mood: 5,
+        moodLabel: 'Radiant',
+        wordCount: 5,
+      },
+      {
+        date: `${year}-${month}-05`,
+        content: { type: 'doc', content: [] },
+        contentText: 'Mid month reflection',
+        mood: 3,
+        moodLabel: 'Calm',
+        wordCount: 3,
+      },
+      {
+        date: `${year}-${month}-10`,
+        content: { type: 'doc', content: [] },
+        contentText: 'Another quiet day of writing',
+        mood: 4,
+        moodLabel: 'Peaceful',
+        wordCount: 5,
+      },
+    ])
+
     await page.goto('/history')
     await expect(page.getByText('Past Chapters')).toBeVisible({ timeout: 5000 })
   })
@@ -234,18 +224,22 @@ test.describe('History', () => {
     await expect(day1Button.locator('span.absolute.rounded-full')).toBeVisible({ timeout: 5000 })
   })
 
-  test('Scenario 5: tag chips in entry cards display # prefix', async ({ page, request }) => {
+  test('Scenario 5: tag chips in entry cards display # prefix', async ({ page }) => {
     const now = new Date()
     const year = now.getFullYear()
     const month = String(now.getMonth() + 1).padStart(2, '0')
 
-    // Seed an additional entry with tags
-    await seedEntry(request, testUid, testIdToken, `${year}-${month}-15`, {
-      contentText: 'Entry with tags for testing',
-      mood: null,
-      moodLabel: null,
-      tags: ['faith', 'gratitude'],
-    })
+    await seedLocalEntries(page, testUid, [
+      {
+        date: `${year}-${month}-15`,
+        content: { type: 'doc', content: [] },
+        contentText: 'Entry with tags for testing',
+        mood: null,
+        moodLabel: null,
+        tags: ['faith', 'gratitude'],
+        wordCount: 5,
+      },
+    ])
 
     // Reload so the new entry appears
     await page.reload()

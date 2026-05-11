@@ -1,48 +1,33 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { InstantSearch, Configure, useHits } from 'react-instantsearch'
-import type { SearchClient } from 'algoliasearch'
+import { onAuthStateChanged } from 'firebase/auth'
 
 import SearchResultCard, { type SearchHit } from './SearchResultCard'
 import SearchFilters from './SearchFilters'
 
-import { getAlgoliaClient } from '@/lib/algolia'
 import { useSearch } from '@/context/SearchContext'
+import { auth } from '@/lib/firebase'
+import { EntryRepository } from '@/lib/storage/entryRepository'
 
-function dateToTimestamp(dateStr: string): number {
-  return Math.floor(new Date(`${dateStr}T00:00:00Z`).getTime() / 1000)
-}
-
-// Inner component: lives inside InstantSearch context
 interface ResultsProps {
   query: string
+  hits: SearchHit[]
+  isSearching: boolean
   onSelect: (date: string) => void
 }
 
-function resolveHitDate(hit: SearchHit): string | null {
-  if (typeof hit.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(hit.date)) {
-    return hit.date
+function Results({ query, hits, isSearching, onSelect }: ResultsProps) {
+  if (isSearching) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <span className="text-on-surface-variant animate-pulse text-sm">
+          Searching local journal…
+        </span>
+      </div>
+    )
   }
 
-  if (typeof hit.objectID === 'string') {
-    const match = hit.objectID.match(/(\d{4}-\d{2}-\d{2})$/)
-    if (match) return match[1]
-  }
-
-  return null
-}
-
-function Results({ query, onSelect }: ResultsProps) {
-  const { hits } = useHits<SearchHit>()
-  const normalizedHits: SearchHit[] = []
-
-  for (const hit of hits) {
-    const date = resolveHitDate(hit)
-    if (!date) continue
-    normalizedHits.push({ ...hit, date })
-  }
-
-  if (normalizedHits.length === 0 && query.trim()) {
+  if (hits.length === 0 && query.trim()) {
     return (
       <div className="py-16 text-center">
         <p className="text-on-surface-variant text-base">
@@ -54,7 +39,7 @@ function Results({ query, onSelect }: ResultsProps) {
 
   return (
     <div className="flex flex-col gap-2 px-4 py-3">
-      {normalizedHits.map((hit) => (
+      {hits.map((hit) => (
         <SearchResultCard key={hit.objectID} hit={hit} onSelect={onSelect} />
       ))}
     </div>
@@ -66,51 +51,70 @@ export default function SearchModal() {
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const [client, setClient] = useState<SearchClient | null>(null)
-  const [indexName, setIndexName] = useState<string | null>(null)
-  const [clientError, setClientError] = useState(false)
+  const [uid, setUid] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [selectedMoods, setSelectedMoods] = useState<string[]>([])
+  const [hits, setHits] = useState<SearchHit[]>([])
+  const [isSearching, setIsSearching] = useState(false)
 
-  // Fetch secured Algolia client when modal opens; reset state when it closes
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => setUid(user?.uid ?? null))
+  }, [])
+
   useEffect(() => {
     if (!isSearchOpen) {
-      // Defer state resets to avoid synchronous setState in effect body
       const t = setTimeout(() => {
         setQuery('')
         setDateFrom('')
         setDateTo('')
         setSelectedMoods([])
-        setClient(null)
-        setIndexName(null)
+        setHits([])
       }, 0)
       return () => clearTimeout(t)
     }
 
-    let cancelled = false
     const t = setTimeout(() => inputRef.current?.focus(), 50)
+    return () => clearTimeout(t)
+  }, [isSearchOpen])
 
-    getAlgoliaClient()
-      .then(({ client: searchClient, indexName: runtimeIndexName }) => {
-        if (!cancelled) {
-          setClientError(false)
-          setClient(searchClient as unknown as SearchClient)
-          setIndexName(runtimeIndexName)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setClientError(true)
-      })
+  useEffect(() => {
+    if (!isSearchOpen || !uid) return
+
+    const activeUid = uid
+    let cancelled = false
+
+    async function runSearch() {
+      if (!query.trim() && !dateFrom && !dateTo && selectedMoods.length === 0) {
+        setHits([])
+        return
+      }
+
+      setIsSearching(true)
+      try {
+        const results = await EntryRepository.searchEntries(activeUid, query, {
+          dateFrom,
+          dateTo,
+          moodLabels: selectedMoods,
+        })
+        if (!cancelled) setHits(results)
+      } catch {
+        if (!cancelled) setHits([])
+      } finally {
+        if (!cancelled) setIsSearching(false)
+      }
+    }
+
+    void runSearch()
+    const unsubscribe = EntryRepository.subscribe(activeUid, () => void runSearch())
 
     return () => {
       cancelled = true
-      clearTimeout(t)
+      unsubscribe()
     }
-  }, [isSearchOpen])
+  }, [isSearchOpen, uid, query, dateFrom, dateTo, selectedMoods])
 
-  // Esc closes modal
   useEffect(() => {
     if (!isSearchOpen) return
     const handler = (e: KeyboardEvent) => {
@@ -139,15 +143,6 @@ export default function SearchModal() {
     )
   }, [])
 
-  // Build numeric filter for date range
-  const numericFilters: Array<string | string[]> = []
-  if (dateFrom) numericFilters.push(`dateTimestamp >= ${dateToTimestamp(dateFrom)}`)
-  if (dateTo) numericFilters.push(`dateTimestamp <= ${dateToTimestamp(dateTo)}`)
-
-  // Build facet filters for moodLabel (OR logic: inner array)
-  const facetFilters: Array<string[]> =
-    selectedMoods.length > 0 ? [selectedMoods.map((label) => `moodLabel:${label}`)] : []
-
   if (!isSearchOpen) return null
 
   return (
@@ -158,7 +153,6 @@ export default function SearchModal() {
       }}
     >
       <div className="bg-surface-container-lowest w-full shadow-lg">
-        {/* Search input bar */}
         <div className="flex items-center gap-3 px-6 py-4">
           <span className="material-symbols-outlined text-on-surface-variant text-xl">search</span>
           <input
@@ -183,43 +177,17 @@ export default function SearchModal() {
           </button>
         </div>
 
-        {/* Algolia-powered filters + results */}
-        {client && indexName && (
-          <InstantSearch searchClient={client} indexName={indexName}>
-            <Configure
-              hitsPerPage={20}
-              query={query}
-              numericFilters={numericFilters.length > 0 ? numericFilters : undefined}
-              facetFilters={facetFilters.length > 0 ? facetFilters : undefined}
-            />
+        <SearchFilters
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateChange={handleDateChange}
+          selectedMoods={selectedMoods}
+          onToggleMood={handleToggleMood}
+        />
 
-            <SearchFilters
-              dateFrom={dateFrom}
-              dateTo={dateTo}
-              onDateChange={handleDateChange}
-              selectedMoods={selectedMoods}
-              onToggleMood={handleToggleMood}
-            />
-
-            <div className="max-h-[70vh] overflow-y-auto">
-              <Results query={query} onSelect={handleSelect} />
-            </div>
-          </InstantSearch>
-        )}
-
-        {!client && !clientError && (
-          <div className="flex items-center justify-center py-16">
-            <span className="text-on-surface-variant animate-pulse text-sm">Loading search…</span>
-          </div>
-        )}
-
-        {clientError && (
-          <div className="flex items-center justify-center py-16">
-            <span className="text-on-surface-variant text-sm">
-              Search unavailable — please try again later.
-            </span>
-          </div>
-        )}
+        <div className="max-h-[70vh] overflow-y-auto">
+          <Results query={query} hits={hits} isSearching={isSearching} onSelect={handleSelect} />
+        </div>
       </div>
     </div>
   )

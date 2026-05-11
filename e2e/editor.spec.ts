@@ -118,7 +118,7 @@ test.describe('Editor', () => {
     await expect(page.locator('[data-testid="word-count"]:visible')).toBeVisible({ timeout: 3000 })
   })
 
-  test('Scenario 2: type text → auto-save → Firestore emulator has entry doc', async ({
+  test('Scenario 2: type text → auto-save → Firestore has lastEntryDate metadata', async ({
     page,
     request,
   }) => {
@@ -133,12 +133,15 @@ test.describe('Editor', () => {
     // Auto-save fires after 1.5s debounce; wait for it
     await page.waitForTimeout(2500)
 
-    // Query Firestore emulator REST API for the doc (auth token required by security rules)
-    const docUrl = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${testUid}/entries/${today}`
+    const docUrl = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${testUid}`
     const res = await request.get(docUrl, {
       headers: { Authorization: `Bearer ${testIdToken}` },
     })
     expect(res.ok()).toBeTruthy()
+    const body = (await res.json()) as {
+      fields?: { lastEntryDate?: { stringValue?: string } }
+    }
+    expect(body.fields?.lastEntryDate?.stringValue).toBe(today)
   })
 
   test('Scenario 3: word count updates as user types', async ({ page }) => {
@@ -174,6 +177,9 @@ test.describe('Editor', () => {
       MockSpeechRecognition.prototype.lang = ''
       MockSpeechRecognition.prototype.start = function () {}
       MockSpeechRecognition.prototype.stop = function () {
+        onendHandler?.()
+      }
+      MockSpeechRecognition.prototype.abort = function () {
         onendHandler?.()
       }
 
@@ -420,7 +426,6 @@ test.describe('Editor', () => {
 
   test('Scenario 8: scripture reference — ref persists after navigating away and back', async ({
     page,
-    request,
   }) => {
     const editor = await getEditorOrSkip(page)
     await expect(editor).toBeVisible({ timeout: 10000 })
@@ -456,22 +461,6 @@ test.describe('Editor', () => {
 
     // Wait for auto-save (1.5s debounce + buffer)
     await page.waitForTimeout(2500)
-
-    // Verify it was persisted to Firestore emulator
-    const docUrl = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${testUid}/entries/${today}`
-    const res = await request.get(docUrl, {
-      headers: { Authorization: `Bearer ${testIdToken}` },
-    })
-    expect(res.ok()).toBeTruthy()
-    const body = (await res.json()) as {
-      fields?: {
-        scriptureRefs?: {
-          arrayValue?: { values?: Array<{ mapValue?: { fields?: Record<string, unknown> } }> }
-        }
-      }
-    }
-    const refs = body.fields?.scriptureRefs?.arrayValue?.values ?? []
-    expect(refs.length).toBeGreaterThan(0)
 
     // Navigate away then back
     await page.goto('/history')
@@ -511,6 +500,8 @@ test.describe('Editor', () => {
     return bar
   }
 
+  const dismissedSheetTransform = /translateY\(100%\)|matrix\(1, 0, 0, 1, 0, [1-9]/
+
   test('MetadataBar 1: bar is visible when the editor page loads', async ({ page }) => {
     const bar = await getMetadataBarOrSkip(page)
     await expect(bar).toBeVisible({ timeout: 3000 })
@@ -529,9 +520,9 @@ test.describe('Editor', () => {
   }) => {
     const bar = await getMetadataBarOrSkip(page)
 
-    // Sheet must not be open initially (translateY(100%))
+    // Sheet must not be open initially. WebKit reports translateY(100%) as a matrix.
     const sheet = page.locator('[data-testid="metadata-sheet"]')
-    await expect(sheet).toHaveCSS('transform', /translateY\(100%\)/, { timeout: 3000 })
+    await expect(sheet).toHaveCSS('transform', dismissedSheetTransform, { timeout: 3000 })
 
     // Click the outer strip button
     const stripBtn = bar.locator('button').first()
@@ -571,9 +562,9 @@ test.describe('Editor', () => {
     await expect(closeBtn).toBeVisible({ timeout: 3000 })
     await closeBtn.click()
 
-    // Sheet should be dismissed (transform back to translateY(100%))
+    // Sheet should be dismissed. WebKit reports translateY(100%) as a matrix.
     const sheet = page.locator('[data-testid="metadata-sheet"]')
-    await expect(sheet).toHaveCSS('transform', /translateY\(100%\)/, { timeout: 2000 })
+    await expect(sheet).toHaveCSS('transform', dismissedSheetTransform, { timeout: 2000 })
   })
 
   test('MetadataBar 6: clicking mood pill in sheet grid calls mood change', async ({ page }) => {
@@ -757,10 +748,7 @@ test.describe('Editor', () => {
     await expect(bar.getByText('+ Mood')).toBeHidden()
   })
 
-  test('Mood Scenario 4: selected mood persists after auto-save to Firestore', async ({
-    page,
-    request,
-  }) => {
+  test('Mood Scenario 4: selected mood persists after navigation', async ({ page }) => {
     const today = format(new Date(), 'yyyy-MM-dd')
 
     const editor = await getEditorOrSkip(page)
@@ -789,20 +777,14 @@ test.describe('Editor', () => {
     // Mood saves are immediate (no debounce) — give a small buffer
     await page.waitForTimeout(1000)
 
-    // Verify Firestore doc has mood=1 and moodLabel="Weary"
-    const docUrl = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${testUid}/entries/${today}`
-    const res = await request.get(docUrl, {
-      headers: { Authorization: `Bearer ${testIdToken}` },
+    await page.goto('/history')
+    await expect(page).toHaveURL('/history', { timeout: 5000 })
+
+    await page.goto(`/entry/${today}`)
+    await expect(page).toHaveURL(`/entry/${today}`, { timeout: 5000 })
+    await expect(page.getByTestId('metadata-bar').getByText('Weary')).toBeVisible({
+      timeout: 5000,
     })
-    expect(res.ok()).toBeTruthy()
-    const body = (await res.json()) as {
-      fields?: {
-        mood?: { integerValue?: string }
-        moodLabel?: { stringValue?: string }
-      }
-    }
-    expect(body.fields?.mood?.integerValue).toBe('1')
-    expect(body.fields?.moodLabel?.stringValue).toBe('Weary')
   })
 })
 
@@ -1061,15 +1043,16 @@ test.describe('Tag # prefix display', () => {
     // Open the metadata sheet
     const stripBtn = bar.locator('button').first()
     await stripBtn.click()
-    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
+    const sheet = page.getByTestId('metadata-sheet')
+    await expect(sheet.getByText('Entry details')).toBeVisible({ timeout: 3000 })
 
     // Type a tag into the TagInput inside the sheet
-    const tagInput = page.getByPlaceholder('Add tag…')
+    const tagInput = sheet.getByPlaceholder('Add tag…')
     await expect(tagInput).toBeVisible({ timeout: 3000 })
     await tagInput.fill('morning')
     await page.keyboard.press('Enter')
 
     // The chip must appear with the # prefix
-    await expect(page.getByText('#morning')).toBeVisible({ timeout: 3000 })
+    await expect(sheet.getByText('#morning')).toBeVisible({ timeout: 3000 })
   })
 })
