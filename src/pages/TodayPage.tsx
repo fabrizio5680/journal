@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 
 import { useEntry } from '@/hooks/useEntry'
+import { useEntryRevisions } from '@/hooks/useEntryRevisions'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useToday } from '@/hooks/useToday'
 import { useTagVocabulary } from '@/hooks/useTagVocabulary'
@@ -9,18 +10,22 @@ import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
+import { useRevisionHistory } from '@/context/RevisionHistoryContext'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
 import MetadataBar from '@/components/editor/MetadataBar'
+import type { EntryRevision } from '@/types'
 
 export default function TodayPage() {
   usePageTitle("Today's Entry")
   const today = useToday()
   const { entry, isLoading, markDirty, save } = useEntry(today)
+  const { saveRevision, scheduleRevision, cancelRevision } = useEntryRevisions(today)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
-  const { register, unregister } = useEditorControls()
+  const { register: registerEditor, unregister: unregisterEditor } = useEditorControls()
+  const { register: registerRevision, unregister: unregisterRevision } = useRevisionHistory()
   const { verse } = useDailyVerse(scriptureTranslation)
   const placeholder = verse ? `${verse.text} — ${verse.reference}` : undefined
 
@@ -63,6 +68,15 @@ export default function TodayPage() {
       setTypingStarted(true)
       setLiveWordCount(editor.storage.characterCount.words())
 
+      if (entry !== null) {
+        scheduleRevision(editor.getText(), {
+          ...entry,
+          content: editor.getJSON(),
+          contentText: editor.getText(),
+          wordCount: editor.storage.characterCount.words(),
+        })
+      }
+
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
       saveTimeoutRef.current = setTimeout(async () => {
         await save({
@@ -74,7 +88,7 @@ export default function TodayPage() {
         setLastSaved(new Date())
       }, 1500)
     },
-    [markDirty, save, setDirty, setLastSaved],
+    [markDirty, save, scheduleRevision, entry, setDirty, setLastSaved],
   )
 
   const handleMoodChange = useCallback(
@@ -98,9 +112,40 @@ export default function TodayPage() {
     [save],
   )
 
+  const handleRestore = useCallback(
+    async (revision: EntryRevision) => {
+      if (!entry) return
+      cancelRevision()
+      // Snapshot current state as a safety backup before restoring
+      await saveRevision(entry)
+      await save({
+        content: revision.content,
+        contentText: revision.contentText,
+        mood: revision.mood as 1 | 2 | 3 | 4 | 5 | null,
+        moodLabel: revision.moodLabel,
+        tags: revision.tags,
+        scriptureRefs: revision.scriptureRefs,
+        wordCount: revision.wordCount,
+      })
+      setLastSaved(new Date())
+    },
+    [entry, save, saveRevision, cancelRevision, setLastSaved],
+  )
+
+  // Register with revision history context when entry is loaded
+  useEffect(() => {
+    if (entry) {
+      registerRevision(today, handleRestore)
+    } else {
+      unregisterRevision()
+    }
+  }, [entry, today, handleRestore, registerRevision, unregisterRevision])
+
+  useEffect(() => () => unregisterRevision(), [unregisterRevision])
+
   // Register editor controls with BottomNav and RightPanel via context
   useEffect(() => {
-    register({
+    registerEditor({
       dictation: {
         isSupported,
         state: dictationState,
@@ -131,7 +176,7 @@ export default function TodayPage() {
     errorMessage,
     interimTranscript,
     editorFontSize,
-    register,
+    registerEditor,
     start,
     stop,
     updateEditorFontSize,
@@ -145,7 +190,7 @@ export default function TodayPage() {
     handleScriptureRefsChange,
   ])
 
-  useEffect(() => () => unregister(), [unregister])
+  useEffect(() => () => unregisterEditor(), [unregisterEditor])
 
   useEffect(() => {
     return () => {

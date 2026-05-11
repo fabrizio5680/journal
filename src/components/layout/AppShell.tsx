@@ -8,14 +8,22 @@ import BottomNav from './BottomNav'
 import RightPanel from './RightPanel'
 
 import SearchModal from '@/components/search/SearchModal'
+import { EncryptionUnlockModal } from '@/components/encryption/EncryptionUnlockModal'
 import { useSearch } from '@/context/SearchContext'
 import { useFocusMode } from '@/context/FocusModeContext'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
+import { useEncryption } from '@/context/EncryptionContext'
 
 export default function AppShell() {
   const { isFocused, exit } = useFocusMode()
   const { openSearch } = useSearch()
   const { grainEnabled } = useUserPreferences()
+  const {
+    isEnabled: isEncryptionEnabled,
+    isUnlocked: isEncryptionUnlocked,
+    isLoading: isEncryptionLoading,
+  } = useEncryption()
+  const showUnlockModal = isEncryptionEnabled && !isEncryptionUnlocked && !isEncryptionLoading
 
   // Cmd/Ctrl+K global shortcut
   useEffect(() => {
@@ -74,6 +82,9 @@ export default function AppShell() {
 
       {/* Full-screen search modal */}
       <SearchModal />
+
+      {/* Encryption unlock modal — shown when enabled but session locked */}
+      {showUnlockModal && <EncryptionUnlockModal />}
     </div>
   )
 }

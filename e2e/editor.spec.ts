@@ -59,6 +59,41 @@ async function createEmulatorUser(
   return { uid: data.localId as string, idToken: data.idToken as string }
 }
 
+async function seedEmptyEntry(
+  request: import('@playwright/test').APIRequestContext,
+  uid: string,
+  idToken: string,
+  date: string,
+) {
+  const url = `${FIRESTORE_EMULATOR_URL}/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${uid}/entries/${date}`
+  await request.patch(url, {
+    headers: { Authorization: `Bearer ${idToken}` },
+    data: {
+      fields: {
+        date: { stringValue: date },
+        contentText: { stringValue: '' },
+        content: {
+          mapValue: {
+            fields: {
+              type: { stringValue: 'doc' },
+              content: { arrayValue: { values: [] } },
+            },
+          },
+        },
+        mood: { nullValue: null },
+        moodLabel: { nullValue: null },
+        tags: { arrayValue: { values: [] } },
+        scriptureRefs: { arrayValue: { values: [] } },
+        wordCount: { integerValue: 0 },
+        deleted: { booleanValue: false },
+        deletedAt: { nullValue: null },
+        createdAt: { timestampValue: new Date().toISOString() },
+        updatedAt: { timestampValue: new Date().toISOString() },
+      },
+    },
+  })
+}
+
 async function signInAsTestUser(page: import('@playwright/test').Page, email: string) {
   try {
     await page.evaluate(
@@ -95,12 +130,13 @@ test.describe('Editor', () => {
   let testIdToken: string
   let testEmail: string
 
-  test.beforeEach(async ({ page }, testInfo) => {
+  test.beforeEach(async ({ page, request }, testInfo) => {
     testEmail = testEmailForProject(testInfo.project.name)
     await clearTestUser(testEmail)
     const user = await createEmulatorUser(testEmail, TEST_PASSWORD)
     testUid = user.uid
     testIdToken = user.idToken
+    await seedEmptyEntry(request, testUid, testIdToken, format(new Date(), 'yyyy-MM-dd'))
     await page.goto('/login')
     await signInAsTestUser(page, testEmail)
     await expect(page).toHaveURL('/', { timeout: 5000 })
@@ -501,6 +537,12 @@ test.describe('Editor', () => {
   // ── MetadataBar E2E scenarios ──────────────────────────────────────────────
 
   async function getMetadataBarOrSkip(page: import('@playwright/test').Page) {
+    const viewport = page.viewportSize()
+    test.skip(
+      viewport !== null && viewport.width >= 768,
+      'MetadataBar is mobile-only; md+ viewports use RightPanel metadata.',
+    )
+
     const bar = page.getByTestId('metadata-bar')
     // Wait up to 8s for the MetadataBar to appear (Firestore snapshot may delay render)
     const visible = await bar
@@ -531,7 +573,7 @@ test.describe('Editor', () => {
 
     // Sheet must not be open initially (translateY(100%))
     const sheet = page.locator('[data-testid="metadata-sheet"]')
-    await expect(sheet).toHaveCSS('transform', /translateY\(100%\)/, { timeout: 3000 })
+    await expect(sheet).toHaveAttribute('data-state', 'closed', { timeout: 3000 })
 
     // Click the outer strip button
     const stripBtn = bar.locator('button').first()
@@ -571,9 +613,9 @@ test.describe('Editor', () => {
     await expect(closeBtn).toBeVisible({ timeout: 3000 })
     await closeBtn.click()
 
-    // Sheet should be dismissed (transform back to translateY(100%))
+    // Sheet should be dismissed.
     const sheet = page.locator('[data-testid="metadata-sheet"]')
-    await expect(sheet).toHaveCSS('transform', /translateY\(100%\)/, { timeout: 2000 })
+    await expect(sheet).toHaveAttribute('data-state', 'closed', { timeout: 2000 })
   })
 
   test('MetadataBar 6: clicking mood pill in sheet grid calls mood change', async ({ page }) => {
@@ -1061,15 +1103,16 @@ test.describe('Tag # prefix display', () => {
     // Open the metadata sheet
     const stripBtn = bar.locator('button').first()
     await stripBtn.click()
-    await expect(page.getByText('Entry details')).toBeVisible({ timeout: 3000 })
+    const sheet = page.getByTestId('metadata-sheet')
+    await expect(sheet.getByText('Entry details')).toBeVisible({ timeout: 3000 })
 
     // Type a tag into the TagInput inside the sheet
-    const tagInput = page.getByPlaceholder('Add tag…')
+    const tagInput = sheet.getByPlaceholder('Add tag…')
     await expect(tagInput).toBeVisible({ timeout: 3000 })
     await tagInput.fill('morning')
     await page.keyboard.press('Enter')
 
     // The chip must appear with the # prefix
-    await expect(page.getByText('#morning')).toBeVisible({ timeout: 3000 })
+    await expect(sheet.getByText('#morning')).toBeVisible({ timeout: 3000 })
   })
 })

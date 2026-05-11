@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: 'http://localhost:5173',
@@ -15,8 +15,8 @@ export default defineConfig({
     { name: 'tablet', use: { ...devices['iPad Pro 11'] } },
   ],
   webServer: {
-    command: 'vite --mode test',
+    command: 'vite --host 127.0.0.1 --mode test',
     port: 5173,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
 })

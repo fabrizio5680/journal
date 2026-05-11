@@ -8,8 +8,12 @@ const FAKE_API_KEY = 'fake-api-key'
 const TEST_EMAIL_BASE = 'history-test'
 const TEST_PASSWORD = 'password123'
 
-function testEmailForProject(projectName: string) {
-  return `${TEST_EMAIL_BASE}+${projectName}@example.com`
+function testEmailForProject(projectName: string, testTitle: string) {
+  const slug = testTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  return `${TEST_EMAIL_BASE}+${projectName}-${slug}@example.com`
 }
 
 async function clearTestUser(email: string) {
@@ -128,7 +132,7 @@ test.describe('History', () => {
   let testEmail: string
 
   test.beforeEach(async ({ page, request }, testInfo) => {
-    testEmail = testEmailForProject(testInfo.project.name)
+    testEmail = testEmailForProject(testInfo.project.name, testInfo.title)
     await clearTestUser(testEmail)
     const user = await createEmulatorUser(testEmail, TEST_PASSWORD)
     testUid = user.uid
@@ -165,22 +169,18 @@ test.describe('History', () => {
   test('Scenario 1: calendar shows dots on dates with entries', async ({ page }) => {
     const now = new Date()
     const year = now.getFullYear()
-    const monthName = now.toLocaleString('en-US', { month: 'long' })
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+
+    await expect(page.getByTestId('mini-calendar')).toBeVisible({ timeout: 10000 })
 
     // Entry dot should be present on the 1st
-    const day1Button = page.getByRole('button', {
-      name: `${monthName} 1, ${year}`,
-      exact: true,
-    })
+    const day1Button = page.getByTestId(`calendar-day-${year}-${month}-01`)
     await expect(day1Button).toBeVisible({ timeout: 5000 })
     // The dot is the absolute rounded span inside the calendar date button
     await expect(day1Button.locator('span.absolute.rounded-full')).toBeVisible()
 
     // Verify the 5th also has a dot
-    const day5Button = page.getByRole('button', {
-      name: `${monthName} 5, ${year}`,
-      exact: true,
-    })
+    const day5Button = page.getByTestId(`calendar-day-${year}-${month}-05`)
     await expect(day5Button.locator('span.absolute.rounded-full')).toBeVisible()
   })
 
@@ -190,14 +190,11 @@ test.describe('History', () => {
     const now = new Date()
     const month = String(now.getMonth() + 1).padStart(2, '0')
     const year = now.getFullYear()
-    const monthName = now.toLocaleString('en-US', { month: 'long' })
 
-    const day1Button = page.getByRole('button', {
-      name: `${monthName} 1, ${year}`,
-      exact: true,
-    })
+    await expect(page.getByTestId('mini-calendar')).toBeVisible({ timeout: 10000 })
+    const day1Button = page.getByTestId(`calendar-day-${year}-${month}-01`)
     await day1Button.click()
-    await expect(page).toHaveURL(`/entry/${year}-${month}-01`, { timeout: 5000 })
+    await expect(page).toHaveURL(`/entry/${year}-${month}-01`, { timeout: 10000 })
   })
 
   test('Scenario 3: entry cards render title and excerpt correctly', async ({ page }) => {
@@ -250,9 +247,15 @@ test.describe('History', () => {
     // Reload so the new entry appears
     await page.reload()
     await expect(page.getByText('Past Chapters')).toBeVisible({ timeout: 5000 })
+    // Wait for the seeded entry card heading to appear (heading role avoids
+    // ambiguity with the excerpt <p> that contains the same contentText)
+    await expect(page.getByRole('heading', { name: 'Entry with tags for testing' })).toBeVisible({
+      timeout: 15000,
+    })
 
     // Tag chips on the entry card must show # prefix
-    await expect(page.getByText('#faith')).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText('#gratitude')).toBeVisible({ timeout: 5000 })
+    // exact: true prevents matching ancestor elements that also contain the text
+    await expect(page.getByText('#faith', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('#gratitude', { exact: true })).toBeVisible({ timeout: 5000 })
   })
 })

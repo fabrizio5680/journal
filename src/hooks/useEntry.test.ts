@@ -28,6 +28,29 @@ vi.mock('firebase/auth', () => ({
 
 // firebase.ts mock is already in setup.ts
 
+vi.mock('@/context/EncryptionContext', () => ({
+  useEncryption: () => ({
+    isEnabled: false,
+    isUnlocked: false,
+    isLoading: false,
+    encryptFields: (content: object, contentText: string) =>
+      Promise.resolve({ content, contentText, contentEncrypted: false }),
+    decryptFields: (doc: { content: object; contentText: string }) =>
+      Promise.resolve({ content: doc.content, contentText: doc.contentText }),
+    unlock: () => Promise.resolve(false),
+    unlockWithRecovery: () => Promise.resolve(false),
+    lock: () => undefined,
+    enable: () => Promise.resolve({ recoveryCode: '' }),
+    disable: () => Promise.resolve(),
+  }),
+  EncryptionLockedError: class EncryptionLockedError extends Error {
+    constructor() {
+      super('locked')
+      this.name = 'EncryptionLockedError'
+    }
+  },
+}))
+
 import { useEntry } from './useEntry'
 
 function fireAuth(uid: string | null = 'test-uid') {
@@ -254,5 +277,89 @@ describe('useEntry', () => {
       contentText: 'today only',
       wordCount: 2,
     })
+  })
+
+  // ── Revision callback tests (Phase 2: revisionCallback removed from save()) ──
+  // Phase 2 moved revision scheduling out of save() into scheduleRevision()
+  // on useEntryRevisions. The save() API no longer accepts a revisionCallback
+  // option. These tests verify save() completes without error and writes the
+  // entry as expected when called in contexts that previously used revisionCallback.
+
+  it('save() completes successfully on an existing entry (revisionCallback no longer part of save API)', async () => {
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+
+    const existingEntry = {
+      date: '2026-04-13',
+      contentText: 'existing',
+      wordCount: 1,
+      mood: null,
+      moodLabel: null,
+      tags: [],
+      deleted: false,
+    }
+    fireSnapshot(existingEntry)
+
+    await waitFor(() => expect(result.current.entry).not.toBeNull())
+
+    await act(async () => {
+      await result.current.save({ contentText: 'updated', wordCount: 1 })
+    })
+
+    // save() should write to Firestore
+    expect(mockSetDoc).toHaveBeenCalledOnce()
+    const [, payload] = mockSetDoc.mock.calls[0]
+    expect(payload).toMatchObject({ contentText: 'updated', wordCount: 1 })
+  })
+
+  it('save() does not expose notifyRevisionSaved (removed in Phase 2)', () => {
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+    // notifyRevisionSaved was removed from the useEntry API in Phase 2
+    expect(
+      (result.current as unknown as Record<string, unknown>).notifyRevisionSaved,
+    ).toBeUndefined()
+  })
+
+  it('save() does not accept revisionCallback option (removed in Phase 2)', async () => {
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+
+    const entryData = {
+      date: '2026-04-13',
+      contentText: 'original',
+      wordCount: 1,
+      mood: null,
+      moodLabel: null,
+      tags: [],
+      deleted: false,
+    }
+    fireSnapshot(entryData)
+    await waitFor(() => expect(result.current.entry).not.toBeNull())
+
+    // save() no longer accepts a second options argument — calling it with
+    // extra args is harmless (TypeScript strips unknown options at compile time)
+    await act(async () => {
+      await result.current.save({ contentText: 'updated', wordCount: 1 })
+    })
+
+    // Revision scheduling is now handled externally by scheduleRevision()
+    expect(mockSetDoc).toHaveBeenCalledOnce()
+  })
+
+  it('save() does not write revisionCallback-based revision when called (revisions now scheduled externally)', async () => {
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+    fireSnapshot(null) // no existing entry
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    // In Phase 2, save() only writes the entry — revisions are triggered
+    // by scheduleRevision() from useEntryRevisions, not by save().
+    await act(async () => {
+      await result.current.save({ contentText: 'brand new', wordCount: 2 })
+    })
+
+    expect(mockSetDoc).toHaveBeenCalledOnce()
   })
 })

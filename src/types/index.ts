@@ -3,6 +3,19 @@ export interface ScriptureRef {
   passageId: string
 }
 
+export interface EntryRevision {
+  id: string
+  savedAt: import('firebase/firestore').Timestamp
+  content: object
+  contentText: string
+  mood: number | null
+  moodLabel: string | null
+  tags: string[]
+  scriptureRefs?: ScriptureRef[]
+  wordCount: number
+  contentEncrypted?: boolean
+}
+
 export interface Entry {
   userId?: string
   date: string
@@ -18,6 +31,7 @@ export interface Entry {
   deletedAt: import('firebase/firestore').Timestamp | null
   createdAt: import('firebase/firestore').Timestamp
   updatedAt: import('firebase/firestore').Timestamp
+  contentEncrypted?: boolean
 }
 
 export interface User {
@@ -32,6 +46,10 @@ export interface User {
   scriptureTranslation: 'NLT' | 'MSG' | 'ESV' // default 'NLT'
   fcmTokens: string[]
   createdAt: import('firebase/firestore').Timestamp
+  encryptionEnabled?: boolean
+  encryptionSalt?: string
+  encryptionCanary?: string
+  encryptionRecoveryData?: string
 }
 
 export { MOODS } from '@/lib/moods'

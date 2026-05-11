@@ -76,7 +76,7 @@ export default function MiniCalendar({
   }
 
   return (
-    <div className="bg-surface-container-lowest rounded-[2rem] p-7">
+    <div data-testid="mini-calendar" className="bg-surface-container-lowest rounded-[2rem] p-7">
       {/* Month / year header */}
       <div className="mb-5 flex items-center justify-between">
         <button
@@ -129,6 +129,7 @@ export default function MiniCalendar({
           return (
             <button
               key={dateStr}
+              data-testid={`calendar-day-${dateStr}`}
               onClick={() => inMonth && onDateSelect(dateStr)}
               disabled={!inMonth}
               aria-label={format(day, 'MMMM d, yyyy')}

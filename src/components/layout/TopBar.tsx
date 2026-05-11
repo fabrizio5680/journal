@@ -1,21 +1,26 @@
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, type User } from 'firebase/auth'
-import { format, formatDistanceToNow } from 'date-fns'
+import { format, formatDistanceToNow, parseISO } from 'date-fns'
 import clsx from 'clsx'
 
 import { auth } from '@/lib/firebase'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useFocusMode } from '@/context/FocusModeContext'
 import { useSearch } from '@/context/SearchContext'
+import { useRevisionHistory } from '@/context/RevisionHistoryContext'
+import { useToday } from '@/hooks/useToday'
 import ProfileSheet from '@/components/ui/ProfileSheet'
+import { RevisionHistoryModal } from '@/components/history/RevisionHistoryModal'
 
 export default function TopBar() {
   const [user, setUser] = useState<User | null>(null)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const now = new Date()
+  const today = useToday()
+  const now = parseISO(today)
   const { isDirty, lastSaved } = useSaveStatus()
   const { isFocused } = useFocusMode()
   const { openSearch } = useSearch()
+  const { isOpen, currentDate, hasEntry, onRestore, open, close } = useRevisionHistory()
 
   useEffect(() => {
     return onAuthStateChanged(auth, setUser)
@@ -52,8 +57,18 @@ export default function TopBar() {
           </span>
         )}
 
-        {/* Right: search + avatar */}
+        {/* Right: history + search + avatar */}
         <div className="flex items-center gap-2">
+          {hasEntry && (
+            <button
+              aria-label="Version history"
+              onClick={open}
+              className="hover:bg-surface-container text-on-surface-variant flex h-8 w-8 items-center justify-center rounded-full transition-colors"
+            >
+              <span className="material-symbols-outlined text-[20px]">history</span>
+            </button>
+          )}
+
           <button
             aria-label="Search"
             onClick={openSearch}
@@ -86,6 +101,15 @@ export default function TopBar() {
 
       {user && (
         <ProfileSheet user={user} isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+      )}
+
+      {currentDate && onRestore && (
+        <RevisionHistoryModal
+          date={currentDate}
+          isOpen={isOpen}
+          onClose={close}
+          onRestore={onRestore}
+        />
       )}
     </>
   )

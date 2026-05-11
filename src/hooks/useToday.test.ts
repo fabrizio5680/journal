@@ -98,4 +98,63 @@ describe('useToday', () => {
     addSpy.mockRestore()
     removeSpy.mockRestore()
   })
+
+  describe('midnight timer', () => {
+    beforeEach(() => {
+      // Override outer beforeEach: fake both Date AND setTimeout/clearTimeout.
+      // Compute "1 minute before local midnight" dynamically so tests pass in any timezone.
+      vi.useFakeTimers()
+      const now = new Date()
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      vi.setSystemTime(new Date(midnight.getTime() - 60_000))
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('updates date when midnight setTimeout fires', async () => {
+      const { useToday } = await import('./useToday')
+      const { result } = renderHook(() => useToday())
+
+      const initialDate = result.current
+
+      await act(async () => {
+        vi.advanceTimersByTime(61_000) // 61 s — past midnight
+      })
+
+      expect(result.current).not.toBe(initialDate)
+    })
+
+    it('re-schedules after midnight so a second day rollover also fires', async () => {
+      const { useToday } = await import('./useToday')
+      const { result } = renderHook(() => useToday())
+
+      const day0 = result.current
+
+      // Cross first midnight
+      await act(async () => {
+        vi.advanceTimersByTime(61_000)
+      })
+      const day1 = result.current
+      expect(day1).not.toBe(day0)
+
+      // Cross second midnight (24 h later)
+      await act(async () => {
+        vi.advanceTimersByTime(24 * 60 * 60 * 1000)
+      })
+      expect(result.current).not.toBe(day1)
+    })
+
+    it('clears the midnight timer on unmount', async () => {
+      const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
+      const { useToday } = await import('./useToday')
+      const { unmount } = renderHook(() => useToday())
+
+      unmount()
+
+      expect(clearSpy).toHaveBeenCalled()
+      clearSpy.mockRestore()
+    })
+  })
 })

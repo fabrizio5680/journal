@@ -7,6 +7,9 @@ import { getToken } from 'firebase/messaging'
 import { auth, db, messagingPromise } from '@/lib/firebase'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
+import { useEncryption } from '@/context/EncryptionContext'
+import { EncryptionSetupModal } from '@/components/encryption/EncryptionSetupModal'
+import { EncryptionUnlockModal } from '@/components/encryption/EncryptionUnlockModal'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { isMobileDevice } from '@/lib/device'
 
@@ -79,6 +82,12 @@ export default function SettingsPage() {
     spellcheckEnabled,
     updateSpellcheck,
   } = useUserPreferences()
+  const { isEnabled, isUnlocked, lock, disable } = useEncryption()
+  const [showSetupModal, setShowSetupModal] = useState(false)
+  const [showUnlockModal, setShowUnlockModal] = useState(false)
+  const [disablePassphrase, setDisablePassphrase] = useState('')
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false)
+  const [disableError, setDisableError] = useState<string | null>(null)
 
   const [reminderEnabled, setReminderEnabled] = useState(false)
   const [reminderTime, setReminderTime] = useState('20:00')
@@ -200,6 +209,17 @@ export default function SettingsPage() {
   async function handleTimeChange(value: string) {
     setReminderTime(value)
     await updateUserDoc({ reminderTime: value })
+  }
+
+  async function handleDisableEncryption() {
+    setDisableError(null)
+    try {
+      await disable(disablePassphrase)
+      setShowDisableConfirm(false)
+      setDisablePassphrase('')
+    } catch {
+      setDisableError('Incorrect passphrase.')
+    }
   }
 
   async function handleGrainToggle(enabled: boolean) {
@@ -347,6 +367,104 @@ export default function SettingsPage() {
         </SettingsRow>
       </SettingsSection>
 
+      {/* Privacy & Encryption */}
+      <SettingsSection>
+        <p className="text-on-surface-variant/60 mb-4 text-xs font-medium tracking-wide">
+          Privacy &amp; Encryption
+        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-primary mt-0.5 text-[20px]">
+              {isEnabled ? 'lock' : 'lock_open'}
+            </span>
+            <div>
+              <p className="text-on-surface text-sm font-medium">End-to-end Encryption</p>
+              <p className="text-on-surface-variant/70 mt-0.5 text-xs">
+                {isEnabled
+                  ? isUnlocked
+                    ? 'Enabled — session is unlocked'
+                    : 'Enabled — session is locked'
+                  : 'Encrypt entry content so only you can read it'}
+              </p>
+            </div>
+          </div>
+          {!isEnabled && (
+            <button
+              onClick={() => setShowSetupModal(true)}
+              aria-label="Enable encryption"
+              className="bg-primary text-on-primary hover:bg-primary-dim shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+            >
+              Enable
+            </button>
+          )}
+          {isEnabled && isUnlocked && (
+            <button
+              onClick={lock}
+              className="bg-surface-container text-on-surface-variant hover:text-on-surface shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+            >
+              Lock session
+            </button>
+          )}
+          {isEnabled && !isUnlocked && (
+            <button
+              onClick={() => setShowUnlockModal(true)}
+              className="bg-primary text-on-primary hover:bg-primary-dim shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+            >
+              Unlock
+            </button>
+          )}
+        </div>
+
+        {isEnabled && isUnlocked && (
+          <div className="border-outline-variant/20 mt-4 border-t pt-4">
+            {!showDisableConfirm ? (
+              <button
+                onClick={() => setShowDisableConfirm(true)}
+                className="text-on-surface-variant/60 hover:text-error text-sm transition-colors"
+              >
+                Disable encryption…
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="text-on-surface-variant text-xs">
+                  Enter your passphrase to confirm disabling encryption.
+                </p>
+                {disableError && <p className="text-error text-xs">{disableError}</p>}
+                <input
+                  type="password"
+                  value={disablePassphrase}
+                  onChange={(e) => {
+                    setDisablePassphrase(e.target.value)
+                    setDisableError(null)
+                  }}
+                  className="bg-surface-container text-on-surface rounded-xl px-4 py-2 text-sm focus:outline-none"
+                  placeholder="Passphrase…"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setShowDisableConfirm(false)
+                      setDisablePassphrase('')
+                      setDisableError(null)
+                    }}
+                    className="text-on-surface-variant hover:text-on-surface rounded-xl px-3 py-1.5 text-xs transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => void handleDisableEncryption()}
+                    disabled={disablePassphrase.length === 0}
+                    className="text-error hover:text-error-dim rounded-xl px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
+                  >
+                    Confirm Disable
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </SettingsSection>
+
       {/* Sign out */}
       <SettingsSection>
         <button
@@ -357,6 +475,9 @@ export default function SettingsPage() {
           Sign Out
         </button>
       </SettingsSection>
+
+      {showSetupModal && <EncryptionSetupModal onClose={() => setShowSetupModal(false)} />}
+      {showUnlockModal && <EncryptionUnlockModal onClose={() => setShowUnlockModal(false)} />}
     </div>
   )
 }

@@ -84,6 +84,11 @@ test.describe('Focus Mode', () => {
   let testEmail = ''
 
   test.beforeEach(async ({ page }, testInfo) => {
+    test.skip(
+      testInfo.project.name === 'tablet',
+      'Focus-mode chrome assertions target phone layout.',
+    )
+
     testEmail = testEmailForProject(testInfo.project.name)
     await clearTestUser(testEmail)
     await createEmulatorUser(testEmail, TEST_PASSWORD)

@@ -83,6 +83,16 @@ vi.mock('@/context/UserPreferencesContext', () => ({
   useUserPreferences: () => mockPrefs,
 }))
 
+vi.mock('@/context/EncryptionContext', () => ({
+  useEncryption: () => ({
+    isEnabled: false,
+    isUnlocked: false,
+    isLoading: false,
+    lock: vi.fn(),
+    disable: vi.fn().mockResolvedValue(undefined),
+  }),
+}))
+
 // --- Router mock ---
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {

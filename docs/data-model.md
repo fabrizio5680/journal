@@ -15,6 +15,10 @@
   scriptureTranslation: 'NLT' | 'MSG' | 'ESV'  // default 'NLT'
   editorFontSize: 'small' | 'medium' | 'large'  // default 'medium'
   fcmTokens: string[]            // one entry per registered device
+  encryptionEnabled?: boolean    // opt-in client-side encryption
+  encryptionSalt?: string        // base64 16-byte random salt for PBKDF2 key derivation
+  encryptionCanary?: string      // AES-256-GCM encrypted canary value for passphrase verification
+  encryptionRecoveryData?: string // primary key encrypted with recovery-code-derived key
   createdAt: Timestamp
 }
 ```
@@ -30,12 +34,33 @@
   moodLabel: string | null
   tags: string[]
   wordCount: number
+  contentEncrypted?: boolean     // true when content/contentText are AES-256-GCM encrypted
   deleted: boolean
   deletedAt: Timestamp | null
   createdAt: Timestamp
   updatedAt: Timestamp
 }
 ```
+
+## `users/{userId}/entries/{YYYY-MM-DD}/revisions/{revisionId}`
+
+Snapshots of an entry saved automatically every 15 minutes while editing. Capped at 10 per entry — oldest documents are pruned on write.
+
+```ts
+{
+  savedAt: Timestamp
+  content: object                // Tiptap JSON
+  contentText: string            // plain text snapshot
+  mood: 1 | 2 | 3 | 4 | 5 | null
+  moodLabel: string | null
+  tags: string[]
+  scriptureRefs: ScriptureRef[]  // { reference, passageId }
+  wordCount: number
+  contentEncrypted?: boolean     // true when content/contentText are AES-256-GCM encrypted
+}
+```
+
+Security rules: read and write restricted to the authenticated owner of the parent entry.
 
 ## Mood Mapping
 

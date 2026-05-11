@@ -6,8 +6,12 @@ const FAKE_API_KEY = 'fake-api-key'
 const TEST_EMAIL_BASE = 'search-test'
 const TEST_PASSWORD = 'password123'
 
-function testEmailForProject(projectName: string) {
-  return `${TEST_EMAIL_BASE}+${projectName}@example.com`
+function testEmailForTest(projectName: string, testTitle: string) {
+  const slug = testTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  return `${TEST_EMAIL_BASE}+${projectName}-${slug}@example.com`
 }
 
 // Fake Algolia search client injected via window.__mockAlgoliaClient
@@ -157,7 +161,7 @@ test.describe.configure({ mode: 'serial' })
 
 test.describe('Search', () => {
   test.beforeEach(async ({ page }, testInfo) => {
-    const testEmail = testEmailForProject(testInfo.project.name)
+    const testEmail = testEmailForTest(testInfo.project.name, testInfo.title)
     await clearTestUser(testEmail)
     await createEmulatorUser(testEmail, TEST_PASSWORD)
 

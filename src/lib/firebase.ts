@@ -38,7 +38,9 @@ if (import.meta.env.VITE_USE_EMULATOR !== 'true') {
     dbInstance = getFirestore(app)
   }
 } else {
-  dbInstance = getFirestore(app)
+  dbInstance = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  })
 }
 
 export const db = dbInstance
@@ -53,12 +55,12 @@ if (import.meta.env.VITE_USE_EMULATOR === 'true') {
   const { connectAuthEmulator, signInWithEmailAndPassword } = await import('firebase/auth')
   const { connectFirestoreEmulator } = await import('firebase/firestore')
   try {
-    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
   } catch (e) {
     console.warn('[firebase] auth emulator connect failed:', e)
   }
   try {
-    connectFirestoreEmulator(db, 'localhost', 8080)
+    connectFirestoreEmulator(db, '127.0.0.1', 8080)
   } catch (e) {
     console.warn('[firebase] firestore emulator connect failed:', e)
   }

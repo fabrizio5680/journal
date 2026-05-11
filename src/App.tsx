@@ -8,6 +8,8 @@ import { FocusModeProvider } from '@/context/FocusModeContext'
 import { SearchProvider } from '@/context/SearchContext'
 import { UserPreferencesProvider } from '@/context/UserPreferencesContext'
 import { EditorControlsProvider } from '@/context/EditorControlsContext'
+import { RevisionHistoryProvider } from '@/context/RevisionHistoryContext'
+import { EncryptionProvider } from '@/context/EncryptionContext'
 import AppShell from '@/components/layout/AppShell'
 import UpdateBanner from '@/components/ui/UpdateBanner'
 
@@ -46,15 +48,19 @@ export default function App() {
             element={
               <RequireAuth>
                 <UserPreferencesProvider>
-                  <SearchProvider>
-                    <FocusModeProvider>
-                      <SaveStatusProvider>
-                        <EditorControlsProvider>
-                          <AppShell />
-                        </EditorControlsProvider>
-                      </SaveStatusProvider>
-                    </FocusModeProvider>
-                  </SearchProvider>
+                  <EncryptionProvider>
+                    <SearchProvider>
+                      <RevisionHistoryProvider>
+                        <FocusModeProvider>
+                          <SaveStatusProvider>
+                            <EditorControlsProvider>
+                              <AppShell />
+                            </EditorControlsProvider>
+                          </SaveStatusProvider>
+                        </FocusModeProvider>
+                      </RevisionHistoryProvider>
+                    </SearchProvider>
+                  </EncryptionProvider>
                 </UserPreferencesProvider>
               </RequireAuth>
             }

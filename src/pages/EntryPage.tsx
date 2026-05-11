@@ -4,15 +4,18 @@ import { format, parseISO } from 'date-fns'
 import type { Editor } from '@tiptap/core'
 
 import { useEntry } from '@/hooks/useEntry'
+import { useEntryRevisions } from '@/hooks/useEntryRevisions'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useTagVocabulary } from '@/hooks/useTagVocabulary'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
+import { useRevisionHistory } from '@/context/RevisionHistoryContext'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
 import MetadataBar from '@/components/editor/MetadataBar'
+import type { EntryRevision } from '@/types'
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
@@ -28,10 +31,12 @@ function EntryEditorView({ date }: { date: string }) {
   usePageTitle(format(parseISO(date), 'MMMM d, yyyy'))
   const navigate = useNavigate()
   const { entry, isLoading, markDirty, save } = useEntry(date)
+  const { saveRevision, scheduleRevision, cancelRevision } = useEntryRevisions(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
-  const { register, unregister } = useEditorControls()
+  const { register: registerEditor, unregister: unregisterEditor } = useEditorControls()
+  const { register: registerRevision, unregister: unregisterRevision } = useRevisionHistory()
   const { verse } = useDailyVerse(scriptureTranslation, parseISO(date))
   const placeholder = verse ? `${verse.text} — ${verse.reference}` : undefined
 
@@ -74,6 +79,15 @@ function EntryEditorView({ date }: { date: string }) {
       setTypingStarted(true)
       setLiveWordCount(editor.storage.characterCount.words())
 
+      if (entry !== null) {
+        scheduleRevision(editor.getText(), {
+          ...entry,
+          content: editor.getJSON(),
+          contentText: editor.getText(),
+          wordCount: editor.storage.characterCount.words(),
+        })
+      }
+
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
       saveTimeoutRef.current = setTimeout(async () => {
         await save({
@@ -85,7 +99,7 @@ function EntryEditorView({ date }: { date: string }) {
         setLastSaved(new Date())
       }, 1500)
     },
-    [markDirty, save, setDirty, setLastSaved],
+    [markDirty, save, scheduleRevision, entry, setDirty, setLastSaved],
   )
 
   const handleMoodChange = useCallback(
@@ -109,9 +123,40 @@ function EntryEditorView({ date }: { date: string }) {
     [save],
   )
 
+  const handleRestore = useCallback(
+    async (revision: EntryRevision) => {
+      if (!entry) return
+      cancelRevision()
+      // Snapshot current state as a safety backup before restoring
+      await saveRevision(entry)
+      await save({
+        content: revision.content,
+        contentText: revision.contentText,
+        mood: revision.mood as 1 | 2 | 3 | 4 | 5 | null,
+        moodLabel: revision.moodLabel,
+        tags: revision.tags,
+        scriptureRefs: revision.scriptureRefs,
+        wordCount: revision.wordCount,
+      })
+      setLastSaved(new Date())
+    },
+    [entry, save, saveRevision, cancelRevision, setLastSaved],
+  )
+
+  // Register with revision history context when entry is loaded
+  useEffect(() => {
+    if (entry) {
+      registerRevision(date, handleRestore)
+    } else {
+      unregisterRevision()
+    }
+  }, [entry, date, handleRestore, registerRevision, unregisterRevision])
+
+  useEffect(() => () => unregisterRevision(), [unregisterRevision])
+
   // Register editor controls with BottomNav and RightPanel via context
   useEffect(() => {
-    register({
+    registerEditor({
       dictation: {
         isSupported,
         state: dictationState,
@@ -142,7 +187,7 @@ function EntryEditorView({ date }: { date: string }) {
     errorMessage,
     interimTranscript,
     editorFontSize,
-    register,
+    registerEditor,
     start,
     stop,
     updateEditorFontSize,
@@ -156,7 +201,7 @@ function EntryEditorView({ date }: { date: string }) {
     handleScriptureRefsChange,
   ])
 
-  useEffect(() => () => unregister(), [unregister])
+  useEffect(() => () => unregisterEditor(), [unregisterEditor])
 
   useEffect(() => {
     return () => {

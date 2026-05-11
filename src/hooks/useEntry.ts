@@ -3,6 +3,7 @@ import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, db } from '@/lib/firebase'
+import { useEncryption, EncryptionLockedError } from '@/context/EncryptionContext'
 import type { Entry } from '@/types'
 
 function toDateTimestamp(date: string): number {
@@ -12,6 +13,7 @@ function toDateTimestamp(date: string): number {
 export interface UseEntryReturn {
   entry: Entry | null
   isLoading: boolean
+  isLocked: boolean
   isDirty: boolean
   markDirty: () => void
   save: (data: Partial<Entry>) => Promise<void>
@@ -23,6 +25,7 @@ export function useEntry(date: string): UseEntryReturn {
   const [uid, setUid] = useState<string | null | undefined>(undefined)
   const [entry, setEntry] = useState<Entry | null>(null)
   const [isDirty, setIsDirty] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
   // Track which "uid/date" key has been loaded so we can derive isLoading without
   // calling setState synchronously inside an effect body.
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
@@ -34,6 +37,12 @@ export function useEntry(date: string): UseEntryReturn {
   // clearing isDirty; the snapshot listener decrements and skips setEntry once
   // per echo so our own writes never cause a setContent / cursor reset.
   const expectingEchoRef = useRef(0)
+
+  const { decryptFields, encryptFields } = useEncryption()
+  const decryptFieldsRef = useRef(decryptFields)
+  useEffect(() => {
+    decryptFieldsRef.current = decryptFields
+  })
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -49,7 +58,7 @@ export function useEntry(date: string): UseEntryReturn {
 
     const unsub = onSnapshot(
       entryRef,
-      (snap) => {
+      async (snap) => {
         // Mark this key as loaded (in callback — not synchronous in effect body)
         setLoadedKey(currentKey)
         if (snap.exists()) {
@@ -68,7 +77,22 @@ export function useEntry(date: string): UseEntryReturn {
               expectingEchoRef.current -= 1
               return
             }
-            setEntry(data.deleted ? null : data)
+            if (data.deleted) {
+              setEntry(null)
+              return
+            }
+            try {
+              const { content, contentText } = await decryptFieldsRef.current(data)
+              setIsLocked(false)
+              setEntry({ ...data, content, contentText })
+            } catch (err) {
+              if (err instanceof EncryptionLockedError) {
+                setIsLocked(true)
+                setEntry(null)
+              } else {
+                setEntry(null)
+              }
+            }
           }
         } else {
           if (!isDirtyRef.current) setEntry(null)
@@ -100,6 +124,16 @@ export function useEntry(date: string): UseEntryReturn {
       const entryPatch: Partial<Entry> = { ...data }
       delete entryPatch.date
 
+      // Encrypt content fields if encryption is enabled
+      if (entryPatch.content !== undefined || entryPatch.contentText !== undefined) {
+        const contentToEncrypt = entryPatch.content ?? ({} as object)
+        const textToEncrypt = entryPatch.contentText ?? ''
+        const encrypted = await encryptFields(contentToEncrypt, textToEncrypt)
+        entryPatch.content = encrypted.content
+        entryPatch.contentText = encrypted.contentText
+        entryPatch.contentEncrypted = encrypted.contentEncrypted
+      }
+
       const entryRef = doc(db, 'users', uid, 'entries', date)
       const isNew = entry === null
 
@@ -126,12 +160,13 @@ export function useEntry(date: string): UseEntryReturn {
       setIsDirty(false)
       isDirtyRef.current = false
     },
-    [uid, date, entry],
+    [uid, date, entry, encryptFields],
   )
 
   return {
     entry,
     isLoading,
+    isLocked,
     isDirty,
     markDirty,
     save,

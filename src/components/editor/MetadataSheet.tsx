@@ -178,6 +178,8 @@ export default function MetadataSheet({
       <div
         ref={sheetRef}
         data-testid="metadata-sheet"
+        data-state={open ? 'open' : 'closed'}
+        aria-hidden={!open}
         className="bg-surface fixed right-0 bottom-0 left-0 z-50 max-h-[85vh] rounded-t-3xl"
         style={sheetStyle}
         onMouseMove={handleMouseMove}

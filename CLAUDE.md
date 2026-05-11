@@ -33,23 +33,27 @@ src/
     search/       SearchModal, SearchFilters, SearchResultCard
     mood/         MoodPicker
     tags/         TagInput
-    history/      EntryListCard, MoodSummaryBar
+    history/      EntryListCard, MoodSummaryBar, RevisionHistoryModal
     insights/     MoodSparkline, TopTags
     auth/         LoginPage
     scripture/    ScriptureRefInput, ScriptureChip
+    encryption/   EncryptionSetupModal, EncryptionUnlockModal
     ui/           Chip, GlassCard, DailyScripture, ProfileSheet
   context/        SaveStatusContext, FocusModeContext, SearchContext,
                   UserPreferencesContext, EditorControlsContext (DictationControls,
-                  MetadataControls — mood/tags/scriptureRefs state+handlers)
+                  MetadataControls — mood/tags/scriptureRefs state+handlers),
+                  RevisionHistoryContext, EncryptionContext
   hooks/          useEntry, useEntryDates, useStreak, useDictation,
-                  useSearch, useInsights, useScriptureRef, useToday
-  lib/            firebase, firestore, algolia, tiptap, scriptureParser, device
+                  useSearch, useInsights, useScriptureRef, useToday,
+                  useEntryRevisions
+  lib/            firebase, firestore, algolia, tiptap, scriptureParser, device,
+                  crypto, encryptionSession, encryptionErrors
   types/          index.ts
   pages/          TodayPage, EntryPage, HistoryPage, InsightsPage, SettingsPage
   styles/         globals.css
   test/           setup.ts, firebase-mocks.ts, render.tsx
 functions/src/    index.ts  (getSearchKey + sendDailyReminders)
-e2e/              auth, editor, history, search, focus-mode specs
+e2e/              auth, editor, history, search, focus-mode, revisions specs
 phases/           phase-1.md … phase-12.md
 docs/             architecture.md, data-model.md, design-system.md, testing.md
 ```
@@ -67,6 +71,30 @@ On mobile, `MetadataBar` renders as a collapsed summary strip (mood pill + scrip
 - **Tags are stored without `#` and displayed with it** — Firestore stores raw values (e.g. `work`, `faith`); every UI surface (chips, dropdowns, chart axes) renders them as `#work`, `#faith`. `normalizeTag` strips any leading `#` from user input before storing. When adding a new tag surface, always apply the `#` prefix at render time, never at storage time.
 - **TagInput dropdown opens upward** — avoids clipping when the Tags section sits near the bottom of the panel.
 
+## Revision History
+
+Entries support a revision/recovery system. `useEntryRevisions` owns the revision trigger: a 30-second idle debounce fires after the user stops typing. Pages call `scheduleRevision(contentText, entry)` from `handleUpdate` and `cancelRevision()` from `handleRestore`. A revision is only written if `contentText` differs from the most recent revision's `contentText` (or no revisions exist yet); identical content is skipped. `save()` in `useEntry` takes only `data: Partial<Entry>` — it has no `revisionCallback` and no interval gate. Revisions are capped at 10 per entry (oldest pruned on write).
+
+`RevisionHistoryContext` coordinates the modal across components that don't share a direct parent-child relationship: entry pages call `register(date, handleRestore)` on mount (and `unregister` on unmount), while `TopBar` calls `open()` when the history button is tapped. `TopBar` renders `RevisionHistoryModal` as a portal to `document.body`. The history button is only visible when `hasEntry` is true (i.e., a page has registered).
+
+`RevisionHistoryModal` shows a list of saved revisions with relative timestamps and word counts. Selecting a revision displays a plain-text preview; the Restore button calls the registered `onRestore` handler and closes the modal.
+
+## Client-Side Encryption
+
+Opt-in feature in Settings → Privacy & Encryption. When enabled, `content` (Tiptap JSON) and `contentText` are encrypted with AES-256-GCM before writing to Firestore. All other fields (mood, tags, scriptureRefs) remain plaintext so insights and tag search still work.
+
+**Key derivation**: passphrase → PBKDF2 (310,000 iterations, SHA-256) → AES-256-GCM key. A random 16-byte salt is stored per-user in `users/{uid}.encryptionSalt`. The derived key is cached in `sessionStorage` for the tab lifetime and never sent to the server.
+
+**Canary**: on enable, `"QUIET_DWELLING_CANARY"` is encrypted and stored in `users/{uid}.encryptionCanary`. On unlock, the canary is decrypted to verify the passphrase before granting access.
+
+**Recovery**: a 24-char alphanumeric recovery code is shown once at setup. A second key derived from the recovery code encrypts the primary key's raw bytes; the result is stored in `users/{uid}.encryptionRecoveryData`. If the passphrase is forgotten, entering the recovery code re-derives the primary key.
+
+**Search**: when encryption is enabled, `SearchModal` shows a banner and Algolia content search is unavailable. Metadata search (tags, date, mood) still works.
+
+**Migration**: existing plaintext entries are encrypted on next save (gradual). `contentEncrypted: boolean` on the Entry document distinguishes encrypted from plaintext entries.
+
+`EncryptionContext` exposes `encryptFields`/`decryptFields` consumed by `useEntry` and `useEntryRevisions`. `EncryptionLockedError` is defined in `src/lib/encryptionErrors.ts` (separate file required by `react-refresh/only-export-components` ESLint rule).
+
 ## Scripts
 
 ```
@@ -82,6 +110,10 @@ npm run test:coverage  vitest run --coverage
 npm run test:e2e       playwright test
 npm run precommit      format + lint + typecheck (manual run; also invoked by Husky)
 ```
+
+## Date Reactivity
+
+`useToday` returns today's date as `yyyy-MM-dd` and stays reactive via two mechanisms: a `setTimeout` scheduled to fire at the exact local midnight (self-rescheduling for subsequent nights), and a `visibilitychange` listener for the "device woke up after midnight" case. All components that display or depend on today's date must use `useToday` — never `new Date()` at render time. Components needing a `Date` object for display formatting should call `parseISO(today)` from date-fns.
 
 ## Dictation (Speech-to-Text)
 
@@ -126,9 +158,9 @@ VITE_FIREBASE_VAPID_KEY=
 
 ## Reference Docs
 
-| Doc                                            | Contents                                                                                                                                                                                                                                                                                      |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)   | Key architectural decisions — sync, auth, contexts, notifications, scripture                                                                                                                                                                                                                  |
-| [docs/data-model.md](docs/data-model.md)       | Firestore schema for `users` and `entries`, mood mapping; `Entry` stores `mood` (numeric weight 1–5) and `moodLabel` (string — the semantic identifier within a weight pair, two moods share each weight); `Entry` has optional `scriptureRefs?: ScriptureRef[]` (`{ reference, passageId }`) |
-| [docs/design-system.md](docs/design-system.md) | Color tokens and component patterns                                                                                                                                                                                                                                                           |
-| [docs/testing.md](docs/testing.md)             | E2E conventions — test emails, emulator seeding, serial mode                                                                                                                                                                                                                                  |
+| Doc                                            | Contents                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)   | Key architectural decisions — sync, auth, contexts, notifications, scripture                                                                                                                                                                                                                                                                                            |
+| [docs/data-model.md](docs/data-model.md)       | Firestore schema for `users` and `entries`, mood mapping; `Entry` stores `mood` (numeric weight 1–5) and `moodLabel` (string — the semantic identifier within a weight pair, two moods share each weight); `Entry` has optional `scriptureRefs?: ScriptureRef[]` (`{ reference, passageId }`); entries have a `revisions` subcollection (capped at 10, pruned on write) |
+| [docs/design-system.md](docs/design-system.md) | Color tokens and component patterns                                                                                                                                                                                                                                                                                                                                     |
+| [docs/testing.md](docs/testing.md)             | E2E conventions — test emails, emulator seeding, serial mode                                                                                                                                                                                                                                                                                                            |

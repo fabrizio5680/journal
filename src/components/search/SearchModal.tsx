@@ -8,6 +8,7 @@ import SearchFilters from './SearchFilters'
 
 import { getAlgoliaClient } from '@/lib/algolia'
 import { useSearch } from '@/context/SearchContext'
+import { useEncryption } from '@/context/EncryptionContext'
 
 function dateToTimestamp(dateStr: string): number {
   return Math.floor(new Date(`${dateStr}T00:00:00Z`).getTime() / 1000)
@@ -63,6 +64,7 @@ function Results({ query, onSelect }: ResultsProps) {
 
 export default function SearchModal() {
   const { isSearchOpen, closeSearch } = useSearch()
+  const { isEnabled: isEncryptionEnabled } = useEncryption()
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -182,6 +184,18 @@ export default function SearchModal() {
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
+
+        {/* Encryption banner */}
+        {isEncryptionEnabled && (
+          <div className="border-outline-variant/15 flex items-center gap-2 border-b px-6 py-2.5">
+            <span className="material-symbols-outlined text-on-surface-variant text-[16px]">
+              lock
+            </span>
+            <p className="text-on-surface-variant text-xs">
+              Content search unavailable — entries are encrypted. Searching by tags and date only.
+            </p>
+          </div>
+        )}
 
         {/* Algolia-powered filters + results */}
         {client && indexName && (
