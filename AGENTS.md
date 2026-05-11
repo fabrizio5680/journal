@@ -5,6 +5,19 @@
 Skip files over 100KB unless explicitly required.
 Suggest running /cost when a session is running long to monitor cache ratio.
 
+## Implementation Docs
+
+Use Context7 MCP to fetch current documentation whenever implementation work touches a library, framework, SDK, API, CLI tool, or cloud service. This includes API syntax, configuration, version migrations, library-specific debugging, setup instructions, and CLI usage for project dependencies such as React, Vite, TypeScript, Tailwind CSS, React Router, Firebase, Tiptap, Algolia, date-fns, Recharts, Vitest, and Playwright.
+
+When Context7 is needed:
+
+1. Start with `resolve-library-id` using the library name and the implementation question, unless an exact `/org/project` library ID is already provided.
+2. Pick the best match by exact name, description relevance, snippet coverage, source reputation, and benchmark score. Use version-specific IDs when the task mentions a version.
+3. Call `query-docs` with the selected library ID and the full implementation question.
+4. Base the implementation on the fetched docs, while still following the local project patterns first.
+
+Do not use Context7 for refactoring that does not depend on external APIs, writing one-off scripts from scratch, debugging app-specific business logic, code review, or general programming concepts.
+
 ## Identity
 
 - App name: "Quiet Dwelling" | Tagline: "A quiet place to reflect, pray, and journal."

@@ -10,6 +10,17 @@ export default [
   { ignores: ['dist/', '.firebase/', 'functions/lib/', 'coverage/', 'playwright-report/'] },
   js.configs.recommended,
   {
+    files: ['scripts/**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,
