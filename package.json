@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run && npm --prefix functions run test",
+    "test:run": "vitest run && npm --prefix functions run test",
     "test:coverage": "vitest run --coverage && npm --prefix functions run test",
     "test:e2e": "playwright test",
     "check:deploy": "npm run lint && npm run typecheck && npm run build && npm --prefix functions run build",

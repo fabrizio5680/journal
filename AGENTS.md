@@ -1,91 +1,134 @@
-# Quiet Dwelling
+# Quiet Dwelling — Project Bible
 
-## Working Guidelines
+## Approach
 
-- Treat `CLAUDE.md` as the project bible and keep this file aligned with it when project conventions change.
-- Skip files over 100 KB unless they are explicitly required for the task.
-- Protect existing user changes. Check `git status --short` before editing and do not revert unrelated work.
-- Do not edit `.env.local` or commit secrets. Algolia search keys are fetched at runtime via a Cloud Function and should not be added to env files.
+Skip files over 100KB unless explicitly required.
+Suggest running /cost when a session is running long to monitor cache ratio.
 
-## Project Identity
+## Identity
 
-- App name: Quiet Dwelling
-- Tagline: A quiet place to reflect, pray, and journal.
-- Domain: thequietdwelling.com
-- Firebase project: `journal-manna`
-- Hosting target: `journal-manna.web.app`
+- App name: "Quiet Dwelling" | Tagline: "A quiet place to reflect, pray, and journal."
+- Domain: `thequietdwelling.com` | Firebase project: `journal-manna` | Hosting: `journal-manna.web.app`
 
-## Stack
+## Tech Stack
 
-- React 19, Vite 8, TypeScript 6, React Router v7
-- Tailwind CSS v4 with CSS-first config. Tokens live in `src/styles/globals.css` inside `@theme {}`. There is no `tailwind.config.ts`.
-- ESLint 9 is intentionally pinned. Do not upgrade to ESLint 10 while `eslint-plugin-import` is incompatible.
-- Firebase 12 for Auth, Firestore, Hosting, and Cloud Functions on Node 22.
-- Tiptap v3 for rich text JSON serialization. Current editor extensions are StarterKit, Placeholder, CharacterCount, BubbleMenu, and Heading with H2 only.
-- Algolia uses `algoliasearch` v5 and `react-instantsearch` v7. Secured API keys come from a Cloud Function.
-- UI uses Material Symbols Outlined for icons and Manrope from Google Fonts.
+- React 19 + Vite 8 + TypeScript 6
+- ESLint 9 (pinned at v9 — `eslint-plugin-import` incompatible with ESLint v10)
+- Tailwind CSS v4 — CSS-first config, all tokens in `src/styles/globals.css` inside `@theme {}`, no `tailwind.config.ts`
+- React Router v7
+- Firebase 12 (Auth, Firestore, Hosting, Cloud Functions — Node 22)
+- Tiptap v3 — rich text, JSON serialization; extensions: StarterKit, Placeholder, CharacterCount, BubbleMenu, Heading (H2 only); BubbleMenu shows bold + italic only (no persistent toolbar)
+- Algolia — algoliasearch v5 + react-instantsearch v7, secured API keys via Cloud Function; `moodLabel` must be set as a `filterOnly` attribute in `attributesForFaceting` in the Algolia dashboard (mood filtering uses `moodLabel` facet, not the numeric `mood` field)
+- date-fns v4, Recharts v3, clsx v2
+- Icons: Material Symbols Outlined | Font: Manrope (both Google Fonts)
 
-## Repository Map
+## Project Structure
 
-- `src/components/editor/`: `EntryEditor`, `MetadataBar`
-- `src/components/layout/`: `AppShell`, `SideNav`, `RightPanel`, `TopBar`, `BottomNav`
-- `src/components/calendar/`: `MiniCalendar`
-- `src/components/search/`: `SearchModal`, `SearchFilters`, `SearchResultCard`
-- `src/components/mood/`: `MoodPicker`
-- `src/components/tags/`: `TagInput`
-- `src/components/history/`: `EntryListCard`, `MoodSummaryBar`
-- `src/components/insights/`: `MoodSparkline`, `TopTags`
-- `src/components/fab/`: `FloatingActionBar`
-- `src/components/auth/`: `LoginPage`
-- `src/components/scripture/`: `ScriptureRefInput`, `ScriptureChip`
-- `src/components/ui/`: shared UI including `Chip`, `GlassCard`, `DailyScripture`, `ProfileSheet`
-- `src/context/`: save status, focus mode, search, user preferences, and editor controls contexts
-- `src/hooks/`: entry, date, streak, dictation, search, insights, scripture, and today hooks
-- `src/lib/`: Firebase, Firestore, Algolia, Tiptap, scripture parser, and device helpers
-- `src/pages/`: `TodayPage`, `EntryPage`, `HistoryPage`, `InsightsPage`, `SettingsPage`
-- `src/test/`: Vitest setup, Firebase mocks, and render helpers
-- `functions/src/index.ts`: Cloud Functions including `getSearchKey` and `sendDailyReminders`
-- `e2e/`: Playwright specs for auth, editor, history, search, and focus mode
-- `docs/`: architecture, data model, design system, and testing notes
+```text
+src/
+  components/
+    editor/       EntryEditor, MetadataBar (hidden on md+; metadata surfaced in RightPanel), MetadataSheet
+    layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav
+    calendar/     MiniCalendar
+    search/       SearchModal, SearchFilters, SearchResultCard
+    mood/         MoodPicker
+    tags/         TagInput
+    history/      EntryListCard, MoodSummaryBar
+    insights/     MoodSparkline, TopTags
+    auth/         LoginPage
+    scripture/    ScriptureRefInput, ScriptureChip
+    ui/           Chip, GlassCard, DailyScripture, ProfileSheet
+  context/        SaveStatusContext, FocusModeContext, SearchContext,
+                  UserPreferencesContext, EditorControlsContext (DictationControls,
+                  MetadataControls — mood/tags/scriptureRefs state+handlers)
+  hooks/          useEntry, useEntryDates, useStreak, useDictation,
+                  useSearch, useInsights, useScriptureRef, useToday
+  lib/            firebase, firestore, algolia, tiptap, scriptureParser, device
+  types/          index.ts
+  pages/          TodayPage, EntryPage, HistoryPage, InsightsPage, SettingsPage
+  styles/         globals.css
+  test/           setup.ts, firebase-mocks.ts, render.tsx
+functions/src/    index.ts  (getSearchKey + sendDailyReminders)
+e2e/              auth, editor, history, search, focus-mode specs
+phases/           phase-1.md … phase-12.md
+docs/             architecture.md, data-model.md, design-system.md, testing.md
+```
 
-## Commands
+## Mobile Metadata UX
 
-- Install dependencies with `npm install` at the repo root. Cloud Functions dependencies are under `functions/`.
-- Start the app with `npm run dev`.
-- Start local emulator-backed dev with `npm run dev:local`.
-- Build with `npm run build`.
-- Lint with `npm run lint`; auto-fix with `npm run lint:fix`.
-- Format with `npm run format`; check formatting with `npm run format:check`.
-- Typecheck with `npm run typecheck`.
-- Run unit tests with `npm run test`.
-- Run coverage with `npm run test:coverage`.
-- Run Playwright E2E tests with `npm run test:e2e`.
-- Run deploy readiness checks with `npm run check:deploy`.
-- Run the full verification suite with `npm run verify:all`.
+On mobile, `MetadataBar` renders as a collapsed summary strip (mood pill + scripture count + tag count). Tapping any part opens `MetadataSheet`, a bottom sheet rendered via `ReactDOM.createPortal` to `document.body`, which contains the full editing UI for mood, scripture, and tags. `MetadataSheet` accepts an `initialSection` prop that deep-links directly to the Mood, Scripture, or Tags section on open. In focus mode (`isFocused`), `MetadataBar` slides off-screen with the same animated transition (`-translate-y-full opacity-0`) as `TopBar`.
 
-## Verification
+## RightPanel UX
 
-- For narrow frontend or hook changes, run the most relevant Vitest tests plus `npm run typecheck`.
-- For shared behavior, contexts, routing, Firebase integration, or search behavior, also run `npm run lint` and `npm run test`.
-- For user-facing flows that affect auth, editor, history, search, focus mode, or navigation, run the relevant Playwright tests from `e2e/`.
-- Before deployment-oriented changes, run `npm run check:deploy`.
-- The pre-commit hook runs `npx lint-staged` and full `npm run typecheck`; keep staged files formatted.
+`RightPanel` (desktop/tablet sidebar) contains Mood, Scripture, Tags, and Daily Scripture sections. Key behaviors:
 
-## Implementation Notes
+- **Mood section is always expanded** — always shows the full `MoodPicker`, which renders as a single horizontal scrollable row of pills. The internal `Section` component still accepts `collapsible`, `expanded`, and `onToggle` props (available for future use) but the Mood section no longer uses them.
+- **Scripture section label is pluralized dynamically** — renders "Scripture" when count is exactly 1, "Scriptures" otherwise.
+- **Tags are stored without `#` and displayed with it** — Firestore stores raw values (e.g. `work`, `faith`); every UI surface (chips, dropdowns, chart axes) renders them as `#work`, `#faith`. `normalizeTag` strips any leading `#` from user input before storing. When adding a new tag surface, always apply the `#` prefix at render time, never at storage time.
+- **TagInput dropdown opens upward** — avoids clipping when the Tags section sits near the bottom of the panel.
 
-- Tiptap content is serialized as JSON. Preserve the existing BubbleMenu behavior: bold and italic only, with no persistent toolbar.
-- `useDictation` uses the Web Speech API in continuous mode. Explicit stop should call `abort()` to discard in-flight audio.
-- Dictation exposes `interimTranscript: string | null` through `EditorControlsContext.DictationControls` to `BottomNav`, `FloatingActionBar`, and `RightPanel`.
-- Handled dictation errors include `not-allowed`, `service-not-allowed`, `network`, `audio-capture`, `language-not-supported`, and `aborted`.
-- Keep `vitest.config.ts` excluding `.claude/**` so worktree test files are not picked up.
-- `pref_editor_font_size` and `pref_spellcheck` are device-local preferences. Do not sync editor font size back to Firestore.
-- `UserPreferencesContext` seeds `pref_editor_font_size` from Firestore only when localStorage is absent, then writes updates only to localStorage.
-- Scripture cache keys use `scripture_<T>_<date>` with JSON `{ text, reference }`.
-- `Entry` stores `mood` as numeric weight 1-5 and `moodLabel` as the semantic identifier. Scripture references are optional `scriptureRefs?: ScriptureRef[]`.
+## Scripts
+
+```
+npm run dev            vite dev server
+npm run build          tsc && vite build
+npm run lint           eslint . --max-warnings 0
+npm run lint:fix       eslint . --fix
+npm run format         prettier --write .
+npm run format:check   prettier --check .
+npm run typecheck      tsc --noEmit
+npm run test           vitest run
+npm run test:coverage  vitest run --coverage
+npm run test:e2e       playwright test
+npm run precommit      format + lint + typecheck (manual run; also invoked by Husky)
+```
+
+## Dictation (Speech-to-Text)
+
+`useDictation` uses the Web Speech API (continuous mode). Key behaviors:
+
+- Returns `interimTranscript: string | null` — live preview of in-progress speech, flows via `EditorControlsContext.DictationControls` to `BottomNav`, `TabletSideBar`, and `RightPanel`.
+- Explicit stop calls `abort()` (not `stop()`) to discard in-flight audio.
+- Error codes handled: `not-allowed`, `service-not-allowed`, `network`, `audio-capture`, `language-not-supported` (silent en-US fallback), `aborted` (silent).
+- `vitest.config.ts` excludes `.claude/**` — prevents git worktree test files from being picked up by the test runner.
+
+## Pre-commit Hook
+
+- **Husky v9** — `.husky/pre-commit` runs on every `git commit`
+- Hook runs `npx lint-staged` (prettier + eslint on staged `.ts/.tsx/.css/.json/.md` files only) then `npm run typecheck` (full project)
+- `lint-staged` config lives in `package.json` under `"lint-staged"`
+
+## Environment Variables (.env.local)
+
+```
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=journal-manna
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_ALGOLIA_APP_ID=
+VITE_BIBLE_API_KEY=
+VITE_FIREBASE_VAPID_KEY=
+# Algolia search key is fetched at runtime via Cloud Function — never in env
+```
+
+## Device-local Storage
+
+| Key                      | Values                         | Description                                                                                                                                                                                                  |
+| ------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pref_editor_font_size`  | `small` \| `medium` \| `large` | Editor font size — device-local, never synced via Firestore. Seeded once from Firestore on first snapshot if absent; ignored and never written to after that.                                                |
+| `pref_spellcheck`        | `true` \| `false`              | Spellcheck enabled — device-local. Default `true`. Always `false` on mobile regardless of setting.                                                                                                           |
+| `scripture_<T>_<date>`   | JSON `{ text, reference }`     | Daily verse cache per translation and date.                                                                                                                                                                  |
+| `fcm_device_token_<uid>` | FCM registration token string  | Per-device FCM token stored on reminder enable; cleared on disable. Compared against `getToken()` on mount to detect token rotation; if rotated, old token is swapped out in Firestore `fcmTokens` silently. |
+
+`UserPreferencesContext` manages `pref_editor_font_size`: initializes state from localStorage on mount (before Firestore arrives), seeds from Firestore on first snapshot when absent, and writes only to localStorage via `updateEditorFontSize` — no Firestore `updateDoc` call for font size.
 
 ## Reference Docs
 
-- Read `docs/architecture.md` for sync, auth, contexts, notifications, and scripture architecture.
-- Read `docs/data-model.md` before changing Firestore schema, entry shape, mood mapping, or scripture reference data.
-- Read `docs/design-system.md` before changing colors, tokens, or component patterns.
-- Read `docs/testing.md` before changing E2E setup, test users, emulator seeding, or serial-mode tests.
+| Doc                                            | Contents                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)   | Key architectural decisions — sync, auth, contexts, notifications, scripture                                                                                                                                                                                                                  |
+| [docs/data-model.md](docs/data-model.md)       | Firestore schema for `users` and `entries`, mood mapping; `Entry` stores `mood` (numeric weight 1–5) and `moodLabel` (string — the semantic identifier within a weight pair, two moods share each weight); `Entry` has optional `scriptureRefs?: ScriptureRef[]` (`{ reference, passageId }`) |
+| [docs/design-system.md](docs/design-system.md) | Color tokens and component patterns                                                                                                                                                                                                                                                           |
+| [docs/testing.md](docs/testing.md)             | E2E conventions — test emails, emulator seeding, serial mode                                                                                                                                                                                                                                  |

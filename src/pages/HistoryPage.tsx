@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
-import { endOfMonth, format } from 'date-fns'
+import { endOfMonth, format, parseISO } from 'date-fns'
 
 import { auth, db } from '@/lib/firebase'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useEntryDates } from '@/hooks/useEntryDates'
+import { useToday } from '@/hooks/useToday'
 import MiniCalendar, { MiniCalendarSkeleton } from '@/components/calendar/MiniCalendar'
 import EntryListCard, { EntryListCardSkeleton } from '@/components/history/EntryListCard'
 import type { Entry } from '@/types'
@@ -14,7 +15,8 @@ import type { Entry } from '@/types'
 export default function HistoryPage() {
   usePageTitle('Past Chapters')
   const navigate = useNavigate()
-  const now = new Date()
+  const today = useToday()
+  const now = parseISO(today)
 
   const [uid, setUid] = useState<string | null>(null)
   const [entriesLoading, setEntriesLoading] = useState(true)
