@@ -64,6 +64,7 @@ function installCodeClient(response: {
     accounts: {
       oauth2: {
         initCodeClient,
+        initTokenClient: vi.fn(),
         hasGrantedAllScopes: vi.fn(),
         revoke: vi.fn(),
       },
