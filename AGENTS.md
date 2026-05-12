@@ -30,7 +30,7 @@ Do not use Context7 for refactoring that does not depend on external APIs, writi
 - Tailwind CSS v4 — CSS-first config, all tokens in `src/styles/globals.css` inside `@theme {}`, no `tailwind.config.ts`
 - React Router v7
 - Firebase 12 (Auth, Firestore, Hosting, Cloud Functions — Node 22)
-- User-owned journal storage architecture — `EntryRepository` + IndexedDB local cache now owns runtime journal bodies; Firestore is limited to auth, preferences, reminders, FCM tokens, provider connection metadata, and `lastEntryDate`
+- User-owned journal storage architecture — `EntryRepository` + IndexedDB local cache owns runtime journal bodies; Google Drive stores synced entry files; Firestore is limited to auth, preferences, reminders, FCM tokens, provider connection metadata, private OAuth refresh-token storage, and `lastEntryDate`
 - Tiptap v3 — rich text, JSON serialization; extensions: StarterKit, Placeholder, CharacterCount, BubbleMenu, Heading (H2 only); BubbleMenu shows bold + italic only (no persistent toolbar)
 - date-fns v4, Recharts v3, clsx v2
 - Icons: Material Symbols Outlined | Font: Manrope (both Google Fonts)
@@ -61,7 +61,7 @@ src/
   pages/          TodayPage, EntryPage, HistoryPage, InsightsPage, SettingsPage
   styles/         globals.css
   test/           setup.ts, firebase-mocks.ts, render.tsx
-functions/src/    index.ts  (sendDailyReminders)
+functions/src/    index.ts  (sendDailyReminders, Google Drive token broker)
 e2e/              auth, editor, history, search, focus-mode specs
 phases/           phase-1.md … phase-12.md
 docs/             architecture.md, data-model.md, design-system.md, testing.md
@@ -91,6 +91,7 @@ npm run format         prettier --write .
 npm run format:check   prettier --check .
 npm run typecheck      tsc --noEmit
 npm run test           vitest run
+npm run test:run       vitest run + functions tests
 npm run test:coverage  vitest run --coverage
 npm run test:e2e       playwright test
 npm run precommit      format + lint + typecheck (manual run; also invoked by Husky)
@@ -122,7 +123,19 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 VITE_BIBLE_API_KEY=
 VITE_FIREBASE_VAPID_KEY=
+VITE_GOOGLE_CLIENT_ID=
 ```
+
+## Cloud Functions Config
+
+Google Drive sync uses callable Functions in `europe-west2` as a token broker. Deploy/runtime config must provide:
+
+```
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+```
+
+`GOOGLE_CLIENT_ID` is a Functions string param with a `process.env` fallback. `GOOGLE_CLIENT_SECRET` is a Functions secret with a `process.env` fallback for tests/emulators. The browser also needs `VITE_GOOGLE_CLIENT_ID` for Google Identity Services authorization-code popup initialization.
 
 ## Journal Storage
 
@@ -132,15 +145,27 @@ Entry file contract lives in `src/lib/storage/types.ts`: `schemaVersion: 1`, `ap
 
 `SearchModal` is local-first and calls `EntryRepository.searchEntries()` over `searchText`; Algolia and `getSearchKey` are not part of runtime search. In emulator mode, `EntryRepository` exposes `window.__seedEntriesForTest(uid, entries)` for E2E seeding.
 
+## Google Drive Sync
+
+Google Drive continuity is account-level per Firebase user, not device-level. One Drive account/root folder is shared by all devices through public provider metadata on `users/{uid}`: `activeStorageProvider`, `storageAccountEmail`, `storageRootFolderId`, `storageConnectedAt`, and `storageTokenStatus`.
+
+Connection uses Google Identity Services authorization-code flow in the browser. `exchangeGoogleDriveCode` exchanges the code in Cloud Functions, stores the refresh token at `users/{uid}/private/googleDriveOAuth`, ensures the `Quiet Dwelling/entries` Drive folder, and writes only non-secret provider metadata to the public user doc. Firestore rules deny all client reads/writes under `users/{uid}/private/**`; only Admin SDK code should access the refresh token.
+
+The browser remains responsible for journal content. It requests short-lived Drive access tokens from `getGoogleDriveAccessToken`, then uploads/downloads entry JSON directly with Google Drive REST APIs. Cloud Functions broker OAuth tokens only; they must not store journal bodies.
+
+New devices hydrate the Drive connection from public metadata and request backend-minted access tokens, so no long-lived Drive token is stored in browser storage. `Disconnect Google Drive` in Settings is local/device-only: it clears local Drive connection/token cache and sets the device opt-out flag, but must not delete shared provider metadata or break other devices. Any future account-level revoke/change-account action must be explicit and guarded.
+
 ## Device-local Storage
 
-| Key                        | Values                         | Description                                                                                                                                                                                                  |
-| -------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pref_editor_font_size`    | `small` \| `medium` \| `large` | Editor font size — device-local, never synced via Firestore. Seeded once from Firestore on first snapshot if absent; ignored and never written to after that.                                                |
-| `pref_spellcheck`          | `true` \| `false`              | Spellcheck enabled — device-local. Default `true`. Always `false` on mobile regardless of setting.                                                                                                           |
-| `scripture_<T>_<date>`     | JSON `{ text, reference }`     | Daily verse cache per translation and date.                                                                                                                                                                  |
-| `fcm_device_token_<uid>`   | FCM registration token string  | Per-device FCM token stored on reminder enable; cleared on disable. Compared against `getToken()` on mount to detect token rotation; if rotated, old token is swapped out in Firestore `fcmTokens` silently. |
-| IndexedDB `quiet-dwelling` | `entries`, `metadata` stores   | Device-local journal entry cache and metadata index used for offline writing, history, calendar dots, streaks, insights, and search.                                                                         |
+| Key                               | Values                                                                 | Description                                                                                                                                                                                                  |
+| --------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pref_editor_font_size`           | `small` \| `medium` \| `large`                                         | Editor font size — device-local, never synced via Firestore. Seeded once from Firestore on first snapshot if absent; ignored and never written to after that.                                                |
+| `pref_spellcheck`                 | `true` \| `false`                                                      | Spellcheck enabled — device-local. Default `true`. Always `false` on mobile regardless of setting.                                                                                                           |
+| `scripture_<T>_<date>`            | JSON `{ text, reference }`                                             | Daily verse cache per translation and date.                                                                                                                                                                  |
+| `fcm_device_token_<uid>`          | FCM registration token string                                          | Per-device FCM token stored on reminder enable; cleared on disable. Compared against `getToken()` on mount to detect token rotation; if rotated, old token is swapped out in Firestore `fcmTokens` silently. |
+| `google_drive_connection_<uid>`   | JSON `{ accountEmail, rootFolderId, connectedAt, reconnectRequired? }` | Device-local cached Drive metadata hydrated from Firestore public provider metadata; no Drive access or refresh tokens are stored here.                                                                      |
+| `google_drive_disconnected_<uid>` | `true`                                                                 | Device-local opt-out set by Settings disconnect. Prevents that device from auto-hydrating the shared account-level Drive connection.                                                                         |
+| IndexedDB `quiet-dwelling`        | `entries`, `metadata` stores                                           | Device-local journal entry cache and metadata index used for offline writing, history, calendar dots, streaks, insights, and search.                                                                         |
 
 `UserPreferencesContext` manages `pref_editor_font_size`: initializes state from localStorage on mount (before Firestore arrives), seeds from Firestore on first snapshot when absent, and writes only to localStorage via `updateEditorFontSize` — no Firestore `updateDoc` call for font size.
 

@@ -23,11 +23,11 @@ type TestCodeClientConfig = {
   client_id: string
   scope: string
   ux_mode: string
-  include_granted_scopes: boolean
+  include_granted_scopes?: boolean
   prompt?: string
   login_hint?: string
   callback: (response: { code?: string; error?: string; error_description?: string }) => void
-  error_callback: (error: { message?: string; type: string }) => void
+  error_callback?: (error: { message?: string; type: string }) => void
 }
 
 const { mockHttpsCallable } = vi.hoisted(() => ({
