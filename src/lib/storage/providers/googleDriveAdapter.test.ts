@@ -266,13 +266,13 @@ describe('GoogleDriveAdapter', () => {
     await new GoogleDriveAdapter(USER_ID).saveConflictBackup(makeEntry(), '2026-04-13', 'rev-99')
 
     // Verify conflicts folder was looked up under root-folder
-    const folderSearchCall = fetchMock.mock.calls[0] as [string, unknown]
+    const folderSearchCall = fetchMock.mock.calls[0] as unknown as [string, unknown]
     const folderSearchUrl = folderSearchCall[0] as string
     expect(folderSearchUrl).toContain('conflicts')
     expect(folderSearchUrl).toContain('root-folder')
 
     // Verify upload happened
-    const uploadCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as [
+    const uploadCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as unknown as [
       string,
       { body?: string },
     ]
@@ -310,7 +310,7 @@ describe('GoogleDriveAdapter', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
 
     // Upload body should reference existing conflicts folder
-    const uploadCall = fetchMock.mock.calls[1] as [string, { body?: string }]
+    const uploadCall = fetchMock.mock.calls[1] as unknown as [string, { body?: string }]
     expect(uploadCall[1].body).toContain('existing-conflicts-folder')
   })
 })

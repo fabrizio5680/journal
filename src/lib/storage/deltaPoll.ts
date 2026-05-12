@@ -67,13 +67,13 @@ export async function pollDriveDeltas(userId: string): Promise<void> {
     let nextPageToken: string | undefined = pageToken ?? undefined
 
     while (nextPageToken) {
-      const params = new URLSearchParams({
+      const params: URLSearchParams = new URLSearchParams({
         pageToken: nextPageToken,
         restrictToMyDrive: 'true',
         fields:
           'nextPageToken,newStartPageToken,changes(fileId,file(id,name,parents,headRevisionId,modifiedTime,mimeType,trashed))',
       })
-      const data = await driveApiFetch<DriveChangesListResponse>(
+      const data: DriveChangesListResponse = await driveApiFetch<DriveChangesListResponse>(
         userId,
         `${DRIVE_API}/changes?${params}`,
       )

@@ -60,7 +60,7 @@ export const EntryRepository = {
       }
 
       // Schema version guard
-      if ((driveEntry as { schemaVersion?: number }).schemaVersion > 1) {
+      if (((driveEntry as { schemaVersion?: number }).schemaVersion ?? 0) > 1) {
         await localEntryCache.updateMetadata(userId, date, {
           syncStatus: 'reconnect',
           syncError: 'Entry uses a newer format. Please update the app.',
