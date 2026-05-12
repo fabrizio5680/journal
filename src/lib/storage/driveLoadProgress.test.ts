@@ -27,8 +27,8 @@ describe('driveLoadProgress', () => {
   })
 
   it('broadcasts updates to all active subscribers', () => {
-    const a = vi.fn<[DriveLoadProgress | null], void>()
-    const b = vi.fn<[DriveLoadProgress | null], void>()
+    const a = vi.fn<(progress: DriveLoadProgress | null) => void>()
+    const b = vi.fn<(progress: DriveLoadProgress | null) => void>()
     const unsubA = subscribeDriveLoadProgress(a)
     const unsubB = subscribeDriveLoadProgress(b)
     a.mockClear()
