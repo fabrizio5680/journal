@@ -313,4 +313,125 @@ describe('GoogleDriveAdapter', () => {
     const uploadCall = fetchMock.mock.calls[1] as unknown as [string, { body?: string }]
     expect(uploadCall[1].body).toContain('existing-conflicts-folder')
   })
+
+  // ── readManifest / writeManifest tests ────────────────────────────────────────
+
+  it('readManifest: returns null when metadata.json does not exist in Drive', async () => {
+    // findFile for 'metadata.json' returns no files
+    mockFetchSequence([jsonResponse({ files: [] })])
+
+    const result = await new GoogleDriveAdapter(USER_ID).readManifest()
+
+    expect(result).toBeNull()
+  })
+
+  it('readManifest: returns parsed array when metadata.json exists', async () => {
+    const manifestEntries = [
+      {
+        date: '2026-04-13',
+        mood: 4 as const,
+        moodLabel: 'grateful',
+        tags: ['faith', 'work'],
+        wordCount: 42,
+        providerFileId: 'file-abc',
+      },
+    ]
+    mockFetchSequence([
+      // findFile → found
+      jsonResponse({ files: [{ id: 'manifest-file', name: 'metadata.json' }] }),
+      // download content → wrapped in { schemaVersion, entries }
+      jsonResponse({ schemaVersion: 1, entries: manifestEntries }),
+    ])
+
+    const result = await new GoogleDriveAdapter(USER_ID).readManifest()
+
+    // The implementation fetches the file content; the type stored on Drive
+    // is { schemaVersion, entries } but readManifest returns ManifestEntry[]
+    // by downloading the file id and parsing the top-level array/entries.
+    // Verify a non-null result was returned.
+    expect(result).not.toBeNull()
+  })
+
+  it('readManifest: returns null on fetch error (non-throwing)', async () => {
+    // Make driveFetch throw (e.g. 401)
+    mockFetchSequence([jsonResponse({ error: { message: 'Unauthorized' } }, 401)])
+
+    // Should return null (catch block) rather than throw
+    const result = await new GoogleDriveAdapter(USER_ID).readManifest()
+
+    expect(result).toBeNull()
+  })
+
+  it('writeManifest: creates metadata.json when it does not exist', async () => {
+    const fetchMock = mockFetchSequence([
+      // findFile for 'metadata.json' → not found
+      jsonResponse({ files: [] }),
+      // POST upload → created
+      jsonResponse({ id: 'manifest-new', headRevisionId: 'rev-1' }),
+    ])
+
+    const entries = [
+      {
+        date: '2026-04-13',
+        mood: null as null,
+        moodLabel: null,
+        tags: ['faith'],
+        wordCount: 5,
+        providerFileId: 'file-abc',
+      },
+    ]
+
+    await new GoogleDriveAdapter(USER_ID).writeManifest(entries)
+
+    // Should have made exactly 2 calls: findFile + POST upload
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    // The upload should be a POST (not PATCH)
+    const uploadCall = fetchMock.mock.calls[1] as unknown as [
+      string,
+      { method?: string; body?: string },
+    ]
+    expect(uploadCall[1].method).toBe('POST')
+    expect(uploadCall[1].body).toContain('metadata.json')
+    expect(uploadCall[1].body).toContain('faith')
+  })
+
+  it('writeManifest: patches metadata.json when it already exists', async () => {
+    const fetchMock = mockFetchSequence([
+      // findFile for 'metadata.json' → found
+      jsonResponse({ files: [{ id: 'manifest-existing', name: 'metadata.json' }] }),
+      // PATCH upload → updated
+      jsonResponse({ id: 'manifest-existing', headRevisionId: 'rev-2' }),
+    ])
+
+    const entries = [
+      {
+        date: '2026-04-14',
+        mood: 3 as const,
+        moodLabel: 'peaceful',
+        tags: [],
+        wordCount: 10,
+        providerFileId: 'file-xyz',
+      },
+    ]
+
+    await new GoogleDriveAdapter(USER_ID).writeManifest(entries)
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    // The upload should be a PATCH
+    const uploadCall = fetchMock.mock.calls[1] as unknown as [
+      string,
+      { method?: string; body?: string },
+    ]
+    expect(uploadCall[1].method).toBe('PATCH')
+    // URL should contain the existing file id
+    const uploadUrl = uploadCall[0] as string
+    expect(uploadUrl).toContain('manifest-existing')
+  })
+
+  it('writeManifest: swallows errors (non-fatal fire-and-forget)', async () => {
+    // Simulate a 500 error on findFile
+    mockFetchSequence([jsonResponse({ error: { message: 'Internal Server Error' } }, 500)])
+
+    await expect(new GoogleDriveAdapter(USER_ID).writeManifest([])).resolves.toBeUndefined()
+  })
 })

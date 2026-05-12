@@ -7,6 +7,7 @@ import {
   isGoogleDriveLocallyDisconnected,
 } from './providers/googleDriveAuth'
 import { GOOGLE_DRIVE_PROVIDER, GoogleDriveError } from './providers/googleDriveTypes'
+import type { ManifestEntry } from './types'
 
 type Listener = (userId: string) => void
 
@@ -17,6 +18,27 @@ const listeners = new Set<Listener>()
 
 function retryKey(userId: string, date: string) {
   return `${userId}:${date}`
+}
+
+function pushManifest(userId: string, adapter: GoogleDriveAdapter): void {
+  void (async () => {
+    try {
+      const allMeta = await localEntryCache.listMetadata(userId)
+      const manifestEntries: ManifestEntry[] = allMeta
+        .filter((m) => m.providerFileId)
+        .map((m) => ({
+          date: m.date,
+          mood: m.mood,
+          moodLabel: m.moodLabel,
+          tags: m.tags,
+          wordCount: m.wordCount,
+          providerFileId: m.providerFileId!,
+        }))
+      await adapter.writeManifest(manifestEntries)
+    } catch {
+      // non-fatal
+    }
+  })()
 }
 
 function notify(userId: string) {
@@ -68,6 +90,7 @@ async function syncOne(userId: string, date: string, isRetry = false): Promise<v
       remoteRevisionId: null,
       remoteUpdatedAt: null,
     })
+    pushManifest(userId, adapter)
   } catch (error) {
     if (!(error instanceof GoogleDriveError) || error.code !== 'conflict') {
       throw error
@@ -87,6 +110,7 @@ async function syncOne(userId: string, date: string, isRetry = false): Promise<v
         syncStatus: 'synced',
         syncError: undefined,
       })
+      pushManifest(userId, adapter)
       return
     }
 
@@ -131,6 +155,7 @@ async function syncOne(userId: string, date: string, isRetry = false): Promise<v
         remoteRevisionId: null,
         remoteUpdatedAt: null,
       })
+      pushManifest(userId, adapter)
     } catch (pushError) {
       if (pushError instanceof GoogleDriveError && pushError.code === 'conflict' && !isRetry) {
         // Single retry: re-run the whole merge flow once

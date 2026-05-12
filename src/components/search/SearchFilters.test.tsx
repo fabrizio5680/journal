@@ -12,6 +12,9 @@ const defaultProps = {
   onDateChange: vi.fn(),
   selectedMoods: [] as string[],
   onToggleMood: vi.fn(),
+  availableTags: [] as string[],
+  selectedTags: [] as string[],
+  onToggleTag: vi.fn(),
 }
 
 describe('SearchFilters — MoodFilter', () => {
@@ -131,5 +134,80 @@ describe('SearchFilters — MoodFilter', () => {
     // 'Anxious' is not selected
     const anxious = screen.getByRole('button', { name: 'Anxious' })
     expect(anxious.className).not.toContain('bg-primary')
+  })
+})
+
+describe('SearchFilters — TagFilter', () => {
+  it('renders no tag chips when availableTags is empty', () => {
+    render(<SearchFilters {...defaultProps} availableTags={[]} />)
+    // TagFilter returns null when no tags — no tag buttons should exist
+    expect(screen.queryByRole('button', { name: /filter by #/i })).toBeNull()
+  })
+
+  it('renders tag chips with # prefix for each available tag', () => {
+    render(<SearchFilters {...defaultProps} availableTags={['faith', 'morning', 'work']} />)
+
+    expect(screen.getByRole('button', { name: 'Filter by #faith' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Filter by #morning' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Filter by #work' })).toBeTruthy()
+  })
+
+  it('selected tags render with active (bg-primary) styling', () => {
+    render(
+      <SearchFilters
+        {...defaultProps}
+        availableTags={['faith', 'morning']}
+        selectedTags={['faith']}
+      />,
+    )
+
+    const faithBtn = screen.getByRole('button', { name: 'Filter by #faith' })
+    const morningBtn = screen.getByRole('button', { name: 'Filter by #morning' })
+
+    expect(faithBtn.className).toContain('bg-primary')
+    expect(morningBtn.className).not.toContain('bg-primary')
+  })
+
+  it('unselected tags do not have active styling', () => {
+    render(<SearchFilters {...defaultProps} availableTags={['faith', 'work']} selectedTags={[]} />)
+
+    const faithBtn = screen.getByRole('button', { name: 'Filter by #faith' })
+    expect(faithBtn.className).not.toContain('bg-primary')
+  })
+
+  it('clicking a tag chip calls onToggleTag with the raw tag (no # prefix)', async () => {
+    const onToggleTag = vi.fn()
+    render(
+      <SearchFilters
+        {...defaultProps}
+        availableTags={['faith', 'morning']}
+        onToggleTag={onToggleTag}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Filter by #faith' }))
+
+    expect(onToggleTag).toHaveBeenCalledOnce()
+    expect(onToggleTag).toHaveBeenCalledWith('faith')
+    // Verify no '#' prefix is passed to the handler
+    expect(onToggleTag.mock.calls[0][0]).toBe('faith')
+  })
+
+  it('multiple tags can be selected independently', () => {
+    render(
+      <SearchFilters
+        {...defaultProps}
+        availableTags={['faith', 'morning', 'work']}
+        selectedTags={['faith', 'work']}
+      />,
+    )
+
+    const faithBtn = screen.getByRole('button', { name: 'Filter by #faith' })
+    const morningBtn = screen.getByRole('button', { name: 'Filter by #morning' })
+    const workBtn = screen.getByRole('button', { name: 'Filter by #work' })
+
+    expect(faithBtn.className).toContain('bg-primary')
+    expect(morningBtn.className).not.toContain('bg-primary')
+    expect(workBtn.className).toContain('bg-primary')
   })
 })

@@ -6,6 +6,7 @@ import SearchResultCard, { type SearchHit } from './SearchResultCard'
 import SearchFilters from './SearchFilters'
 
 import { useSearch } from '@/context/SearchContext'
+import { useSaveStatus } from '@/context/SaveStatusContext'
 import { auth } from '@/lib/firebase'
 import { EntryRepository } from '@/lib/storage/entryRepository'
 
@@ -48,6 +49,7 @@ function Results({ query, hits, isSearching, onSelect }: ResultsProps) {
 
 export default function SearchModal() {
   const { isSearchOpen, closeSearch } = useSearch()
+  const { syncStatus } = useSaveStatus()
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -56,6 +58,8 @@ export default function SearchModal() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [selectedMoods, setSelectedMoods] = useState<string[]>([])
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [availableTags, setAvailableTags] = useState<string[]>([])
   const [hits, setHits] = useState<SearchHit[]>([])
   const [isSearching, setIsSearching] = useState(false)
 
@@ -70,6 +74,7 @@ export default function SearchModal() {
         setDateFrom('')
         setDateTo('')
         setSelectedMoods([])
+        setSelectedTags([])
         setHits([])
       }, 0)
       return () => clearTimeout(t)
@@ -81,12 +86,32 @@ export default function SearchModal() {
 
   useEffect(() => {
     if (!isSearchOpen || !uid) return
+    void EntryRepository.listMetadata(uid).then((metadata) => {
+      const freq = new Map<string, number>()
+      for (const item of metadata) {
+        for (const tag of item.tags) {
+          freq.set(tag, (freq.get(tag) ?? 0) + 1)
+        }
+      }
+      const sorted = [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([tag]) => tag)
+      setAvailableTags(sorted)
+    })
+  }, [isSearchOpen, uid])
+
+  useEffect(() => {
+    if (!isSearchOpen || !uid) return
 
     const activeUid = uid
     let cancelled = false
 
     async function runSearch() {
-      if (!query.trim() && !dateFrom && !dateTo && selectedMoods.length === 0) {
+      if (
+        !query.trim() &&
+        !dateFrom &&
+        !dateTo &&
+        selectedMoods.length === 0 &&
+        selectedTags.length === 0
+      ) {
         setHits([])
         return
       }
@@ -97,6 +122,7 @@ export default function SearchModal() {
           dateFrom,
           dateTo,
           moodLabels: selectedMoods,
+          tags: selectedTags,
         })
         if (!cancelled) setHits(results)
       } catch {
@@ -113,7 +139,7 @@ export default function SearchModal() {
       cancelled = true
       unsubscribe()
     }
-  }, [isSearchOpen, uid, query, dateFrom, dateTo, selectedMoods])
+  }, [isSearchOpen, uid, query, dateFrom, dateTo, selectedMoods, selectedTags])
 
   useEffect(() => {
     if (!isSearchOpen) return
@@ -141,6 +167,10 @@ export default function SearchModal() {
     setSelectedMoods((prev) =>
       prev.includes(label) ? prev.filter((mood) => mood !== label) : [...prev, label],
     )
+  }, [])
+
+  const handleToggleTag = useCallback((tag: string) => {
+    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
   }, [])
 
   if (!isSearchOpen) return null
@@ -183,10 +213,36 @@ export default function SearchModal() {
           onDateChange={handleDateChange}
           selectedMoods={selectedMoods}
           onToggleMood={handleToggleMood}
+          availableTags={availableTags}
+          selectedTags={selectedTags}
+          onToggleTag={handleToggleTag}
         />
 
         <div className="max-h-[70vh] overflow-y-auto">
-          <Results query={query} hits={hits} isSearching={isSearching} onSelect={handleSelect} />
+          {availableTags.length === 0 &&
+          hits.length === 0 &&
+          !query.trim() &&
+          syncStatus === 'saved-local' ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <span className="material-symbols-outlined text-on-surface-variant/20 text-[48px]">
+                cloud_off
+              </span>
+              <p className="text-on-surface-variant text-sm">
+                Connect Google Drive to search your full journal history.
+              </p>
+              <button
+                onClick={() => {
+                  navigate('/settings')
+                  closeSearch()
+                }}
+                className="bg-primary text-on-primary rounded-xl px-4 py-2 text-sm font-medium"
+              >
+                Go to Settings
+              </button>
+            </div>
+          ) : (
+            <Results query={query} hits={hits} isSearching={isSearching} onSelect={handleSelect} />
+          )}
         </div>
       </div>
     </div>

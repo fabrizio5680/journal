@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 import MoodPicker from './MoodPicker'
 
@@ -138,5 +139,116 @@ describe('MoodPicker', () => {
     buttons.forEach((btn) => {
       expect(btn).toHaveClass('shrink-0')
     })
+  })
+})
+
+// ── Dropdown variant ──────────────────────────────────────────────────────────
+
+describe('MoodPicker — variant="dropdown"', () => {
+  it('does NOT render 10 pill buttons when variant is dropdown', () => {
+    render(<MoodPicker value={null} label={null} onChange={vi.fn()} variant="dropdown" />)
+    // Only the trigger button should be visible (listbox is closed)
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+  })
+
+  it('renders a trigger button (not pill list)', () => {
+    render(<MoodPicker value={null} label={null} onChange={vi.fn()} variant="dropdown" />)
+    expect(screen.getByRole('button')).toBeInTheDocument()
+  })
+
+  it('shows placeholder "How are you feeling?" when no mood selected', () => {
+    render(<MoodPicker value={null} label={null} onChange={vi.fn()} variant="dropdown" />)
+    expect(screen.getByText('How are you feeling?')).toBeInTheDocument()
+  })
+
+  it('shows emoji+label when mood is selected — "😌 Peaceful"', () => {
+    render(<MoodPicker value={4} label="Peaceful" onChange={vi.fn()} variant="dropdown" />)
+    expect(screen.getByText('😌 Peaceful')).toBeInTheDocument()
+    expect(screen.queryByText('How are you feeling?')).not.toBeInTheDocument()
+  })
+
+  it('clicking trigger opens the listbox', async () => {
+    render(<MoodPicker value={null} label={null} onChange={vi.fn()} variant="dropdown" />)
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button'))
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+  })
+
+  it('"— No mood" option is present in open list', async () => {
+    render(<MoodPicker value={null} label={null} onChange={vi.fn()} variant="dropdown" />)
+    await userEvent.click(screen.getByRole('button'))
+    expect(screen.getByText('— No mood')).toBeInTheDocument()
+  })
+
+  it('clicking "— No mood" calls onChange(null, null)', async () => {
+    const onChange = vi.fn()
+    render(<MoodPicker value={3} label="Hopeful" onChange={onChange} variant="dropdown" />)
+    await userEvent.click(screen.getByRole('button'))
+    await userEvent.click(screen.getByText('— No mood'))
+    expect(onChange).toHaveBeenCalledWith(null, null)
+  })
+
+  it('clicking a mood option calls onChange with correct value and label', async () => {
+    const onChange = vi.fn()
+    render(<MoodPicker value={null} label={null} onChange={onChange} variant="dropdown" />)
+    await userEvent.click(screen.getByRole('button'))
+    // Find the option in the open listbox
+    const options = screen.getAllByRole('option')
+    const hopefulOption = options.find((o) => o.textContent === '🌱 Hopeful')
+    expect(hopefulOption).toBeDefined()
+    await userEvent.click(hopefulOption!)
+    expect(onChange).toHaveBeenCalledWith(3, 'Hopeful')
+  })
+
+  it('pressing Escape closes the listbox', async () => {
+    render(<MoodPicker value={null} label={null} onChange={vi.fn()} variant="dropdown" />)
+    await userEvent.click(screen.getByRole('button'))
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('clicking outside closes the listbox', async () => {
+    render(
+      <div>
+        <MoodPicker value={null} label={null} onChange={vi.fn()} variant="dropdown" />
+        <div data-testid="outside">outside</div>
+      </div>,
+    )
+    await userEvent.click(screen.getByRole('button'))
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    fireEvent.mouseDown(screen.getByTestId('outside'))
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('trigger has aria-haspopup="listbox"', () => {
+    render(<MoodPicker value={null} label={null} onChange={vi.fn()} variant="dropdown" />)
+    expect(screen.getByRole('button')).toHaveAttribute('aria-haspopup', 'listbox')
+  })
+
+  it('selected option has aria-selected="true" in open list', async () => {
+    render(<MoodPicker value={4} label="Peaceful" onChange={vi.fn()} variant="dropdown" />)
+    await userEvent.click(screen.getByRole('button'))
+    const selectedOption = screen
+      .getAllByRole('option')
+      .find((o) => o.textContent === '😌 Peaceful')
+    expect(selectedOption).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('all 10 moods are present in the open listbox', async () => {
+    render(<MoodPicker value={null} label={null} onChange={vi.fn()} variant="dropdown" />)
+    await userEvent.click(screen.getByRole('button'))
+    // 10 mood options + 1 "None" option = 11 total listbox items
+    const options = screen.getAllByRole('option')
+    expect(options).toHaveLength(11)
+  })
+
+  it('listbox closes after selecting a mood', async () => {
+    render(<MoodPicker value={null} label={null} onChange={vi.fn()} variant="dropdown" />)
+    await userEvent.click(screen.getByRole('button'))
+    const options = screen.getAllByRole('option')
+    const hopefulOption = options.find((o) => o.textContent === '🌱 Hopeful')
+    await userEvent.click(hopefulOption!)
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 })

@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import MoodSparkline from '@/components/insights/MoodSparkline'
 import TopTags from '@/components/insights/TopTags'
+import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useInsights } from '@/hooks/useInsights'
 import { useStreak } from '@/hooks/useStreak'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -54,6 +56,8 @@ export default function InsightsPage() {
   usePageTitle('Your Journey')
   const { moodByDate, topTags, totalEntries, totalWords, isLoading } = useInsights()
   const { current, longest } = useStreak()
+  const { syncStatus } = useSaveStatus()
+  const navigate = useNavigate()
   const [moodDays, setMoodDays] = useState<30 | 90>(30)
 
   if (isLoading) return <InsightsPageSkeleton />
@@ -78,16 +82,39 @@ export default function InsightsPage() {
 
       {totalEntries < MIN_ENTRIES_FOR_INSIGHTS ? (
         <div className="flex flex-col items-center gap-4 py-24 text-center">
-          <span className="material-symbols-outlined text-on-surface-variant/20 text-[56px]">
-            bar_chart
-          </span>
-          <p className="font-display text-on-surface-variant text-2xl font-light italic">
-            Write a few more to see patterns.
-          </p>
-          <p className="text-on-surface-variant/60 max-w-xs text-sm leading-relaxed">
-            Your mood trends and tag insights appear once you have at least{' '}
-            {MIN_ENTRIES_FOR_INSIGHTS} entries.
-          </p>
+          {totalEntries === 0 && syncStatus === 'saved-local' ? (
+            <>
+              <span className="material-symbols-outlined text-on-surface-variant/20 text-[56px]">
+                cloud_off
+              </span>
+              <p className="font-display text-on-surface-variant text-2xl font-light italic">
+                Connect Google Drive to see your history across devices.
+              </p>
+              <p className="text-on-surface-variant/60 max-w-xs text-sm leading-relaxed">
+                Your insights, calendar dots, and streaks will appear once your Drive entries are
+                synced.
+              </p>
+              <button
+                onClick={() => navigate('/settings')}
+                className="bg-primary text-on-primary mt-2 rounded-xl px-5 py-2.5 text-sm font-medium"
+              >
+                Go to Settings
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="material-symbols-outlined text-on-surface-variant/20 text-[56px]">
+                bar_chart
+              </span>
+              <p className="font-display text-on-surface-variant text-2xl font-light italic">
+                Write a few more to see patterns.
+              </p>
+              <p className="text-on-surface-variant/60 max-w-xs text-sm leading-relaxed">
+                Your mood trends and tag insights appear once you have at least{' '}
+                {MIN_ENTRIES_FOR_INSIGHTS} entries.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <>

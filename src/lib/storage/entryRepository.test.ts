@@ -6,6 +6,7 @@ const {
   mockCacheGetEntry,
   mockCacheSaveEntry,
   mockCacheListMetadata,
+  mockCacheListEntries,
   mockCacheUpdateMetadata,
   mockAdapterGetEntry,
   mockAdapterListEntryMetadata,
@@ -19,6 +20,7 @@ const {
   mockCacheGetEntry: vi.fn(),
   mockCacheSaveEntry: vi.fn(),
   mockCacheListMetadata: vi.fn(),
+  mockCacheListEntries: vi.fn(),
   mockCacheUpdateMetadata: vi.fn(),
   mockAdapterGetEntry: vi.fn(),
   mockAdapterListEntryMetadata: vi.fn(),
@@ -35,6 +37,7 @@ vi.mock('./localEntryCache', () => ({
     getEntry: (...args: unknown[]) => mockCacheGetEntry(...args),
     saveEntry: (...args: unknown[]) => mockCacheSaveEntry(...args),
     listMetadata: (...args: unknown[]) => mockCacheListMetadata(...args),
+    listEntries: (...args: unknown[]) => mockCacheListEntries(...args),
     updateMetadata: (...args: unknown[]) => mockCacheUpdateMetadata(...args),
   },
 }))
@@ -100,6 +103,7 @@ describe('EntryRepository', () => {
     mockCacheSaveEntry.mockResolvedValue(makeMetadata())
     mockCacheGetEntry.mockResolvedValue(null)
     mockCacheListMetadata.mockResolvedValue([])
+    mockCacheListEntries.mockResolvedValue([])
     mockCacheUpdateMetadata.mockResolvedValue(null)
     mockSyncCoordinatorIsConnected.mockReturnValue(false)
   })
@@ -146,6 +150,92 @@ describe('EntryRepository', () => {
         expect.any(Object),
         'sync-pending',
       )
+    })
+  })
+
+  describe('searchEntries', () => {
+    function makeEntryRecord(
+      date: string,
+      searchText: string,
+      tags: string[],
+      moodLabel: string | null = null,
+    ) {
+      return {
+        date,
+        content: {},
+        contentText: searchText,
+        searchText,
+        mood: null,
+        moodLabel,
+        tags,
+        wordCount: searchText.split(' ').length,
+        deleted: false,
+        deletedAt: null,
+        scriptureRefs: [],
+        createdAt: `${date}T00:00:00.000Z`,
+        updatedAt: `${date}T00:00:00.000Z`,
+      }
+    }
+
+    it('returns all matching entries when filters.tags is empty', async () => {
+      mockCacheListEntries.mockResolvedValue([
+        makeEntryRecord('2026-05-01', 'faith morning', ['faith', 'morning']),
+        makeEntryRecord('2026-05-02', 'work day', ['work']),
+      ])
+
+      const { EntryRepository } = await import('./entryRepository')
+      const results = await EntryRepository.searchEntries('uid', '', { tags: [] })
+
+      expect(results).toHaveLength(2)
+    })
+
+    it('returns only entries containing ALL selected tags when filters.tags is set', async () => {
+      mockCacheListEntries.mockResolvedValue([
+        // both 'faith' and 'morning' → should match
+        makeEntryRecord('2026-05-01', 'faith morning entry', ['faith', 'morning']),
+        // only 'faith' → should NOT match when filtering by ['faith','morning']
+        makeEntryRecord('2026-05-02', 'faith only entry', ['faith']),
+        // completely different tag → should NOT match
+        makeEntryRecord('2026-05-03', 'work entry', ['work']),
+      ])
+
+      const { EntryRepository } = await import('./entryRepository')
+      const results = await EntryRepository.searchEntries('uid', '', {
+        tags: ['faith', 'morning'],
+      })
+
+      expect(results).toHaveLength(1)
+      expect(results[0].date).toBe('2026-05-01')
+    })
+
+    it('filters by single tag returning all entries that include it', async () => {
+      mockCacheListEntries.mockResolvedValue([
+        makeEntryRecord('2026-05-04', 'faith morning', ['faith', 'morning']),
+        makeEntryRecord('2026-05-05', 'faith only', ['faith']),
+        makeEntryRecord('2026-05-06', 'work entry', ['work']),
+      ])
+
+      const { EntryRepository } = await import('./entryRepository')
+      const results = await EntryRepository.searchEntries('uid', '', { tags: ['faith'] })
+
+      expect(results).toHaveLength(2)
+      const dates = results.map((r) => r.date)
+      expect(dates).toContain('2026-05-04')
+      expect(dates).toContain('2026-05-05')
+    })
+
+    it('combines text query with tag filter', async () => {
+      mockCacheListEntries.mockResolvedValue([
+        makeEntryRecord('2026-05-07', 'grace abounds in faith', ['faith']),
+        makeEntryRecord('2026-05-08', 'peace and joy', ['faith']),
+      ])
+
+      const { EntryRepository } = await import('./entryRepository')
+      // Both have 'faith' tag, but only first has 'grace' text
+      const results = await EntryRepository.searchEntries('uid', 'grace', { tags: ['faith'] })
+
+      expect(results).toHaveLength(1)
+      expect(results[0].date).toBe('2026-05-07')
     })
   })
 

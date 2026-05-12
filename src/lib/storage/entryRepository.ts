@@ -146,8 +146,14 @@ export const EntryRepository = {
     })
     const moodLabels = new Set(filters?.moodLabels ?? [])
 
+    const tagFilter = filters?.tags ?? []
+
     return entries
       .filter((entry) => moodLabels.size === 0 || moodLabels.has(entry.moodLabel ?? ''))
+      .filter(
+        (entry) =>
+          tagFilter.length === 0 || tagFilter.every((tag) => (entry.tags ?? []).includes(tag)),
+      )
       .filter((entry) => {
         if (!normalizedQuery) return true
         return (entry.searchText ?? entry.contentText ?? '').toLowerCase().includes(normalizedQuery)

@@ -890,7 +890,7 @@ test.describe('RightPanel Phase 2 behaviour', () => {
     await expect(rightPanel.getByRole('button', { name: /added as verse/i })).toHaveCount(0)
   })
 
-  test('RightPanel Phase2-3: mood section always shows MoodPicker (not collapsible)', async ({
+  test('RightPanel Phase2-3: mood section always shows MoodPicker dropdown (not collapsible)', async ({
     page,
   }, testInfo) => {
     if (testInfo.project.name !== 'chromium') {
@@ -905,16 +905,16 @@ test.describe('RightPanel Phase 2 behaviour', () => {
     const moodHeader = rightPanel.locator('header').filter({ hasText: /mood/i })
     await expect(moodHeader).toBeVisible({ timeout: 5000 })
 
-    // MoodPicker buttons must be directly visible — no expand needed
-    const hopefulBtn = rightPanel.getByRole('button', { name: /hopeful/i })
-    await expect(hopefulBtn).toBeVisible({ timeout: 5000 })
+    // Dropdown trigger must be directly visible — no expand needed
+    const dropdownTrigger = rightPanel.getByRole('button', { name: /how are you feeling/i })
+    await expect(dropdownTrigger).toBeVisible({ timeout: 5000 })
 
     // No expand/collapse chevron button in mood section
     await expect(rightPanel.getByRole('button', { name: /expand section/i })).toHaveCount(0)
     await expect(rightPanel.getByRole('button', { name: /collapse section/i })).toHaveCount(0)
   })
 
-  test('RightPanel Phase2-4: mood buttons are selectable without any expand click', async ({
+  test('RightPanel Phase2-4: mood dropdown is selectable without any expand click', async ({
     page,
   }, testInfo) => {
     if (testInfo.project.name !== 'chromium') {
@@ -929,14 +929,18 @@ test.describe('RightPanel Phase 2 behaviour', () => {
     const moodHeader = rightPanel.locator('header').filter({ hasText: /mood/i })
     await expect(moodHeader).toBeVisible({ timeout: 5000 })
 
-    // Mood buttons are immediately visible — click one directly
-    const hopefulBtn = rightPanel.getByRole('button', { name: /hopeful/i })
-    await expect(hopefulBtn).toBeVisible({ timeout: 5000 })
-    await hopefulBtn.click()
+    // Dropdown trigger is immediately visible — click to open
+    const dropdownTrigger = rightPanel.getByRole('button', { name: /how are you feeling/i })
+    await expect(dropdownTrigger).toBeVisible({ timeout: 5000 })
+    await dropdownTrigger.click()
 
-    // After clicking, Hopeful should appear as selected (the strip or section should reflect it)
-    // Verify the button remains visible (mood selected, section stays open)
-    await expect(hopefulBtn).toBeVisible({ timeout: 3000 })
+    // Listbox should open — select Hopeful
+    const listbox = page.getByRole('listbox')
+    await expect(listbox).toBeVisible({ timeout: 3000 })
+    await listbox.getByText('🌱 Hopeful').click()
+
+    // After selecting, trigger should now show the selected mood
+    await expect(rightPanel.getByText('🌱 Hopeful')).toBeVisible({ timeout: 3000 })
   })
 
   test('RightPanel Phase2-5: scripture label changes from "Scriptures" to "Scripture" when 1 ref added', async ({

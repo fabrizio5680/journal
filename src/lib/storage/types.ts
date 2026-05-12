@@ -78,10 +78,20 @@ export interface SaveResult {
   revisionId: string | null
 }
 
+export interface ManifestEntry {
+  date: string
+  mood: 1 | 2 | 3 | 4 | 5 | null
+  moodLabel: string | null
+  tags: string[]
+  wordCount: number
+  providerFileId: string
+}
+
 export interface SearchFilters {
   dateFrom?: string
   dateTo?: string
   moodLabels?: string[]
+  tags?: string[]
 }
 
 export interface SearchHit {

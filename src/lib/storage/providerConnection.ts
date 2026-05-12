@@ -14,7 +14,7 @@ import {
 } from './providers/googleDriveAuth'
 import { GOOGLE_DRIVE_PROVIDER } from './providers/googleDriveTypes'
 import { syncCoordinator } from './syncCoordinator'
-import type { EntryFile, EntryMetadata, StorageProvider } from './types'
+import type { EntryFile, EntryMetadata, ManifestEntry, StorageProvider } from './types'
 
 import { db } from '@/lib/firebase'
 
@@ -215,8 +215,47 @@ export async function disconnectGoogleDriveProvider(userId: string) {
   clearGoogleDriveAuthState(userId)
 }
 
+function manifestEntryToMetadata(entry: ManifestEntry): EntryMetadata {
+  return {
+    date: entry.date,
+    mood: entry.mood,
+    moodLabel: entry.moodLabel,
+    tags: entry.tags,
+    wordCount: entry.wordCount,
+    hasContent: false,
+    updatedAt: new Date().toISOString(),
+    provider: GOOGLE_DRIVE_PROVIDER,
+    providerFileId: entry.providerFileId,
+    lastSeenRevisionId: null,
+    syncStatus: 'synced',
+    deletedAt: null,
+  }
+}
+
+export async function backfillFromManifest(userId: string): Promise<void> {
+  const adapter = new GoogleDriveAdapter(userId)
+  const manifest = await adapter.readManifest()
+  if (!manifest) return
+
+  for (const item of manifest) {
+    const [existingMeta] = await localEntryCache.listMetadata(userId, {
+      from: item.date,
+      to: item.date,
+    })
+    if (existingMeta && existingMeta.syncStatus !== 'synced') continue
+    if (!existingMeta) {
+      await localEntryCache.saveMetadata(userId, manifestEntryToMetadata(item))
+    }
+  }
+
+  EntryRepository.notifyChanged(userId)
+}
+
 export async function backfillGoogleDriveMetadata(userId: string) {
   const adapter = new GoogleDriveAdapter(userId)
+
+  const hadManifest = (await adapter.readManifest()) !== null
+  await backfillFromManifest(userId)
 
   setDriveLoadProgress({ loaded: 0, total: 0 })
   try {
@@ -258,6 +297,21 @@ export async function backfillGoogleDriveMetadata(userId: string) {
     }
 
     EntryRepository.notifyChanged(userId)
+
+    if (!hadManifest) {
+      const allMeta = await localEntryCache.listMetadata(userId)
+      const manifestEntries: ManifestEntry[] = allMeta
+        .filter((m) => m.providerFileId)
+        .map((m) => ({
+          date: m.date,
+          mood: m.mood,
+          moodLabel: m.moodLabel,
+          tags: m.tags,
+          wordCount: m.wordCount,
+          providerFileId: m.providerFileId!,
+        }))
+      void adapter.writeManifest(manifestEntries)
+    }
   } finally {
     setDriveLoadProgress(null)
   }

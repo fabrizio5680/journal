@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  backfillFromManifest,
   backfillGoogleDriveMetadata,
   connectGoogleDriveProvider,
   disconnectGoogleDriveProvider,
@@ -30,6 +31,8 @@ const {
   mockAdapterDisconnect,
   mockAdapterGetEntryByFileId,
   mockAdapterListEntryMetadata,
+  mockAdapterReadManifest,
+  mockAdapterWriteManifest,
   mockClearGoogleDriveAuthState,
   mockGetStoredGoogleDriveConnection,
   mockHydrateGoogleDriveConnectionFromMetadata,
@@ -50,6 +53,8 @@ const {
   mockAdapterDisconnect: vi.fn().mockResolvedValue(undefined),
   mockAdapterGetEntryByFileId: vi.fn(),
   mockAdapterListEntryMetadata: vi.fn(),
+  mockAdapterReadManifest: vi.fn().mockResolvedValue(null),
+  mockAdapterWriteManifest: vi.fn().mockResolvedValue(undefined),
   mockClearGoogleDriveAuthState: vi.fn(),
   mockGetStoredGoogleDriveConnection: vi.fn(),
   mockHydrateGoogleDriveConnectionFromMetadata: vi.fn(),
@@ -86,6 +91,8 @@ vi.mock('./providers/googleDriveAdapter', () => ({
       disconnect: (...args: unknown[]) => mockAdapterDisconnect(...args),
       getEntryByFileId: (...args: unknown[]) => mockAdapterGetEntryByFileId(...args),
       listEntryMetadata: (...args: unknown[]) => mockAdapterListEntryMetadata(...args),
+      readManifest: (...args: unknown[]) => mockAdapterReadManifest(...args),
+      writeManifest: (...args: unknown[]) => mockAdapterWriteManifest(...args),
     }
   }),
 }))
@@ -135,6 +142,8 @@ describe('providerConnection', () => {
     })
     mockAdapterListEntryMetadata.mockResolvedValue([])
     mockAdapterGetEntryByFileId.mockRejectedValue(new Error('download failed'))
+    mockAdapterReadManifest.mockResolvedValue(null)
+    mockAdapterWriteManifest.mockResolvedValue(undefined)
     mockUpdateMetadata.mockResolvedValue(null)
   })
 
@@ -497,5 +506,225 @@ describe('providerConnection', () => {
 
     // Clean up listeners to avoid polluting other tests
     cleanup()
+  })
+
+  // ── backfillFromManifest tests ───────────────────────────────────────────────
+
+  describe('backfillFromManifest', () => {
+    it('returns early without touching cache when manifest is null', async () => {
+      mockAdapterReadManifest.mockResolvedValue(null)
+
+      await backfillFromManifest('test-uid')
+
+      expect(mockSaveMetadata).not.toHaveBeenCalled()
+      expect(mockNotifyChanged).not.toHaveBeenCalled()
+    })
+
+    it('saves metadata rows for manifest entries that do not exist locally', async () => {
+      const manifestEntry = {
+        date: '2026-04-20',
+        mood: 4 as const,
+        moodLabel: 'grateful',
+        tags: ['faith'],
+        wordCount: 10,
+        providerFileId: 'file-manifest-1',
+      }
+      mockAdapterReadManifest.mockResolvedValue([manifestEntry])
+      // listMetadata returns empty — entry not in local cache
+      mockListMetadata.mockResolvedValue([])
+
+      await backfillFromManifest('test-uid')
+
+      expect(mockSaveMetadata).toHaveBeenCalledWith(
+        'test-uid',
+        expect.objectContaining({
+          date: '2026-04-20',
+          mood: 4,
+          moodLabel: 'grateful',
+          tags: ['faith'],
+          wordCount: 10,
+          providerFileId: 'file-manifest-1',
+          syncStatus: 'synced',
+        }),
+      )
+      expect(mockNotifyChanged).toHaveBeenCalledWith('test-uid')
+    })
+
+    it('skips manifest entries where local syncStatus !== synced (dirty guard)', async () => {
+      const manifestEntry = {
+        date: '2026-04-21',
+        mood: null as null,
+        moodLabel: null,
+        tags: [],
+        wordCount: 5,
+        providerFileId: 'file-manifest-2',
+      }
+      mockAdapterReadManifest.mockResolvedValue([manifestEntry])
+      // Local entry is dirty (sync-pending)
+      mockListMetadata.mockResolvedValue([
+        {
+          date: '2026-04-21',
+          mood: null,
+          moodLabel: null,
+          tags: [],
+          wordCount: 5,
+          hasContent: true,
+          updatedAt: '2026-04-21T10:00:00.000Z',
+          provider: 'googleDrive',
+          providerFileId: 'file-manifest-2',
+          lastSeenRevisionId: null,
+          syncStatus: 'sync-pending',
+          deletedAt: null,
+        },
+      ])
+
+      await backfillFromManifest('test-uid')
+
+      // Dirty local entry must NOT be overwritten
+      expect(mockSaveMetadata).not.toHaveBeenCalled()
+      // notifyChanged is still called after the loop
+      expect(mockNotifyChanged).toHaveBeenCalledWith('test-uid')
+    })
+
+    it('skips manifest entries that already exist locally as synced (no overwrite)', async () => {
+      const manifestEntry = {
+        date: '2026-04-22',
+        mood: 3 as const,
+        moodLabel: 'peaceful',
+        tags: ['morning'],
+        wordCount: 8,
+        providerFileId: 'file-manifest-3',
+      }
+      mockAdapterReadManifest.mockResolvedValue([manifestEntry])
+      // Entry already exists and is synced
+      mockListMetadata.mockResolvedValue([
+        {
+          date: '2026-04-22',
+          mood: 3,
+          moodLabel: 'peaceful',
+          tags: ['morning'],
+          wordCount: 8,
+          hasContent: true,
+          updatedAt: '2026-04-22T10:00:00.000Z',
+          provider: 'googleDrive',
+          providerFileId: 'file-manifest-3',
+          lastSeenRevisionId: null,
+          syncStatus: 'synced',
+          deletedAt: null,
+        },
+      ])
+
+      await backfillFromManifest('test-uid')
+
+      // Already-synced entry must NOT be overwritten either
+      expect(mockSaveMetadata).not.toHaveBeenCalled()
+      expect(mockNotifyChanged).toHaveBeenCalledWith('test-uid')
+    })
+
+    it('calls notifyChanged after populating all manifest entries', async () => {
+      const manifestEntries = [
+        {
+          date: '2026-04-23',
+          mood: null as null,
+          moodLabel: null,
+          tags: [],
+          wordCount: 0,
+          providerFileId: 'file-a',
+        },
+        {
+          date: '2026-04-24',
+          mood: null as null,
+          moodLabel: null,
+          tags: [],
+          wordCount: 0,
+          providerFileId: 'file-b',
+        },
+      ]
+      mockAdapterReadManifest.mockResolvedValue(manifestEntries)
+      mockListMetadata.mockResolvedValue([])
+
+      await backfillFromManifest('test-uid')
+
+      expect(mockSaveMetadata).toHaveBeenCalledTimes(2)
+      expect(mockNotifyChanged).toHaveBeenCalledTimes(1)
+      expect(mockNotifyChanged).toHaveBeenCalledWith('test-uid')
+    })
+  })
+
+  // ── backfillGoogleDriveMetadata manifest integration tests ──────────────────
+
+  it('backfillGoogleDriveMetadata: reads manifest (backfillFromManifest) before full backfill', async () => {
+    mockAdapterListEntryMetadata.mockResolvedValue([])
+
+    await backfillGoogleDriveMetadata('test-uid')
+
+    // readManifest is called twice: once for hadManifest check, once inside backfillFromManifest
+    expect(mockAdapterReadManifest).toHaveBeenCalled()
+  })
+
+  it('backfillGoogleDriveMetadata: writes manifest at end when none existed before', async () => {
+    // No manifest on Drive
+    mockAdapterReadManifest.mockResolvedValue(null)
+
+    const entry = {
+      date: '2026-04-25',
+      mood: 4 as const,
+      moodLabel: 'grateful',
+      tags: ['faith'],
+      wordCount: 5,
+      hasContent: true,
+      updatedAt: '2026-04-25T10:00:00.000Z',
+      provider: 'googleDrive' as const,
+      providerFileId: 'file-new',
+      lastSeenRevisionId: 'rev-1',
+      lastSyncedAt: '2026-04-25T10:00:00.000Z',
+      syncStatus: 'synced' as const,
+      deletedAt: null,
+    }
+    const entryFile = {
+      schemaVersion: 1 as const,
+      app: 'quiet-dwelling' as const,
+      date: '2026-04-25',
+      content: { type: 'doc', content: [] },
+      searchText: 'grace',
+      mood: 4 as const,
+      moodLabel: 'grateful',
+      tags: ['faith'],
+      scriptureRefs: [],
+      wordCount: 5,
+      createdAt: '2026-04-25T09:00:00.000Z',
+      updatedAt: '2026-04-25T10:00:00.000Z',
+    }
+    mockAdapterListEntryMetadata.mockResolvedValue([entry])
+    mockAdapterGetEntryByFileId.mockResolvedValue(entryFile)
+    // After full backfill, listMetadata returns the saved metadata
+    mockListMetadata.mockResolvedValue([{ ...entry, providerFileId: 'file-new' }])
+
+    await backfillGoogleDriveMetadata('test-uid')
+
+    // writeManifest should be called to bootstrap the manifest
+    expect(mockAdapterWriteManifest).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ providerFileId: 'file-new' })]),
+    )
+  })
+
+  it('backfillGoogleDriveMetadata: does NOT write manifest when one already existed', async () => {
+    // Manifest already exists on Drive
+    mockAdapterReadManifest.mockResolvedValue([
+      {
+        date: '2026-04-26',
+        mood: null,
+        moodLabel: null,
+        tags: [],
+        wordCount: 0,
+        providerFileId: 'file-existing',
+      },
+    ])
+    mockAdapterListEntryMetadata.mockResolvedValue([])
+
+    await backfillGoogleDriveMetadata('test-uid')
+
+    // writeManifest must NOT be called when manifest already existed
+    expect(mockAdapterWriteManifest).not.toHaveBeenCalled()
   })
 })

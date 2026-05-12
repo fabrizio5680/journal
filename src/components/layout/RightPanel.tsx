@@ -229,6 +229,7 @@ export default function RightPanel() {
                 value={metadata.mood}
                 label={metadata.moodLabel}
                 onChange={handleMoodChange}
+                variant="dropdown"
               />
             </Section>
 

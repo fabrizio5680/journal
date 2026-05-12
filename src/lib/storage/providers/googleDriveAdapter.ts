@@ -5,6 +5,7 @@ import type {
   EntryFile,
   EntryMetadata,
   EntryRevisionMetadata,
+  ManifestEntry,
   ProviderConnection,
   SaveResult,
   SearchFilters,
@@ -246,6 +247,58 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
       })
     } catch (error) {
       console.warn('[GoogleDriveAdapter] saveConflictBackup failed (non-fatal):', error)
+    }
+  }
+
+  async readManifest(): Promise<ManifestEntry[] | null> {
+    if (this.fake) return this.fake.readManifest?.() ?? null
+    try {
+      const connection = this.getConnection()
+      const file = await this.findFile('metadata.json', connection.rootFolderId, ENTRY_MIME_TYPE)
+      if (!file) return null
+      return this.driveFetch<ManifestEntry[]>(`${DRIVE_API}/files/${file.id}?alt=media`)
+    } catch {
+      return null
+    }
+  }
+
+  async writeManifest(entries: ManifestEntry[]): Promise<void> {
+    if (this.fake) {
+      this.fake.writeManifest?.(entries)
+      return
+    }
+    try {
+      const connection = this.getConnection()
+      const existing = await this.findFile(
+        'metadata.json',
+        connection.rootFolderId,
+        ENTRY_MIME_TYPE,
+      )
+      const manifestFile = {
+        schemaVersion: 1,
+        entries,
+      }
+      if (existing) {
+        await this.uploadFile(
+          'PATCH',
+          `${DRIVE_UPLOAD_API}/files/${existing.id}`,
+          manifestFile as unknown as EntryFile,
+          { name: 'metadata.json', mimeType: ENTRY_MIME_TYPE },
+        )
+      } else {
+        await this.uploadFile(
+          'POST',
+          `${DRIVE_UPLOAD_API}/files`,
+          manifestFile as unknown as EntryFile,
+          {
+            name: 'metadata.json',
+            mimeType: ENTRY_MIME_TYPE,
+            parents: [connection.rootFolderId],
+          },
+        )
+      }
+    } catch (error) {
+      console.warn('[GoogleDriveAdapter] writeManifest failed (non-fatal):', error)
     }
   }
 

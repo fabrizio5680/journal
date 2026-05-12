@@ -63,12 +63,46 @@ function DateRangeFilter({ from, to, onChange }: DateRangeFilterProps) {
   )
 }
 
+interface TagFilterProps {
+  availableTags: string[]
+  selectedTags: string[]
+  onToggleTag: (tag: string) => void
+}
+
+function TagFilter({ availableTags, selectedTags, onToggleTag }: TagFilterProps) {
+  if (availableTags.length === 0) return null
+  const selected = new Set(selectedTags)
+
+  return (
+    <div className="flex flex-nowrap gap-1.5 overflow-x-auto">
+      {availableTags.map((tag) => (
+        <button
+          key={tag}
+          onClick={() => onToggleTag(tag)}
+          aria-label={`Filter by #${tag}`}
+          className={clsx(
+            'flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors',
+            selected.has(tag)
+              ? 'bg-primary text-on-primary'
+              : 'bg-secondary-container text-on-secondary-container hover:opacity-80',
+          )}
+        >
+          #{tag}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 interface SearchFiltersProps {
   dateFrom: string
   dateTo: string
   onDateChange: (from: string, to: string) => void
   selectedMoods: string[]
   onToggleMood: (label: string) => void
+  availableTags: string[]
+  selectedTags: string[]
+  onToggleTag: (tag: string) => void
 }
 
 export default function SearchFilters({
@@ -77,11 +111,21 @@ export default function SearchFilters({
   onDateChange,
   selectedMoods,
   onToggleMood,
+  availableTags,
+  selectedTags,
+  onToggleTag,
 }: SearchFiltersProps) {
   return (
-    <div className="border-outline-variant/10 flex flex-wrap items-center gap-2 border-b px-6 py-3">
-      <MoodFilter selectedMoods={selectedMoods} onToggleMood={onToggleMood} />
-      <DateRangeFilter from={dateFrom} to={dateTo} onChange={onDateChange} />
+    <div className="border-outline-variant/10 flex flex-col gap-2 border-b px-6 py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <MoodFilter selectedMoods={selectedMoods} onToggleMood={onToggleMood} />
+        <DateRangeFilter from={dateFrom} to={dateTo} onChange={onDateChange} />
+      </div>
+      <TagFilter
+        availableTags={availableTags}
+        selectedTags={selectedTags}
+        onToggleTag={onToggleTag}
+      />
     </div>
   )
 }

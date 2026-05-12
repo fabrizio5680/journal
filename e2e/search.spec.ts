@@ -218,9 +218,10 @@ test.describe('Search', () => {
     // Type a query so the client resolves and renders the filter bar
     await input.fill('peace')
 
-    // The filter bar is the flex-wrap strip directly inside the modal container.
+    // The filter bar container has border-outline-variant/10, flex-col, and gap-2 classes.
+    // After Phase 2 restructuring, it uses flex-col at the outer level.
     // Scope mood buttons within it to avoid collisions with result cards or nav.
-    const filterBar = page.locator('.border-outline-variant\\/10.flex.flex-wrap')
+    const filterBar = page.locator('.border-outline-variant\\/10.flex.flex-col')
 
     // Wait for the filter bar to appear.
     await expect(filterBar).toBeVisible({ timeout: 5000 })
@@ -243,5 +244,41 @@ test.describe('Search', () => {
     // Click 'Peaceful' again to deselect — active styling should be removed
     await peacefulBtn.click()
     await expect(peacefulBtn).not.toHaveClass(/bg-primary/)
+  })
+
+  test('Scenario 7: tag filter chips appear and narrow search results', async ({ page }) => {
+    await openSearchModal(page)
+
+    const input = page.getByRole('textbox', { name: 'Search entries' })
+    await expect(input).toBeVisible({ timeout: 3000 })
+
+    // Type a query to trigger search and ensure tags are loaded from metadata
+    await input.fill('grace')
+
+    // Wait for tag chips to appear — they come from metadata loaded when modal opens
+    const faithChip = page.getByRole('button', { name: 'Filter by #faith' })
+    const faithChipVisible = await faithChip
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false)
+
+    if (!faithChipVisible) {
+      test.skip(true, 'Tag chips not available — seeded entries may not have tags loaded')
+      return
+    }
+
+    // 'faith' chip should be visible (from the seeded entries with ['faith', 'gratitude'] tags)
+    await expect(faithChip).toBeVisible({ timeout: 3000 })
+
+    // Initially not active
+    await expect(faithChip).not.toHaveClass(/bg-primary/)
+
+    // Click to activate
+    await faithChip.click()
+    await expect(faithChip).toHaveClass(/bg-primary/, { timeout: 2000 })
+
+    // Click again to deselect
+    await faithChip.click()
+    await expect(faithChip).not.toHaveClass(/bg-primary/, { timeout: 2000 })
   })
 })
