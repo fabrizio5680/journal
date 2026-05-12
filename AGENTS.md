@@ -153,6 +153,8 @@ Connection uses Google Identity Services authorization-code flow in the browser.
 
 The browser remains responsible for journal content. It requests short-lived Drive access tokens from `getGoogleDriveAccessToken`, then uploads/downloads entry JSON directly with Google Drive REST APIs. Cloud Functions broker OAuth tokens only; they must not store journal bodies.
 
+Connect/hydrate flows call `backfillGoogleDriveMetadata`, which lists `Quiet Dwelling/entries`, downloads existing Drive entry JSON files sequentially, and saves valid files into `LocalEntryCache`/IndexedDB with provider metadata. This derives the local metadata index from the entry file itself (mood, `moodLabel`, tags, word count, and `searchText` tokens) so calendar dots, history, streaks, insights, and search reflect synced Drive entries after connection. If an individual Drive file is missing or invalid, backfill falls back to a metadata-only row for that file and continues; Firestore still never stores journal content or searchable indexes.
+
 New devices hydrate the Drive connection from public metadata and request backend-minted access tokens, so no long-lived Drive token is stored in browser storage. `Disconnect Google Drive` in Settings is local/device-only: it clears local Drive connection/token cache and sets the device opt-out flag, but must not delete shared provider metadata or break other devices. Any future account-level revoke/change-account action must be explicit and guarded.
 
 ### Drive Load Progress

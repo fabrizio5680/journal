@@ -21,10 +21,12 @@ const {
   mockOnSnapshot,
   mockServerTimestamp,
   mockSetDoc,
+  mockSaveEntry,
   mockSaveMetadata,
   mockUpdateMetadata,
   mockAdapterConnect,
   mockAdapterDisconnect,
+  mockAdapterGetEntryByFileId,
   mockAdapterListEntryMetadata,
   mockClearGoogleDriveAuthState,
   mockGetStoredGoogleDriveConnection,
@@ -32,15 +34,18 @@ const {
   mockIsGoogleDriveLocallyDisconnected,
   mockSetStoredGoogleDriveConnection,
   mockSyncPending,
+  mockNotifyChanged,
 } = vi.hoisted(() => ({
   mockDoc: vi.fn(() => ({ path: 'users/test-uid' })),
   mockOnSnapshot: vi.fn(),
   mockServerTimestamp: vi.fn(() => ({ serverTimestamp: true })),
   mockSetDoc: vi.fn().mockResolvedValue(undefined),
+  mockSaveEntry: vi.fn().mockResolvedValue(undefined),
   mockSaveMetadata: vi.fn().mockResolvedValue(undefined),
   mockUpdateMetadata: vi.fn().mockResolvedValue(undefined),
   mockAdapterConnect: vi.fn(),
   mockAdapterDisconnect: vi.fn().mockResolvedValue(undefined),
+  mockAdapterGetEntryByFileId: vi.fn(),
   mockAdapterListEntryMetadata: vi.fn(),
   mockClearGoogleDriveAuthState: vi.fn(),
   mockGetStoredGoogleDriveConnection: vi.fn(),
@@ -48,6 +53,7 @@ const {
   mockIsGoogleDriveLocallyDisconnected: vi.fn(),
   mockSetStoredGoogleDriveConnection: vi.fn(),
   mockSyncPending: vi.fn().mockResolvedValue(undefined),
+  mockNotifyChanged: vi.fn(),
 }))
 
 vi.mock('firebase/firestore', () => ({
@@ -63,6 +69,7 @@ vi.mock('@/lib/firebase', () => ({
 
 vi.mock('./localEntryCache', () => ({
   localEntryCache: {
+    saveEntry: (...args: unknown[]) => mockSaveEntry(...args),
     saveMetadata: (...args: unknown[]) => mockSaveMetadata(...args),
     updateMetadata: (...args: unknown[]) => mockUpdateMetadata(...args),
   },
@@ -73,9 +80,16 @@ vi.mock('./providers/googleDriveAdapter', () => ({
     return {
       connect: (...args: unknown[]) => mockAdapterConnect(...args),
       disconnect: (...args: unknown[]) => mockAdapterDisconnect(...args),
+      getEntryByFileId: (...args: unknown[]) => mockAdapterGetEntryByFileId(...args),
       listEntryMetadata: (...args: unknown[]) => mockAdapterListEntryMetadata(...args),
     }
   }),
+}))
+
+vi.mock('./entryRepository', () => ({
+  EntryRepository: {
+    notifyChanged: (...args: unknown[]) => mockNotifyChanged(...args),
+  },
 }))
 
 vi.mock('./providers/googleDriveAuth', () => ({
@@ -108,6 +122,7 @@ describe('providerConnection', () => {
       connectedAt: '2026-04-13T00:00:00.000Z',
     })
     mockAdapterListEntryMetadata.mockResolvedValue([])
+    mockAdapterGetEntryByFileId.mockRejectedValue(new Error('download failed'))
     mockUpdateMetadata.mockResolvedValue(null)
   })
 
@@ -230,7 +245,62 @@ describe('providerConnection', () => {
     expect(mockSetDoc).not.toHaveBeenCalled()
   })
 
-  it('backfills existing metadata and creates metadata-only rows when needed', async () => {
+  it('backfills Drive JSON and saves the full entry with provider metadata', async () => {
+    const item = {
+      date: '2026-04-13',
+      mood: null,
+      moodLabel: null,
+      tags: [],
+      wordCount: 0,
+      hasContent: true,
+      updatedAt: '2026-04-13T10:00:00.000Z',
+      provider: 'googleDrive',
+      providerFileId: 'entry-file',
+      lastSeenRevisionId: 'revision-1',
+      lastSyncedAt: '2026-04-13T10:00:00.000Z',
+      syncStatus: 'synced',
+      deletedAt: null,
+    }
+    const entry = {
+      schemaVersion: 1,
+      app: 'quiet-dwelling',
+      date: '2026-04-13',
+      content: { type: 'doc', content: [{ type: 'paragraph' }] },
+      searchText: 'Peace and mercy',
+      mood: 4,
+      moodLabel: 'grateful',
+      tags: ['faith', 'work'],
+      scriptureRefs: [],
+      wordCount: 3,
+      createdAt: '2026-04-13T09:00:00.000Z',
+      updatedAt: '2026-04-13T10:00:00.000Z',
+    }
+    mockAdapterListEntryMetadata.mockResolvedValue([item])
+    mockAdapterGetEntryByFileId.mockResolvedValue(entry)
+
+    await backfillGoogleDriveMetadata('test-uid')
+
+    expect(mockAdapterGetEntryByFileId).toHaveBeenCalledWith('entry-file')
+    expect(mockSaveEntry).toHaveBeenCalledWith('test-uid', entry, 'synced', {
+      provider: 'googleDrive',
+      providerFileId: 'entry-file',
+      lastSeenRevisionId: 'revision-1',
+      lastSyncedAt: '2026-04-13T10:00:00.000Z',
+      syncStatus: 'synced',
+      syncError: undefined,
+    })
+    expect(mockSaveEntry.mock.calls[0][1]).toMatchObject({
+      mood: 4,
+      moodLabel: 'grateful',
+      tags: ['faith', 'work'],
+      wordCount: 3,
+    })
+    expect(mockUpdateMetadata).not.toHaveBeenCalled()
+    expect(mockSaveMetadata).not.toHaveBeenCalled()
+    expect(mockNotifyChanged).toHaveBeenCalledWith('test-uid')
+  })
+
+  it('falls back to metadata-only rows when Drive JSON download fails', async () => {
     const existing = {
       date: '2026-04-13',
       mood: null,
@@ -253,15 +323,43 @@ describe('providerConnection', () => {
 
     await backfillGoogleDriveMetadata('test-uid')
 
-    expect(mockUpdateMetadata).toHaveBeenCalledWith(
-      'test-uid',
-      '2026-04-13',
-      expect.objectContaining({
-        providerFileId: 'existing-file',
-        syncStatus: 'synced',
-      }),
-    )
+    expect(mockUpdateMetadata).toHaveBeenCalledWith('test-uid', '2026-04-13', {
+      provider: 'googleDrive',
+      providerFileId: 'existing-file',
+      lastSeenRevisionId: 'revision-1',
+      lastSyncedAt: '2026-04-13T10:00:00.000Z',
+      syncStatus: 'synced',
+      syncError: undefined,
+    })
     expect(mockSaveMetadata).toHaveBeenCalledWith('test-uid', missing)
+    expect(mockSaveEntry).not.toHaveBeenCalled()
+    expect(mockNotifyChanged).toHaveBeenCalledWith('test-uid')
+  })
+
+  it('falls back to metadata-only rows when downloaded Drive JSON is invalid', async () => {
+    const item = {
+      date: '2026-04-13',
+      mood: null,
+      moodLabel: null,
+      tags: [],
+      wordCount: 0,
+      hasContent: true,
+      updatedAt: '2026-04-13T10:00:00.000Z',
+      provider: 'googleDrive',
+      providerFileId: 'invalid-file',
+      lastSeenRevisionId: 'revision-1',
+      lastSyncedAt: '2026-04-13T10:00:00.000Z',
+      syncStatus: 'synced',
+      deletedAt: null,
+    }
+    mockAdapterListEntryMetadata.mockResolvedValue([item])
+    mockAdapterGetEntryByFileId.mockResolvedValue({ app: 'quiet-dwelling' })
+    mockUpdateMetadata.mockResolvedValue(null)
+
+    await backfillGoogleDriveMetadata('test-uid')
+
+    expect(mockSaveEntry).not.toHaveBeenCalled()
+    expect(mockSaveMetadata).toHaveBeenCalledWith('test-uid', item)
   })
 
   it('emits listing phase, per-entry progress, then clears on backfill', async () => {
@@ -292,6 +390,45 @@ describe('providerConnection', () => {
     expect(calls[calls.length - 1]).toBeNull()
   })
 
+  it('clears progress in finally when listing throws', async () => {
+    mockAdapterListEntryMetadata.mockRejectedValue(new Error('list failed'))
+
+    await expect(backfillGoogleDriveMetadata('test-uid')).rejects.toThrow('list failed')
+
+    const calls = mockSetDriveLoadProgress.mock.calls.map((c) => c[0])
+    expect(calls[0]).toEqual({ loaded: 0, total: 0 })
+    expect(calls[calls.length - 1]).toBeNull()
+    expect(mockNotifyChanged).not.toHaveBeenCalled()
+  })
+
+  it('clears progress in finally when metadata fallback processing throws', async () => {
+    const item = {
+      date: '2026-04-13',
+      mood: null,
+      moodLabel: null,
+      tags: [],
+      wordCount: 0,
+      hasContent: true,
+      updatedAt: '2026-04-13T10:00:00.000Z',
+      provider: 'googleDrive',
+      providerFileId: 'file-1',
+      lastSeenRevisionId: null,
+      lastSyncedAt: '2026-04-13T10:00:00.000Z',
+      syncStatus: 'synced',
+      deletedAt: null,
+    }
+    mockAdapterListEntryMetadata.mockResolvedValue([item])
+    mockUpdateMetadata.mockRejectedValue(new Error('metadata failed'))
+
+    await expect(backfillGoogleDriveMetadata('test-uid')).rejects.toThrow('metadata failed')
+
+    const calls = mockSetDriveLoadProgress.mock.calls.map((c) => c[0])
+    expect(calls[0]).toEqual({ loaded: 0, total: 0 })
+    expect(calls[1]).toEqual({ loaded: 0, total: 1 })
+    expect(calls[calls.length - 1]).toBeNull()
+    expect(mockNotifyChanged).not.toHaveBeenCalled()
+  })
+
   it('emits listing and zero-entry completion when Drive has no entries', async () => {
     mockAdapterListEntryMetadata.mockResolvedValue([])
 
@@ -301,5 +438,6 @@ describe('providerConnection', () => {
     expect(calls[0]).toEqual({ loaded: 0, total: 0 })
     expect(calls[1]).toEqual({ loaded: 0, total: 0 })
     expect(calls[calls.length - 1]).toBeNull()
+    expect(mockNotifyChanged).toHaveBeenCalledWith('test-uid')
   })
 })

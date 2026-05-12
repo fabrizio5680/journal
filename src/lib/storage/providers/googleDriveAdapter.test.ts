@@ -119,6 +119,23 @@ describe('GoogleDriveAdapter', () => {
     expect(mockDisconnectGoogleDriveOnDevice).toHaveBeenCalledWith(USER_ID)
   })
 
+  it('downloads a stored entry by Drive file id with auth header', async () => {
+    const entry = makeEntry()
+    const fetchMock = mockFetchSequence([jsonResponse(entry)])
+
+    const result = await new GoogleDriveAdapter(USER_ID).getEntryByFileId('file-id')
+
+    expect(result).toEqual(entry)
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://www.googleapis.com/drive/v3/files/file-id?alt=media',
+      {
+        headers: {
+          Authorization: 'Bearer access-token',
+        },
+      },
+    )
+  })
+
   it('creates missing folders and uploads a new entry JSON file', async () => {
     const fetchMock = mockFetchSequence([
       jsonResponse({ files: [] }),
