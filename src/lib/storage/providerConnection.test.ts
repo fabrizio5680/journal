@@ -8,6 +8,14 @@ import {
   subscribeProviderConnection,
 } from './providerConnection'
 
+const { mockSetDriveLoadProgress } = vi.hoisted(() => ({
+  mockSetDriveLoadProgress: vi.fn(),
+}))
+
+vi.mock('./driveLoadProgress', () => ({
+  setDriveLoadProgress: (...args: unknown[]) => mockSetDriveLoadProgress(...args),
+}))
+
 const {
   mockDoc,
   mockOnSnapshot,
@@ -254,5 +262,44 @@ describe('providerConnection', () => {
       }),
     )
     expect(mockSaveMetadata).toHaveBeenCalledWith('test-uid', missing)
+  })
+
+  it('emits listing phase, per-entry progress, then clears on backfill', async () => {
+    const item = {
+      date: '2026-04-13',
+      mood: null,
+      moodLabel: null,
+      tags: [],
+      wordCount: 0,
+      hasContent: true,
+      updatedAt: '2026-04-13T10:00:00.000Z',
+      provider: 'googleDrive',
+      providerFileId: 'file-1',
+      lastSeenRevisionId: null,
+      lastSyncedAt: '2026-04-13T10:00:00.000Z',
+      syncStatus: 'synced',
+      deletedAt: null,
+    }
+    mockAdapterListEntryMetadata.mockResolvedValue([item])
+    mockUpdateMetadata.mockResolvedValue(item)
+
+    await backfillGoogleDriveMetadata('test-uid')
+
+    const calls = mockSetDriveLoadProgress.mock.calls.map((c) => c[0])
+    expect(calls[0]).toEqual({ loaded: 0, total: 0 })
+    expect(calls[1]).toEqual({ loaded: 0, total: 1 })
+    expect(calls).toContainEqual({ loaded: 1, total: 1 })
+    expect(calls[calls.length - 1]).toBeNull()
+  })
+
+  it('emits listing and zero-entry completion when Drive has no entries', async () => {
+    mockAdapterListEntryMetadata.mockResolvedValue([])
+
+    await backfillGoogleDriveMetadata('test-uid')
+
+    const calls = mockSetDriveLoadProgress.mock.calls.map((c) => c[0])
+    expect(calls[0]).toEqual({ loaded: 0, total: 0 })
+    expect(calls[1]).toEqual({ loaded: 0, total: 0 })
+    expect(calls[calls.length - 1]).toBeNull()
   })
 })

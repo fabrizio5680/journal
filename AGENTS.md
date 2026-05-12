@@ -155,6 +155,16 @@ The browser remains responsible for journal content. It requests short-lived Dri
 
 New devices hydrate the Drive connection from public metadata and request backend-minted access tokens, so no long-lived Drive token is stored in browser storage. `Disconnect Google Drive` in Settings is local/device-only: it clears local Drive connection/token cache and sets the device opt-out flag, but must not delete shared provider metadata or break other devices. Any future account-level revoke/change-account action must be explicit and guarded.
 
+### Drive Load Progress
+
+`src/lib/storage/driveLoadProgress.ts` is a module-singleton pub/sub that tracks active Drive loading operations. It has no external dependencies.
+
+- `setDriveLoadProgress({ loaded, total })` — called by `backfillGoogleDriveMetadata` (listing phase: `total === 0`; indexing phase: `loaded` increments per entry) and by `EntryRepository.getEntry` for Drive cache-miss fetches (0/1 → 1/1). Callers set `null` when complete.
+- `subscribeDriveLoadProgress(listener)` — returns unsubscribe fn; fires immediately with current value on subscribe.
+- `SaveStatusContext` subscribes and exposes `driveLoadProgress: DriveLoadProgress | null` to all consumers.
+- `RightPanel` (desktop): replaces sync status footer with spinner ("Listing entries…") or progress bar + "X / N" count when active.
+- `TopBar` (mobile): replaces/overrides the center save-status label with "Listing entries…" or "Indexing X / N…" when active.
+
 ## Device-local Storage
 
 | Key                               | Values                                                                 | Description                                                                                                                                                                                                  |

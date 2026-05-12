@@ -129,6 +129,7 @@ export default function RightPanel() {
     storageProvider,
     storageAccountEmail,
     appAccountEmail,
+    driveLoadProgress,
   } = useSaveStatus()
   const { isEditorActive, dictation, fontSize, onFontSizeChange, wordCount, metadata } =
     useEditorControls()
@@ -165,7 +166,31 @@ export default function RightPanel() {
     metadata.onScriptureRefsChange(metadata.scriptureRefs.filter((r) => r.passageId !== passageId))
   }
 
-  const syncStatus = (
+  const syncStatus = driveLoadProgress ? (
+    driveLoadProgress.total === 0 ? (
+      <div className="text-on-surface-variant/40 flex items-center gap-1.5 text-[10px]">
+        <span className="material-symbols-outlined animate-spin text-[13px]">sync</span>
+        <span>Listing entries…</span>
+      </div>
+    ) : (
+      <div className="flex flex-col gap-1">
+        <div className="text-on-surface-variant/40 flex items-center justify-between text-[10px]">
+          <span>Indexing entries…</span>
+          <span className="tabular-nums">
+            {driveLoadProgress.loaded} / {driveLoadProgress.total}
+          </span>
+        </div>
+        <div className="bg-outline-variant/20 h-0.5 w-full overflow-hidden rounded-full">
+          <div
+            className="bg-primary h-full rounded-full transition-all duration-300"
+            style={{
+              width: `${Math.round((driveLoadProgress.loaded / driveLoadProgress.total) * 100)}%`,
+            }}
+          />
+        </div>
+      </div>
+    )
+  ) : (
     <div className="text-on-surface-variant/40 flex items-center gap-1.5 text-[10px]">
       <span
         className={clsx(

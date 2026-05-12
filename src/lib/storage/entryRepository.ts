@@ -1,6 +1,7 @@
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
 
 import { bodyTextFromSearchText, createEntryFile, toEntry } from './entryFormat'
+import { setDriveLoadProgress } from './driveLoadProgress'
 import { localEntryCache } from './localEntryCache'
 import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
 import { GOOGLE_DRIVE_PROVIDER, GoogleDriveError } from './providers/googleDriveTypes'
@@ -47,8 +48,12 @@ export const EntryRepository = {
 
     try {
       const adapter = new GoogleDriveAdapter(userId)
+      setDriveLoadProgress({ loaded: 0, total: 1 })
       const driveEntry = await adapter.getEntry(date)
-      if (!driveEntry) return null
+      if (!driveEntry) {
+        setDriveLoadProgress(null)
+        return null
+      }
       const [driveMetadata] = await adapter.listEntryMetadata({ from: date, to: date })
       await localEntryCache.saveEntry(userId, driveEntry, 'synced', {
         provider: GOOGLE_DRIVE_PROVIDER,
@@ -56,6 +61,8 @@ export const EntryRepository = {
         lastSeenRevisionId: driveMetadata?.lastSeenRevisionId ?? null,
         lastSyncedAt: new Date().toISOString(),
       })
+      setDriveLoadProgress({ loaded: 1, total: 1 })
+      setDriveLoadProgress(null)
       return toEntry(driveEntry)
     } catch (error) {
       if (error instanceof GoogleDriveError && error.code === 'reconnect') {

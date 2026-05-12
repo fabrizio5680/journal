@@ -14,8 +14,15 @@ export default function TopBar() {
   const [user, setUser] = useState<User | null>(null)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const now = new Date()
-  const { isDirty, lastSaved, syncStatus, storageProvider, storageAccountEmail, appAccountEmail } =
-    useSaveStatus()
+  const {
+    isDirty,
+    lastSaved,
+    syncStatus,
+    storageProvider,
+    storageAccountEmail,
+    appAccountEmail,
+    driveLoadProgress,
+  } = useSaveStatus()
   const { isFocused } = useFocusMode()
   const { openSearch } = useSearch()
 
@@ -23,17 +30,25 @@ export default function TopBar() {
     return onAuthStateChanged(auth, setUser)
   }, [])
 
-  const saveLabel = isDirty
-    ? 'Saving…'
-    : lastSaved
-      ? syncStatusLabel({
-          syncStatus,
-          storageProvider,
-          storageAccountEmail,
-          appAccountEmail,
-          savedLocalSuffix: formatDistanceToNow(lastSaved, { addSuffix: true }),
-        })
-      : null
+  const driveProgressLabel = driveLoadProgress
+    ? driveLoadProgress.total === 0
+      ? 'Listing entries…'
+      : `Indexing ${driveLoadProgress.loaded} / ${driveLoadProgress.total}…`
+    : null
+
+  const saveLabel = driveProgressLabel
+    ? driveProgressLabel
+    : isDirty
+      ? 'Saving…'
+      : lastSaved
+        ? syncStatusLabel({
+            syncStatus,
+            storageProvider,
+            storageAccountEmail,
+            appAccountEmail,
+            savedLocalSuffix: formatDistanceToNow(lastSaved, { addSuffix: true }),
+          })
+        : null
 
   return (
     <>

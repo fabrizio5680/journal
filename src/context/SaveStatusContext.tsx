@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { onAuthStateChanged, type User } from 'firebase/auth'
 
+import { subscribeDriveLoadProgress, type DriveLoadProgress } from '@/lib/storage/driveLoadProgress'
 import {
   subscribeProviderConnection,
   type ProviderConnectionState,
@@ -20,6 +21,7 @@ interface SaveStatusContextValue {
   storageProvider?: StorageProvider
   storageAccountEmail?: string
   appAccountEmail?: string | null
+  driveLoadProgress: DriveLoadProgress | null
   setDirty: (v: boolean) => void
   setLastSaved: (d: Date) => void
   setEntrySyncStatus: (status: SyncStatus) => void
@@ -33,6 +35,7 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
   const [entrySyncStatus, setEntrySyncStatus] = useState<SyncStatus>('saved-local')
   const [user, setUser] = useState<User | null>(null)
   const [connection, setConnection] = useState<ProviderConnectionState>(DISCONNECTED_PROVIDER_STATE)
+  const [driveLoadProgress, setDriveLoadProgress] = useState<DriveLoadProgress | null>(null)
 
   useEffect(() => onAuthStateChanged(auth, setUser), [])
 
@@ -40,6 +43,8 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
     if (!user) return
     return subscribeProviderConnection(user.uid, setConnection)
   }, [user])
+
+  useEffect(() => subscribeDriveLoadProgress(setDriveLoadProgress), [])
 
   const activeConnection = user ? connection : DISCONNECTED_PROVIDER_STATE
   const syncStatus =
@@ -58,6 +63,7 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
         storageProvider: activeConnection.activeStorageProvider,
         storageAccountEmail: activeConnection.storageAccountEmail,
         appAccountEmail: user?.email,
+        driveLoadProgress,
         setDirty,
         setLastSaved,
         setEntrySyncStatus,

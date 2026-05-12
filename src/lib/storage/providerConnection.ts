@@ -1,5 +1,6 @@
 import { doc, onSnapshot, serverTimestamp, setDoc, type DocumentData } from 'firebase/firestore'
 
+import { setDriveLoadProgress } from './driveLoadProgress'
 import { localEntryCache } from './localEntryCache'
 import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
 import {
@@ -140,7 +141,13 @@ export async function disconnectGoogleDriveProvider(userId: string) {
 
 export async function backfillGoogleDriveMetadata(userId: string) {
   const adapter = new GoogleDriveAdapter(userId)
+
+  setDriveLoadProgress({ loaded: 0, total: 0 })
   const metadata = await adapter.listEntryMetadata()
+
+  const total = metadata.length
+  let loaded = 0
+  setDriveLoadProgress({ loaded, total })
 
   await Promise.all(
     metadata.map(async (item) => {
@@ -153,6 +160,9 @@ export async function backfillGoogleDriveMetadata(userId: string) {
         syncError: undefined,
       })
       if (!updated) await localEntryCache.saveMetadata(userId, item)
+      setDriveLoadProgress({ loaded: ++loaded, total })
     }),
   )
+
+  setDriveLoadProgress(null)
 }
