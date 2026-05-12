@@ -1,6 +1,7 @@
 import { doc, onSnapshot, serverTimestamp, setDoc, type DocumentData } from 'firebase/firestore'
 
 import { setDriveLoadProgress } from './driveLoadProgress'
+import { EntryRepository } from './entryRepository'
 import { localEntryCache } from './localEntryCache'
 import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
 import {
@@ -12,7 +13,7 @@ import {
 } from './providers/googleDriveAuth'
 import { GOOGLE_DRIVE_PROVIDER } from './providers/googleDriveTypes'
 import { syncCoordinator } from './syncCoordinator'
-import type { StorageProvider } from './types'
+import type { EntryFile, EntryMetadata, StorageProvider } from './types'
 
 import { db } from '@/lib/firebase'
 
@@ -46,6 +47,44 @@ function metadataFromDoc(data: DocumentData | undefined): ProviderMetadata {
     storageConnectedAt: timestampToIso(data?.storageConnectedAt),
     storageTokenStatus: data?.storageTokenStatus,
   }
+}
+
+function isEntryFile(value: unknown): value is EntryFile {
+  if (!value || typeof value !== 'object') return false
+  const entry = value as Partial<EntryFile>
+  return (
+    entry.schemaVersion === 1 &&
+    entry.app === 'quiet-dwelling' &&
+    typeof entry.date === 'string' &&
+    entry.date.length === 10 &&
+    typeof entry.content === 'object' &&
+    entry.content !== null &&
+    typeof entry.searchText === 'string' &&
+    (entry.mood === null ||
+      entry.mood === 1 ||
+      entry.mood === 2 ||
+      entry.mood === 3 ||
+      entry.mood === 4 ||
+      entry.mood === 5) &&
+    (entry.moodLabel === null || typeof entry.moodLabel === 'string') &&
+    Array.isArray(entry.tags) &&
+    Array.isArray(entry.scriptureRefs) &&
+    typeof entry.wordCount === 'number' &&
+    typeof entry.createdAt === 'string' &&
+    typeof entry.updatedAt === 'string'
+  )
+}
+
+async function saveProviderMetadataOnly(userId: string, item: EntryMetadata) {
+  const updated = await localEntryCache.updateMetadata(userId, item.date, {
+    provider: GOOGLE_DRIVE_PROVIDER,
+    providerFileId: item.providerFileId,
+    lastSeenRevisionId: item.lastSeenRevisionId,
+    lastSyncedAt: item.lastSyncedAt,
+    syncStatus: 'synced',
+    syncError: undefined,
+  })
+  if (!updated) await localEntryCache.saveMetadata(userId, item)
 }
 
 export function getDeviceProviderState(userId: string, metadata: ProviderMetadata) {
@@ -143,26 +182,35 @@ export async function backfillGoogleDriveMetadata(userId: string) {
   const adapter = new GoogleDriveAdapter(userId)
 
   setDriveLoadProgress({ loaded: 0, total: 0 })
-  const metadata = await adapter.listEntryMetadata()
+  try {
+    const metadata = await adapter.listEntryMetadata()
 
-  const total = metadata.length
-  let loaded = 0
-  setDriveLoadProgress({ loaded, total })
+    const total = metadata.length
+    let loaded = 0
+    setDriveLoadProgress({ loaded, total })
 
-  await Promise.all(
-    metadata.map(async (item) => {
-      const updated = await localEntryCache.updateMetadata(userId, item.date, {
-        provider: GOOGLE_DRIVE_PROVIDER,
-        providerFileId: item.providerFileId,
-        lastSeenRevisionId: item.lastSeenRevisionId,
-        lastSyncedAt: item.lastSyncedAt,
-        syncStatus: 'synced',
-        syncError: undefined,
-      })
-      if (!updated) await localEntryCache.saveMetadata(userId, item)
+    for (const item of metadata) {
+      try {
+        if (!item.providerFileId) throw new Error('Google Drive file id is missing.')
+        const entry = await adapter.getEntryByFileId(item.providerFileId)
+        if (!isEntryFile(entry)) throw new Error('Google Drive entry file is invalid.')
+
+        await localEntryCache.saveEntry(userId, entry, 'synced', {
+          provider: GOOGLE_DRIVE_PROVIDER,
+          providerFileId: item.providerFileId,
+          lastSeenRevisionId: item.lastSeenRevisionId,
+          lastSyncedAt: item.lastSyncedAt ?? new Date().toISOString(),
+          syncStatus: 'synced',
+          syncError: undefined,
+        })
+      } catch {
+        await saveProviderMetadataOnly(userId, item)
+      }
       setDriveLoadProgress({ loaded: ++loaded, total })
-    }),
-  )
+    }
 
-  setDriveLoadProgress(null)
+    EntryRepository.notifyChanged(userId)
+  } finally {
+    setDriveLoadProgress(null)
+  }
 }

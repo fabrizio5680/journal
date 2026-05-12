@@ -109,6 +109,10 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
     return this.downloadEntryFile(file.id)
   }
 
+  async getEntryByFileId(fileId: string): Promise<EntryFile> {
+    return this.downloadEntryFile(fileId)
+  }
+
   async saveEntry(entry: EntryFile, expectedRevisionId?: string): Promise<SaveResult> {
     const { monthFolderId, fileName } = await this.ensureEntryFolder(entry.date)
     const existing = await this.findFile(fileName, monthFolderId, ENTRY_MIME_TYPE)

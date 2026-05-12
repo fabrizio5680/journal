@@ -41,6 +41,10 @@ export const EntryRepository = {
     }
   },
 
+  notifyChanged(userId: string) {
+    emit(userId)
+  },
+
   async getEntry(userId: string, date: string) {
     const entry = await localEntryCache.getEntry(userId, date)
     if (entry) return toEntry(entry)
