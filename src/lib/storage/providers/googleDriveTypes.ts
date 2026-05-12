@@ -13,6 +13,7 @@ export interface GoogleDriveStoredConnection {
   rootFolderId: string
   connectedAt: string
   reconnectRequired?: boolean
+  locallyDisconnected?: boolean
 }
 
 export type GoogleDriveErrorCode =

@@ -1,6 +1,107 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { isWithinReminderWindow, buildReminderMessage } from './index'
+const {
+  mockFetch,
+  mockGet,
+  mockGetFirestore,
+  mockPrivateDoc,
+  mockRunTransaction,
+  mockTransactionSet,
+  mockUserDoc,
+  mockUserDocSet,
+} = vi.hoisted(() => {
+  const mockGet = vi.fn()
+  const mockPrivateDoc = { get: mockGet }
+  const mockUserDocSet = vi.fn()
+  const mockUserDoc = {
+    set: mockUserDocSet,
+    collection: vi.fn(() => ({
+      doc: vi.fn(() => mockPrivateDoc),
+    })),
+  }
+  const mockTransactionSet = vi.fn()
+  const mockRunTransaction = vi.fn(async (fn: (tx: { set: typeof mockTransactionSet }) => void) =>
+    fn({ set: mockTransactionSet }),
+  )
+  const mockDb = {
+    collection: vi.fn(() => ({
+      doc: vi.fn(() => mockUserDoc),
+      where: vi.fn(),
+    })),
+    runTransaction: mockRunTransaction,
+  }
+
+  return {
+    mockFetch: vi.fn(),
+    mockGet,
+    mockGetFirestore: vi.fn(() => mockDb),
+    mockPrivateDoc,
+    mockRunTransaction,
+    mockTransactionSet,
+    mockUserDoc,
+    mockUserDocSet,
+  }
+})
+
+vi.mock('firebase-admin/app', () => ({
+  getApps: () => [{}],
+  initializeApp: vi.fn(),
+}))
+
+vi.mock('firebase-admin/firestore', () => ({
+  getFirestore: () => mockGetFirestore(),
+  FieldValue: {
+    arrayRemove: (...values: unknown[]) => ({ arrayRemove: values }),
+    serverTimestamp: () => ({ serverTimestamp: true }),
+  },
+}))
+
+vi.mock('firebase-admin/messaging', () => ({
+  getMessaging: () => ({ sendEach: vi.fn() }),
+}))
+
+vi.mock('firebase-functions/params', () => ({
+  defineSecret: (name: string) => ({ value: () => process.env[name] }),
+  defineString: (name: string) => ({ value: () => process.env[name] }),
+}))
+
+vi.mock('firebase-functions/v2/https', () => {
+  class HttpsError extends Error {
+    code: string
+
+    constructor(code: string, message: string) {
+      super(message)
+      this.name = 'HttpsError'
+      this.code = code
+    }
+  }
+
+  return {
+    HttpsError,
+    onCall: (_options: unknown, handler: unknown) => handler,
+  }
+})
+
+vi.mock('firebase-functions/v2/scheduler', () => ({
+  onSchedule: (_options: unknown, handler: unknown) => handler,
+}))
+
+vi.stubGlobal('fetch', mockFetch)
+
+import {
+  buildReminderMessage,
+  handleExchangeGoogleDriveCode,
+  handleGetGoogleDriveAccessToken,
+  isWithinReminderWindow,
+} from './index'
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    statusText: status >= 400 ? 'Error' : 'OK',
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 describe('isWithinReminderWindow', () => {
   it('returns true when current time matches reminder time exactly', () => {
@@ -56,5 +157,155 @@ describe('buildReminderMessage', () => {
     const msg = buildReminderMessage('tok-123', BASE)
     expect(msg.data.icon).toContain(BASE)
     expect(msg.data.link).toContain(BASE)
+  })
+})
+
+describe('Google Drive token broker callables', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.env.GOOGLE_CLIENT_ID = 'client-id'
+    process.env.GOOGLE_CLIENT_SECRET = 'client-secret'
+    mockGet.mockResolvedValue({ get: vi.fn() })
+    mockUserDocSet.mockResolvedValue(undefined)
+    mockFetch.mockReset()
+  })
+
+  it('requires auth for code exchange and access-token minting', async () => {
+    await expect(handleExchangeGoogleDriveCode({ data: { code: 'code' } })).rejects.toMatchObject({
+      code: 'unauthenticated',
+    })
+    await expect(async () => handleGetGoogleDriveAccessToken({})).rejects.toMatchObject({
+      code: 'unauthenticated',
+    })
+  })
+
+  it('validates authorization code input', async () => {
+    await expect(
+      handleExchangeGoogleDriveCode({ auth: { uid: 'uid-1' }, data: { code: '' } }),
+    ).rejects.toMatchObject({ code: 'invalid-argument' })
+  })
+
+  it('exchanges auth code, stores refresh token privately, and writes public metadata only', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({
+          access_token: 'access-token',
+          refresh_token: 'refresh-token',
+          expires_in: 3600,
+          scope: 'https://www.googleapis.com/auth/drive.file',
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ user: { emailAddress: 'drive@example.com' } }))
+      .mockResolvedValueOnce(jsonResponse({ files: [] }))
+      .mockResolvedValueOnce(jsonResponse({ id: 'root-folder' }))
+      .mockResolvedValueOnce(jsonResponse({ files: [] }))
+      .mockResolvedValueOnce(jsonResponse({ id: 'entries-folder' }))
+
+    const result = await handleExchangeGoogleDriveCode({
+      auth: { uid: 'uid-1' },
+      data: { code: 'auth-code' },
+    })
+
+    expect(result).toMatchObject({
+      provider: 'googleDrive',
+      accountEmail: 'drive@example.com',
+      rootFolderId: 'root-folder',
+    })
+    expect(mockRunTransaction).toHaveBeenCalled()
+    expect(mockTransactionSet).toHaveBeenCalledWith(
+      mockPrivateDoc,
+      expect.objectContaining({
+        provider: 'googleDrive',
+        refreshToken: 'refresh-token',
+        accountEmail: 'drive@example.com',
+        rootFolderId: 'root-folder',
+      }),
+      { merge: true },
+    )
+    expect(mockTransactionSet).toHaveBeenCalledWith(
+      mockUserDoc,
+      expect.objectContaining({
+        activeStorageProvider: 'googleDrive',
+        storageAccountEmail: 'drive@example.com',
+        storageRootFolderId: 'root-folder',
+        storageTokenStatus: 'valid',
+      }),
+      { merge: true },
+    )
+    const publicMetadataCall = mockTransactionSet.mock.calls.find(([ref]) => ref === mockUserDoc)
+    expect(publicMetadataCall?.[1]).not.toHaveProperty('refreshToken')
+    expect(publicMetadataCall?.[1]).not.toHaveProperty('accessToken')
+  })
+
+  it('reuses an existing private refresh token when Google omits a new one', async () => {
+    mockGet.mockResolvedValue({ get: (field: string) => (field === 'refreshToken' ? 'old' : null) })
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({
+          access_token: 'access-token',
+          expires_in: 3600,
+          scope: 'https://www.googleapis.com/auth/drive.file',
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ user: { emailAddress: 'drive@example.com' } }))
+      .mockResolvedValueOnce(jsonResponse({ files: [{ id: 'root-folder' }] }))
+      .mockResolvedValueOnce(jsonResponse({ files: [{ id: 'entries-folder' }] }))
+
+    await handleExchangeGoogleDriveCode({ auth: { uid: 'uid-1' }, data: { code: 'auth-code' } })
+
+    expect(mockTransactionSet).toHaveBeenCalledWith(
+      mockPrivateDoc,
+      expect.objectContaining({ refreshToken: 'old' }),
+      { merge: true },
+    )
+  })
+
+  it('mints short-lived access tokens from stored refresh token', async () => {
+    mockGet.mockResolvedValue({
+      get: (field: string) => (field === 'refreshToken' ? 'refresh-token' : null),
+    })
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        access_token: 'fresh-token',
+        expires_in: 1800,
+        scope: 'https://www.googleapis.com/auth/drive.file',
+      }),
+    )
+
+    const result = await handleGetGoogleDriveAccessToken({ auth: { uid: 'uid-1' } })
+
+    expect(result.accessToken).toBe('fresh-token')
+    expect(result.expiresAt).toBeGreaterThan(Date.now())
+    expect(mockUserDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({ storageTokenStatus: 'valid' }),
+      { merge: true },
+    )
+  })
+
+  it('marks reconnect when no refresh token is stored', async () => {
+    mockGet.mockResolvedValue({ get: vi.fn(() => undefined) })
+
+    await expect(handleGetGoogleDriveAccessToken({ auth: { uid: 'uid-1' } })).rejects.toMatchObject(
+      { code: 'failed-precondition' },
+    )
+    expect(mockUserDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({ storageTokenStatus: 'reconnect' }),
+      { merge: true },
+    )
+  })
+
+  it('marks reconnect when refresh token fails at Google', async () => {
+    mockGet.mockResolvedValue({
+      get: (field: string) => (field === 'refreshToken' ? 'refresh-token' : null),
+    })
+    mockFetch.mockResolvedValueOnce(jsonResponse({ error_description: 'invalid_grant' }, 400))
+
+    await expect(handleGetGoogleDriveAccessToken({ auth: { uid: 'uid-1' } })).rejects.toMatchObject(
+      { code: 'internal' },
+    )
+    expect(mockUserDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({ storageTokenStatus: 'reconnect' }),
+      { merge: true },
+    )
   })
 })

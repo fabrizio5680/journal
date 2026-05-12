@@ -82,8 +82,8 @@ vi.mock('@/lib/storage/providerConnection', () => ({
     }
     return {
       ...metadata,
-      status: metadata.storageRootFolderId === 'reconnect-root' ? 'reconnect' : 'connected',
-      deviceConnected: metadata.storageRootFolderId !== 'reconnect-root',
+      status: metadata.storageTokenStatus === 'reconnect' ? 'reconnect' : 'connected',
+      deviceConnected: metadata.storageTokenStatus !== 'reconnect',
     }
   },
 }))
@@ -415,7 +415,7 @@ describe('SettingsPage', () => {
     fireSnapshot({ reminderEnabled: false })
 
     expect(screen.getByText('Storage')).toBeInTheDocument()
-    expect(screen.getByText(/Drive connection is per device/i)).toBeInTheDocument()
+    expect(screen.getByText(/Drive connection follows your account/i)).toBeInTheDocument()
     expect(screen.getByText('Not connected')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /connect google drive/i })).toBeInTheDocument()
   })
@@ -456,6 +456,7 @@ describe('SettingsPage', () => {
       activeStorageProvider: 'googleDrive',
       storageAccountEmail: 'drive@example.com',
       storageRootFolderId: 'reconnect-root',
+      storageTokenStatus: 'reconnect',
     })
 
     expect(screen.getByText(/Google Drive · reconnect needed/i)).toBeInTheDocument()
@@ -474,7 +475,7 @@ describe('SettingsPage', () => {
     })
   })
 
-  it('disconnect action confirms and disconnects Google Drive', async () => {
+  it('disconnect action confirms and disconnects Google Drive only on this device', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     renderPage()
@@ -491,6 +492,7 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       expect(mockDisconnectGoogleDriveProvider).toHaveBeenCalledWith('test-uid')
     })
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/on this device/i))
     confirmSpy.mockRestore()
   })
 

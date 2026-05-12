@@ -15,9 +15,10 @@ import {
   getStoredGoogleDriveConnection,
   getValidGoogleDriveAccessToken,
   markGoogleDriveReconnectRequired,
-  requestGoogleDriveAccessToken,
-  revokeGoogleDriveAccess,
+  requestGoogleDriveAuthorizationCode,
+  exchangeGoogleDriveCode,
   setStoredGoogleDriveConnection,
+  disconnectGoogleDriveOnDevice,
 } from './googleDriveAuth'
 import {
   GOOGLE_DRIVE_PROVIDER,
@@ -77,33 +78,29 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
   ) {}
 
   async connect(): Promise<ProviderConnection> {
-    await requestGoogleDriveAccessToken({
+    const code = await requestGoogleDriveAuthorizationCode({
       userId: this.userId,
       loginHint: this.loginHint,
-      prompt: 'select_account',
+      prompt: 'consent select_account',
     })
-    const accountEmail = await this.fetchAccountEmail()
-    const rootFolderId = await this.ensureFolder(GOOGLE_DRIVE_ROOT_FOLDER_NAME)
-    await this.ensureFolder('entries', rootFolderId)
-
-    const connection: GoogleDriveStoredConnection = {
-      accountEmail,
-      rootFolderId,
-      connectedAt: new Date().toISOString(),
-    }
-    setStoredGoogleDriveConnection(this.userId, connection)
+    const connection = await exchangeGoogleDriveCode(this.userId, code)
+    setStoredGoogleDriveConnection(this.userId, {
+      accountEmail: connection.accountEmail,
+      rootFolderId: connection.rootFolderId ?? '',
+      connectedAt: connection.connectedAt,
+    })
 
     return {
       provider: GOOGLE_DRIVE_PROVIDER,
-      accountEmail,
-      rootFolderId,
+      accountEmail: connection.accountEmail,
+      rootFolderId: connection.rootFolderId,
       rootPath: `My Drive/${GOOGLE_DRIVE_ROOT_FOLDER_NAME}`,
       connectedAt: connection.connectedAt,
     }
   }
 
   async disconnect(): Promise<void> {
-    await revokeGoogleDriveAccess(this.userId)
+    disconnectGoogleDriveOnDevice(this.userId)
   }
 
   async getEntry(date: string): Promise<EntryFile | null> {
@@ -194,13 +191,6 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
       throw new GoogleDriveError('reconnect', 'Google Drive is not connected.')
     }
     return connection
-  }
-
-  private async fetchAccountEmail(): Promise<string> {
-    const about = await this.driveFetch<{ user?: { emailAddress?: string } }>(
-      `${DRIVE_API}/about?fields=user(emailAddress)`,
-    )
-    return about.user?.emailAddress ?? 'Google Drive account'
   }
 
   private async ensureEntryFolder(date: string) {
@@ -325,7 +315,7 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
   }
 
   private async driveFetch<T>(url: string, init: FetchInit = {}): Promise<T> {
-    const accessToken = getValidGoogleDriveAccessToken(this.userId)
+    const accessToken = await getValidGoogleDriveAccessToken(this.userId)
     if (!accessToken) {
       markGoogleDriveReconnectRequired(this.userId)
       throw new GoogleDriveError('reconnect', 'Google Drive needs to be reconnected.')

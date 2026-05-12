@@ -9,12 +9,10 @@ import {
 } from './providerConnection'
 
 const {
-  mockDeleteField,
   mockDoc,
   mockOnSnapshot,
   mockServerTimestamp,
   mockSetDoc,
-  mockUpdateDoc,
   mockSaveMetadata,
   mockUpdateMetadata,
   mockAdapterConnect,
@@ -22,15 +20,15 @@ const {
   mockAdapterListEntryMetadata,
   mockClearGoogleDriveAuthState,
   mockGetStoredGoogleDriveConnection,
+  mockHydrateGoogleDriveConnectionFromMetadata,
+  mockIsGoogleDriveLocallyDisconnected,
   mockSetStoredGoogleDriveConnection,
   mockSyncPending,
 } = vi.hoisted(() => ({
-  mockDeleteField: vi.fn(() => ({ deleteField: true })),
   mockDoc: vi.fn(() => ({ path: 'users/test-uid' })),
   mockOnSnapshot: vi.fn(),
   mockServerTimestamp: vi.fn(() => ({ serverTimestamp: true })),
   mockSetDoc: vi.fn().mockResolvedValue(undefined),
-  mockUpdateDoc: vi.fn().mockResolvedValue(undefined),
   mockSaveMetadata: vi.fn().mockResolvedValue(undefined),
   mockUpdateMetadata: vi.fn().mockResolvedValue(undefined),
   mockAdapterConnect: vi.fn(),
@@ -38,17 +36,17 @@ const {
   mockAdapterListEntryMetadata: vi.fn(),
   mockClearGoogleDriveAuthState: vi.fn(),
   mockGetStoredGoogleDriveConnection: vi.fn(),
+  mockHydrateGoogleDriveConnectionFromMetadata: vi.fn(),
+  mockIsGoogleDriveLocallyDisconnected: vi.fn(),
   mockSetStoredGoogleDriveConnection: vi.fn(),
   mockSyncPending: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('firebase/firestore', () => ({
-  deleteField: () => mockDeleteField(),
   doc: (...args: unknown[]) => (mockDoc as (...input: unknown[]) => unknown)(...args),
   onSnapshot: (...args: unknown[]) => (mockOnSnapshot as (...input: unknown[]) => unknown)(...args),
   serverTimestamp: () => mockServerTimestamp(),
   setDoc: (...args: unknown[]) => (mockSetDoc as (...input: unknown[]) => unknown)(...args),
-  updateDoc: (...args: unknown[]) => (mockUpdateDoc as (...input: unknown[]) => unknown)(...args),
 }))
 
 vi.mock('@/lib/firebase', () => ({
@@ -76,6 +74,10 @@ vi.mock('./providers/googleDriveAuth', () => ({
   clearGoogleDriveAuthState: (...args: unknown[]) => mockClearGoogleDriveAuthState(...args),
   getStoredGoogleDriveConnection: (...args: unknown[]) =>
     mockGetStoredGoogleDriveConnection(...args),
+  hydrateGoogleDriveConnectionFromMetadata: (...args: unknown[]) =>
+    mockHydrateGoogleDriveConnectionFromMetadata(...args),
+  isGoogleDriveLocallyDisconnected: (...args: unknown[]) =>
+    mockIsGoogleDriveLocallyDisconnected(...args),
   setStoredGoogleDriveConnection: (...args: unknown[]) =>
     mockSetStoredGoogleDriveConnection(...args),
 }))
@@ -90,6 +92,7 @@ describe('providerConnection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetStoredGoogleDriveConnection.mockReturnValue(null)
+    mockIsGoogleDriveLocallyDisconnected.mockReturnValue(false)
     mockAdapterConnect.mockResolvedValue({
       provider: 'googleDrive',
       accountEmail: 'drive@example.com',
@@ -114,21 +117,43 @@ describe('providerConnection', () => {
     expect(
       getDeviceProviderState('test-uid', {
         activeStorageProvider: 'googleDrive',
+        storageAccountEmail: 'drive@example.com',
         storageRootFolderId: 'root-folder',
+        storageConnectedAt: '2026-04-13T00:00:00.000Z',
       }),
     ).toMatchObject({ status: 'connected', deviceConnected: true })
+    expect(mockHydrateGoogleDriveConnectionFromMetadata).toHaveBeenCalledWith(
+      'test-uid',
+      expect.objectContaining({
+        accountEmail: 'drive@example.com',
+        rootFolderId: 'root-folder',
+      }),
+    )
 
     mockGetStoredGoogleDriveConnection.mockReturnValueOnce({
       accountEmail: 'drive@example.com',
-      rootFolderId: 'other-root',
+      rootFolderId: 'root-folder',
       connectedAt: '2026-04-13T00:00:00.000Z',
+      reconnectRequired: true,
     })
     expect(
       getDeviceProviderState('test-uid', {
         activeStorageProvider: 'googleDrive',
+        storageAccountEmail: 'drive@example.com',
         storageRootFolderId: 'root-folder',
+        storageConnectedAt: '2026-04-13T00:00:00.000Z',
       }),
     ).toMatchObject({ status: 'reconnect', deviceConnected: false })
+
+    mockIsGoogleDriveLocallyDisconnected.mockReturnValueOnce(true)
+    expect(
+      getDeviceProviderState('test-uid', {
+        activeStorageProvider: 'googleDrive',
+        storageAccountEmail: 'drive@example.com',
+        storageRootFolderId: 'root-folder',
+        storageConnectedAt: '2026-04-13T00:00:00.000Z',
+      }),
+    ).toMatchObject({ status: 'disconnected', deviceConnected: false })
   })
 
   it('subscribes to Firestore provider metadata and normalizes timestamps', () => {
@@ -175,6 +200,7 @@ describe('providerConnection', () => {
         storageAccountEmail: 'drive@example.com',
         storageRootFolderId: 'root-folder',
         storageConnectedAt: { serverTimestamp: true },
+        storageTokenStatus: 'valid',
       },
       { merge: true },
     )
@@ -188,20 +214,12 @@ describe('providerConnection', () => {
     expect(mockSyncPending).toHaveBeenCalledWith('test-uid')
   })
 
-  it('disconnects without deleting Drive files and clears provider fields', async () => {
+  it('disconnects only this device without deleting shared provider metadata', async () => {
     await disconnectGoogleDriveProvider('test-uid')
 
     expect(mockAdapterDisconnect).toHaveBeenCalled()
     expect(mockClearGoogleDriveAuthState).toHaveBeenCalledWith('test-uid')
-    expect(mockUpdateDoc).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        activeStorageProvider: { deleteField: true },
-        storageAccountEmail: { deleteField: true },
-        storageRootFolderId: { deleteField: true },
-        storageConnectedAt: { deleteField: true },
-      }),
-    )
+    expect(mockSetDoc).not.toHaveBeenCalled()
   })
 
   it('backfills existing metadata and creates metadata-only rows when needed', async () => {

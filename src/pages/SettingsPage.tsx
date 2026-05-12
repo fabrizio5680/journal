@@ -147,6 +147,7 @@ export default function SettingsPage() {
               storageAccountEmail: data.storageAccountEmail,
               storageRootFolderId: data.storageRootFolderId,
               storageConnectedAt: data.storageConnectedAt,
+              storageTokenStatus: data.storageTokenStatus,
             }),
           )
         },
@@ -290,7 +291,7 @@ export default function SettingsPage() {
     setStorageAction('disconnect')
     try {
       await disconnectGoogleDriveProvider(user.uid)
-      setStorageState({ status: 'disconnected', deviceConnected: false })
+      setStorageState((current) => ({ ...current, status: 'disconnected', deviceConnected: false }))
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Google Drive disconnect failed.')
     } finally {
@@ -333,7 +334,7 @@ export default function SettingsPage() {
           <div className="min-w-0 flex-1">
             <p className="text-on-surface text-sm font-medium">Storage</p>
             <p className="text-on-surface-variant/60 mt-1 text-xs leading-relaxed">
-              Drive connection is per device. Entries keep saving locally even without Drive access.
+              Drive connection follows your account. This device can keep entries local.
             </p>
           </div>
         </div>

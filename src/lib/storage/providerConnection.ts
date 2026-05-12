@@ -1,18 +1,12 @@
-import {
-  deleteField,
-  doc,
-  onSnapshot,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  type DocumentData,
-} from 'firebase/firestore'
+import { doc, onSnapshot, serverTimestamp, setDoc, type DocumentData } from 'firebase/firestore'
 
 import { localEntryCache } from './localEntryCache'
 import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
 import {
   clearGoogleDriveAuthState,
   getStoredGoogleDriveConnection,
+  hydrateGoogleDriveConnectionFromMetadata,
+  isGoogleDriveLocallyDisconnected,
   setStoredGoogleDriveConnection,
 } from './providers/googleDriveAuth'
 import { GOOGLE_DRIVE_PROVIDER } from './providers/googleDriveTypes'
@@ -26,6 +20,7 @@ export interface ProviderMetadata {
   storageAccountEmail?: string
   storageRootFolderId?: string
   storageConnectedAt?: string
+  storageTokenStatus?: 'valid' | 'reconnect'
 }
 
 export interface ProviderConnectionState extends ProviderMetadata {
@@ -48,21 +43,46 @@ function metadataFromDoc(data: DocumentData | undefined): ProviderMetadata {
     storageAccountEmail: data?.storageAccountEmail,
     storageRootFolderId: data?.storageRootFolderId,
     storageConnectedAt: timestampToIso(data?.storageConnectedAt),
+    storageTokenStatus: data?.storageTokenStatus,
   }
 }
 
 export function getDeviceProviderState(userId: string, metadata: ProviderMetadata) {
-  const local = getStoredGoogleDriveConnection(userId)
   const isDriveActive = metadata.activeStorageProvider === GOOGLE_DRIVE_PROVIDER
+  const isLocallyDisconnected = isGoogleDriveLocallyDisconnected(userId)
+  if (
+    isDriveActive &&
+    !isLocallyDisconnected &&
+    metadata.storageAccountEmail &&
+    metadata.storageRootFolderId &&
+    metadata.storageConnectedAt
+  ) {
+    hydrateGoogleDriveConnectionFromMetadata(userId, {
+      accountEmail: metadata.storageAccountEmail,
+      rootFolderId: metadata.storageRootFolderId,
+      connectedAt: metadata.storageConnectedAt,
+    })
+  }
+  const hydratedLocal = getStoredGoogleDriveConnection(userId)
   const isDeviceConnected =
     isDriveActive &&
-    !!local &&
-    local.rootFolderId === metadata.storageRootFolderId &&
-    !local.reconnectRequired
+    !isLocallyDisconnected &&
+    !!metadata.storageRootFolderId &&
+    !hydratedLocal?.reconnectRequired
+  const requiresReconnect =
+    isDriveActive &&
+    (metadata.storageTokenStatus === 'reconnect' ||
+      !metadata.storageRootFolderId ||
+      hydratedLocal?.reconnectRequired)
 
   return {
     ...metadata,
-    status: !isDriveActive ? 'disconnected' : isDeviceConnected ? 'connected' : 'reconnect',
+    status:
+      !isDriveActive || isLocallyDisconnected
+        ? 'disconnected'
+        : requiresReconnect
+          ? 'reconnect'
+          : 'connected',
     deviceConnected: isDeviceConnected,
   } satisfies ProviderConnectionState
 }
@@ -95,6 +115,7 @@ export async function connectGoogleDriveProvider(userId: string, loginHint?: str
       storageAccountEmail: connection.accountEmail,
       storageRootFolderId: connection.rootFolderId,
       storageConnectedAt: serverTimestamp(),
+      storageTokenStatus: 'valid',
     },
     { merge: true },
   )
@@ -115,13 +136,6 @@ export async function disconnectGoogleDriveProvider(userId: string) {
   const adapter = new GoogleDriveAdapter(userId)
   await adapter.disconnect()
   clearGoogleDriveAuthState(userId)
-
-  await updateDoc(doc(db, 'users', userId), {
-    activeStorageProvider: deleteField(),
-    storageAccountEmail: deleteField(),
-    storageRootFolderId: deleteField(),
-    storageConnectedAt: deleteField(),
-  })
 }
 
 export async function backfillGoogleDriveMetadata(userId: string) {

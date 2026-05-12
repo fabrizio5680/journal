@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 import {
   getFirestore,
   initializeFirestore,
@@ -20,6 +21,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
+export const functions = getFunctions(app, 'europe-west2')
 
 let dbInstance
 
@@ -63,6 +65,11 @@ if (import.meta.env.VITE_USE_EMULATOR === 'true') {
     connectFirestoreEmulator(db, '127.0.0.1', 8080)
   } catch (e) {
     console.warn('[firebase] firestore emulator connect failed:', e)
+  }
+  try {
+    connectFunctionsEmulator(functions, '127.0.0.1', 5001)
+  } catch (e) {
+    console.warn('[firebase] functions emulator connect failed:', e)
   }
   // Expose a test sign-in helper so Playwright E2E tests can authenticate
   ;(

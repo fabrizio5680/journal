@@ -7,6 +7,39 @@ import { GoogleDriveError } from './googleDriveTypes'
 
 const USER_ID = 'test-uid'
 
+const {
+  mockDisconnectGoogleDriveOnDevice,
+  mockExchangeGoogleDriveCode,
+  mockGetStoredGoogleDriveConnection,
+  mockGetValidGoogleDriveAccessToken,
+  mockMarkGoogleDriveReconnectRequired,
+  mockRequestGoogleDriveAuthorizationCode,
+  mockSetStoredGoogleDriveConnection,
+} = vi.hoisted(() => ({
+  mockDisconnectGoogleDriveOnDevice: vi.fn(),
+  mockExchangeGoogleDriveCode: vi.fn(),
+  mockGetStoredGoogleDriveConnection: vi.fn(),
+  mockGetValidGoogleDriveAccessToken: vi.fn(),
+  mockMarkGoogleDriveReconnectRequired: vi.fn(),
+  mockRequestGoogleDriveAuthorizationCode: vi.fn(),
+  mockSetStoredGoogleDriveConnection: vi.fn(),
+}))
+
+vi.mock('./googleDriveAuth', () => ({
+  disconnectGoogleDriveOnDevice: (...args: unknown[]) => mockDisconnectGoogleDriveOnDevice(...args),
+  exchangeGoogleDriveCode: (...args: unknown[]) => mockExchangeGoogleDriveCode(...args),
+  getStoredGoogleDriveConnection: (...args: unknown[]) =>
+    mockGetStoredGoogleDriveConnection(...args),
+  getValidGoogleDriveAccessToken: (...args: unknown[]) =>
+    mockGetValidGoogleDriveAccessToken(...args),
+  markGoogleDriveReconnectRequired: (...args: unknown[]) =>
+    mockMarkGoogleDriveReconnectRequired(...args),
+  requestGoogleDriveAuthorizationCode: (...args: unknown[]) =>
+    mockRequestGoogleDriveAuthorizationCode(...args),
+  setStoredGoogleDriveConnection: (...args: unknown[]) =>
+    mockSetStoredGoogleDriveConnection(...args),
+}))
+
 function makeEntry(): EntryFile {
   return {
     schemaVersion: 1,
@@ -31,25 +64,6 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
-function seedDriveState() {
-  localStorage.setItem(
-    `google_drive_token_${USER_ID}`,
-    JSON.stringify({
-      accessToken: 'access-token',
-      expiresAt: Date.now() + 120_000,
-      scope: 'https://www.googleapis.com/auth/drive.file',
-    }),
-  )
-  localStorage.setItem(
-    `google_drive_connection_${USER_ID}`,
-    JSON.stringify({
-      accountEmail: 'drive@example.com',
-      rootFolderId: 'root-folder',
-      connectedAt: '2026-04-13T00:00:00.000Z',
-    }),
-  )
-}
-
 function mockFetchSequence(responses: Response[]) {
   const fetchMock = vi.fn(async () => {
     const response = responses.shift()
@@ -63,8 +77,46 @@ function mockFetchSequence(responses: Response[]) {
 describe('GoogleDriveAdapter', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.clearAllMocks()
     localStorage.clear()
-    seedDriveState()
+    mockGetStoredGoogleDriveConnection.mockReturnValue({
+      accountEmail: 'drive@example.com',
+      rootFolderId: 'root-folder',
+      connectedAt: '2026-04-13T00:00:00.000Z',
+    })
+    mockGetValidGoogleDriveAccessToken.mockResolvedValue('access-token')
+    mockRequestGoogleDriveAuthorizationCode.mockResolvedValue('auth-code')
+    mockExchangeGoogleDriveCode.mockResolvedValue({
+      provider: 'googleDrive',
+      accountEmail: 'drive@example.com',
+      rootFolderId: 'root-folder',
+      connectedAt: '2026-04-13T00:00:00.000Z',
+    })
+  })
+
+  it('connects with authorization code flow and stores only connection metadata locally', async () => {
+    const result = await new GoogleDriveAdapter(USER_ID, 'app@example.com').connect()
+
+    expect(mockRequestGoogleDriveAuthorizationCode).toHaveBeenCalledWith({
+      userId: USER_ID,
+      loginHint: 'app@example.com',
+      prompt: 'consent select_account',
+    })
+    expect(mockExchangeGoogleDriveCode).toHaveBeenCalledWith(USER_ID, 'auth-code')
+    expect(mockSetStoredGoogleDriveConnection).toHaveBeenCalledWith(
+      USER_ID,
+      expect.objectContaining({
+        accountEmail: 'drive@example.com',
+        rootFolderId: 'root-folder',
+      }),
+    )
+    expect(result.rootPath).toBe('My Drive/Quiet Dwelling')
+  })
+
+  it('disconnects only this device', async () => {
+    await new GoogleDriveAdapter(USER_ID).disconnect()
+
+    expect(mockDisconnectGoogleDriveOnDevice).toHaveBeenCalledWith(USER_ID)
   })
 
   it('creates missing folders and uploads a new entry JSON file', async () => {
@@ -81,6 +133,7 @@ describe('GoogleDriveAdapter', () => {
 
     const result = await new GoogleDriveAdapter(USER_ID).saveEntry(makeEntry())
 
+    expect(mockGetValidGoogleDriveAccessToken).toHaveBeenCalledWith(USER_ID)
     expect(result.revisionId).toBe('revision-1')
     expect(result.metadata.providerFileId).toBe('entry-file')
     const uploadCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as unknown[]
@@ -89,6 +142,9 @@ describe('GoogleDriveAdapter', () => {
     expect(uploadUrl).toContain('/upload/drive/v3/files')
     expect(uploadUrl).toContain('uploadType=multipart')
     expect(uploadInit.method).toBe('POST')
+    expect((uploadInit as { headers: Record<string, string> }).headers.Authorization).toBe(
+      'Bearer access-token',
+    )
     expect(String(uploadInit.body)).toContain('"name":"2026-04-13.json"')
     expect(String(uploadInit.body)).toContain('"app":"quiet-dwelling"')
   })
@@ -135,9 +191,18 @@ describe('GoogleDriveAdapter', () => {
     await expect(new GoogleDriveAdapter(USER_ID).listEntryMetadata()).rejects.toMatchObject({
       code: 'reconnect',
     })
-    expect(localStorage.getItem(`google_drive_connection_${USER_ID}`)).toContain(
-      '"reconnectRequired":true',
-    )
+    expect(mockMarkGoogleDriveReconnectRequired).toHaveBeenCalledWith(USER_ID)
+  })
+
+  it('maps missing backend token to reconnect before calling Drive REST', async () => {
+    mockGetValidGoogleDriveAccessToken.mockResolvedValueOnce(null)
+    const fetchMock = mockFetchSequence([])
+
+    await expect(new GoogleDriveAdapter(USER_ID).listEntryMetadata()).rejects.toMatchObject({
+      code: 'reconnect',
+    })
+    expect(mockMarkGoogleDriveReconnectRequired).toHaveBeenCalledWith(USER_ID)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('maps Drive storage quota errors to storage-full', async () => {

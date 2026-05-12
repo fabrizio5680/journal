@@ -21,6 +21,7 @@ interface Window {
   google?: {
     accounts: {
       oauth2: {
+        initCodeClient?: (config: GoogleCodeClientConfig) => GoogleCodeClient
         initTokenClient: (config: GoogleTokenClientConfig) => GoogleTokenClient
         hasGrantedAllScopes: (
           tokenResponse: GoogleTokenResponse,
@@ -34,6 +35,28 @@ interface Window {
       }
     }
   }
+}
+
+interface GoogleCodeClientConfig {
+  client_id: string
+  scope: string
+  ux_mode: 'popup'
+  callback: (response: GoogleCodeResponse) => void
+  error_callback?: (error: { type: string; message?: string }) => void
+  include_granted_scopes?: boolean
+  prompt?: string
+  login_hint?: string
+}
+
+interface GoogleCodeClient {
+  requestCode: () => void
+}
+
+interface GoogleCodeResponse {
+  code?: string
+  scope?: string
+  error?: string
+  error_description?: string
 }
 
 interface GoogleTokenClientConfig {

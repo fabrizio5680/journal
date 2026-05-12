@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test'
 
 const EMULATOR_AUTH_URL = 'http://localhost:9099'
+const FIRESTORE_EMULATOR_URL = 'http://127.0.0.1:8080'
+const FIREBASE_PROJECT_ID = 'journal-manna'
 const FAKE_API_KEY = 'fake-api-key'
 const TEST_EMAIL_BASE = 'settings-test'
 const TEST_PASSWORD = 'password123'
@@ -45,6 +47,35 @@ async function createEmulatorUser(email: string) {
     },
   )
   return res.json()
+}
+
+async function patchUserDoc(uid: string, idToken: string, fields: Record<string, string>) {
+  const updateMask = Object.keys(fields)
+    .map((field) => `updateMask.fieldPaths=${encodeURIComponent(field)}`)
+    .join('&')
+  const res = await fetch(
+    `${FIRESTORE_EMULATOR_URL}/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}?${updateMask}`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: Object.fromEntries(
+          Object.entries(fields).map(([key, value]) => [key, { stringValue: value }]),
+        ),
+      }),
+    },
+  )
+  if (!res.ok) {
+    throw new Error(`Failed to patch Firestore user doc: ${res.status} ${await res.text()}`)
+  }
+}
+
+async function readUserDoc(uid: string, idToken: string) {
+  const res = await fetch(
+    `${FIRESTORE_EMULATOR_URL}/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}`,
+    { headers: { Authorization: `Bearer ${idToken}` } },
+  )
+  return (await res.json()) as { fields?: Record<string, { stringValue?: string }> }
 }
 
 async function signInAsTestUser(page: import('@playwright/test').Page, email: string) {
@@ -153,5 +184,57 @@ test.describe('Settings — spellcheck toggle (desktop only)', () => {
     const editor = page.locator('main [contenteditable="true"], main .ProseMirror').first()
     await expect(editor).toBeVisible({ timeout: 5000 })
     await expect(editor).toHaveAttribute('spellcheck', 'false')
+  })
+})
+
+test.describe('Settings — Google Drive account connection', () => {
+  let driveIdToken: string
+  let driveUid: string
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    const email = testEmail(`drive-${testInfo.project.name}`)
+    await clearTestUser(email)
+    const created = (await createEmulatorUser(email)) as { idToken: string; localId: string }
+    driveIdToken = created.idToken
+    driveUid = created.localId
+    await patchUserDoc(driveUid, driveIdToken, {
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'drive@example.com',
+      storageRootFolderId: 'drive-root',
+      storageConnectedAt: '2026-04-13T00:00:00.000Z',
+      storageTokenStatus: 'valid',
+    })
+    await page.goto('/login')
+    await signInAsTestUser(page, email)
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+  })
+
+  test('disconnect is local to this device and leaves account Drive metadata intact', async ({
+    page,
+  }) => {
+    await page.goto('/settings')
+    await expect(page.getByText(/Google Drive · drive@example.com · connected/i)).toBeVisible({
+      timeout: 5000,
+    })
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('on this device')
+      await dialog.accept()
+    })
+    await page.getByRole('button', { name: /disconnect google drive/i }).click()
+
+    await expect(page.getByText('Not connected')).toBeVisible()
+    await expect(page.getByRole('button', { name: /connect google drive/i })).toBeVisible()
+
+    const localDisconnect = await page.evaluate(() =>
+      Object.entries(localStorage).find(
+        ([key, value]) => key.startsWith('google_drive_disconnected_') && value === 'true',
+      ),
+    )
+    expect(localDisconnect).toBeTruthy()
+
+    const publicDoc = await readUserDoc(driveUid, driveIdToken)
+    expect(publicDoc.fields?.activeStorageProvider?.stringValue).toBe('googleDrive')
+    expect(publicDoc.fields?.storageRootFolderId?.stringValue).toBe('drive-root')
   })
 })

@@ -10,14 +10,14 @@ const {
   mockUpdateMetadata,
   mockSaveEntry,
   mockGetStoredGoogleDriveConnection,
-  mockHasUsableGoogleDriveToken,
+  mockIsGoogleDriveLocallyDisconnected,
 } = vi.hoisted(() => ({
   mockGetEntry: vi.fn(),
   mockListMetadata: vi.fn(),
   mockUpdateMetadata: vi.fn(),
   mockSaveEntry: vi.fn(),
   mockGetStoredGoogleDriveConnection: vi.fn(),
-  mockHasUsableGoogleDriveToken: vi.fn(),
+  mockIsGoogleDriveLocallyDisconnected: vi.fn(),
 }))
 
 vi.mock('./localEntryCache', () => ({
@@ -31,7 +31,8 @@ vi.mock('./localEntryCache', () => ({
 vi.mock('./providers/googleDriveAuth', () => ({
   getStoredGoogleDriveConnection: (...args: unknown[]) =>
     mockGetStoredGoogleDriveConnection(...args),
-  hasUsableGoogleDriveToken: (...args: unknown[]) => mockHasUsableGoogleDriveToken(...args),
+  isGoogleDriveLocallyDisconnected: (...args: unknown[]) =>
+    mockIsGoogleDriveLocallyDisconnected(...args),
 }))
 
 vi.mock('./providers/googleDriveAdapter', () => ({
@@ -84,7 +85,7 @@ describe('syncCoordinator', () => {
       rootFolderId: 'root-folder',
       connectedAt: '2026-04-13T00:00:00.000Z',
     })
-    mockHasUsableGoogleDriveToken.mockReturnValue(true)
+    mockIsGoogleDriveLocallyDisconnected.mockReturnValue(false)
     mockGetEntry.mockResolvedValue(makeEntry())
     mockListMetadata.mockResolvedValue([makeMetadata()])
     mockUpdateMetadata.mockResolvedValue(makeMetadata())
@@ -104,6 +105,9 @@ describe('syncCoordinator', () => {
       reconnectRequired: true,
     })
     expect(syncCoordinator.isConnectedOnDevice('test-uid')).toBe(false)
+
+    mockIsGoogleDriveLocallyDisconnected.mockReturnValueOnce(true)
+    expect(syncCoordinator.isConnectedOnDevice('test-uid')).toBe(false)
   })
 
   it('uploads pending entries and stores provider revision metadata', async () => {
@@ -122,8 +126,19 @@ describe('syncCoordinator', () => {
     )
   })
 
-  it('marks pending entries reconnect when token access is unavailable', async () => {
-    mockHasUsableGoogleDriveToken.mockReturnValue(false)
+  it('uploads pending entries even when no local access token is cached', async () => {
+    await syncCoordinator.syncPending('test-uid')
+
+    expect(mockSaveEntry).toHaveBeenCalledWith(makeEntry(), 'revision-0')
+    expect(mockUpdateMetadata).toHaveBeenCalledWith(
+      'test-uid',
+      '2026-04-13',
+      expect.objectContaining({ syncStatus: 'synced' }),
+    )
+  })
+
+  it('marks pending entries reconnect when this device opted out locally', async () => {
+    mockIsGoogleDriveLocallyDisconnected.mockReturnValue(true)
 
     await syncCoordinator.syncPending('test-uid')
 

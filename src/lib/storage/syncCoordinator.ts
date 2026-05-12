@@ -2,7 +2,7 @@ import { localEntryCache } from './localEntryCache'
 import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
 import {
   getStoredGoogleDriveConnection,
-  hasUsableGoogleDriveToken,
+  isGoogleDriveLocallyDisconnected,
 } from './providers/googleDriveAuth'
 import { GOOGLE_DRIVE_PROVIDER, GoogleDriveError } from './providers/googleDriveTypes'
 
@@ -37,7 +37,7 @@ async function markStatus(
 
 async function syncOne(userId: string, date: string) {
   const connection = getStoredGoogleDriveConnection(userId)
-  if (!connection || connection.reconnectRequired || !hasUsableGoogleDriveToken(userId)) {
+  if (!connection || connection.reconnectRequired || isGoogleDriveLocallyDisconnected(userId)) {
     await markStatus(userId, date, {
       provider: GOOGLE_DRIVE_PROVIDER,
       syncStatus: 'reconnect',
@@ -83,7 +83,9 @@ export const syncCoordinator = {
 
   isConnectedOnDevice(userId: string): boolean {
     const connection = getStoredGoogleDriveConnection(userId)
-    return !!connection && !connection.reconnectRequired
+    return (
+      !!connection && !connection.reconnectRequired && !isGoogleDriveLocallyDisconnected(userId)
+    )
   },
 
   async enqueue(userId: string, date: string) {
