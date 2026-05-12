@@ -4,8 +4,10 @@ import { onAuthStateChanged, type User } from 'firebase/auth'
 import { subscribeDriveLoadProgress, type DriveLoadProgress } from '@/lib/storage/driveLoadProgress'
 import {
   subscribeProviderConnection,
+  initDriveSyncListeners,
   type ProviderConnectionState,
 } from '@/lib/storage/providerConnection'
+import { syncCoordinator } from '@/lib/storage/syncCoordinator'
 import type { StorageProvider, SyncStatus } from '@/lib/storage/types'
 import { auth } from '@/lib/firebase'
 
@@ -43,6 +45,19 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
     if (!user) return
     return subscribeProviderConnection(user.uid, setConnection)
   }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    if (!syncCoordinator.isConnectedOnDevice(user.uid)) return
+    return initDriveSyncListeners(user.uid)
+  }, [user])
+
+  // Re-init listeners when connection status changes to connected
+  useEffect(() => {
+    if (!user) return
+    if (connection.status !== 'connected' || !connection.deviceConnected) return
+    return initDriveSyncListeners(user.uid)
+  }, [user, connection.status, connection.deviceConnected])
 
   useEffect(() => subscribeDriveLoadProgress(setDriveLoadProgress), [])
 

@@ -15,6 +15,7 @@ const TOKEN_SKEW_MS = 60_000
 const LOCAL_DISCONNECT_KEY_PREFIX = 'google_drive_disconnected_'
 
 const tokenCache = new Map<string, GoogleDriveTokenState>()
+const refreshInFlight = new Map<string, Promise<string | null>>()
 
 function connectionKey(userId: string) {
   return `google_drive_connection_${userId}`
@@ -203,18 +204,86 @@ export async function getValidGoogleDriveAccessToken(userId: string): Promise<st
   const token = tokenCache.get(userId)
   if (token && token.expiresAt - TOKEN_SKEW_MS > Date.now()) return token.accessToken
 
-  const getAccessToken = httpsCallable<Record<string, never>, GoogleDriveTokenState>(
-    functions,
-    'getGoogleDriveAccessToken',
-  )
-  const result = await getAccessToken({})
-  const state = result.data
-  if (!state.accessToken || state.expiresAt - TOKEN_SKEW_MS <= Date.now()) {
-    return null
+  // Single-flight: if a refresh is already in progress for this user, reuse it
+  const inFlight = refreshInFlight.get(userId)
+  if (inFlight) return inFlight
+
+  const refreshPromise = (async (): Promise<string | null> => {
+    try {
+      const getAccessToken = httpsCallable<Record<string, never>, GoogleDriveTokenState>(
+        functions,
+        'getGoogleDriveAccessToken',
+      )
+      const result = await getAccessToken({})
+      const state = result.data
+      if (!state.accessToken || state.expiresAt - TOKEN_SKEW_MS <= Date.now()) {
+        return null
+      }
+      tokenCache.set(userId, state)
+      return state.accessToken
+    } finally {
+      refreshInFlight.delete(userId)
+    }
+  })()
+
+  refreshInFlight.set(userId, refreshPromise)
+  return refreshPromise
+}
+
+type FetchInit = NonNullable<Parameters<typeof fetch>[1]>
+
+export async function driveApiFetch<T>(
+  userId: string,
+  url: string,
+  init: FetchInit = {},
+): Promise<T> {
+  const accessToken = await getValidGoogleDriveAccessToken(userId)
+  if (!accessToken) {
+    markGoogleDriveReconnectRequired(userId)
+    const { GoogleDriveError } = await import('./googleDriveTypes')
+    throw new GoogleDriveError('reconnect', 'Google Drive needs to be reconnected.')
   }
 
-  tokenCache.set(userId, state)
-  return state.accessToken
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      ...init.headers,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    const status = response.status
+    let reason = ''
+    let message = response.statusText
+    try {
+      const body = (await response.json()) as {
+        error?: { message?: string; errors?: Array<{ reason?: string }> }
+      }
+      reason = body.error?.errors?.[0]?.reason ?? ''
+      message = body.error?.message ?? message
+    } catch {
+      // keep status text when Drive does not return JSON
+    }
+    const { GoogleDriveError } = await import('./googleDriveTypes')
+    if (status === 401) {
+      markGoogleDriveReconnectRequired(userId)
+      throw new GoogleDriveError('reconnect', message, status)
+    }
+    if (reason === 'storageQuotaExceeded' || reason === 'quotaExceeded') {
+      throw new GoogleDriveError('storage-full', message, status)
+    }
+    if (status === 410) {
+      throw new GoogleDriveError('retryable', message, status)
+    }
+    if (status === 429 || status >= 500) {
+      throw new GoogleDriveError('retryable', message, status)
+    }
+    throw new GoogleDriveError('unknown', message, status)
+  }
+
+  if (response.status === 204) return undefined as T
+  return response.json() as Promise<T>
 }
 
 export async function revokeGoogleDriveAccess(userId: string): Promise<void> {

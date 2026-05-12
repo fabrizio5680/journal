@@ -1,4 +1,6 @@
 import { localEntryCache } from './localEntryCache'
+import { getDeviceIdentity } from './deviceIdentity'
+import { mergeEntries } from './mergeEngine'
 import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
 import {
   getStoredGoogleDriveConnection,
@@ -35,7 +37,7 @@ async function markStatus(
   notify(userId)
 }
 
-async function syncOne(userId: string, date: string) {
+async function syncOne(userId: string, date: string, isRetry = false): Promise<void> {
   const connection = getStoredGoogleDriveConnection(userId)
   if (!connection || connection.reconnectRequired || isGoogleDriveLocallyDisconnected(userId)) {
     await markStatus(userId, date, {
@@ -51,16 +53,97 @@ async function syncOne(userId: string, date: string) {
 
   const [metadata] = await localEntryCache.listMetadata(userId, { from: date, to: date })
   const adapter = new GoogleDriveAdapter(userId)
-  const result = await adapter.saveEntry(entry, metadata?.lastSeenRevisionId ?? undefined)
-  retryCounts.delete(retryKey(userId, date))
-  await markStatus(userId, date, {
-    provider: GOOGLE_DRIVE_PROVIDER,
-    providerFileId: result.metadata.providerFileId,
-    lastSeenRevisionId: result.revisionId,
-    lastSyncedAt: new Date().toISOString(),
-    syncStatus: 'synced',
-    syncError: undefined,
-  })
+
+  try {
+    const result = await adapter.saveEntry(entry, metadata?.lastSeenRevisionId ?? undefined)
+    retryCounts.delete(retryKey(userId, date))
+    await markStatus(userId, date, {
+      provider: GOOGLE_DRIVE_PROVIDER,
+      providerFileId: result.metadata.providerFileId,
+      lastSeenRevisionId: result.revisionId,
+      lastSyncedAt: new Date().toISOString(),
+      syncStatus: 'synced',
+      syncError: undefined,
+      moodConflict: null,
+      remoteRevisionId: null,
+      remoteUpdatedAt: null,
+    })
+  } catch (error) {
+    if (!(error instanceof GoogleDriveError) || error.code !== 'conflict') {
+      throw error
+    }
+
+    // Conflict: download remote, merge, re-push
+    const remoteEntry = await adapter.getEntry(date)
+    if (!remoteEntry) {
+      // Remote gone — just push local
+      const result = await adapter.saveEntry(entry)
+      retryCounts.delete(retryKey(userId, date))
+      await markStatus(userId, date, {
+        provider: GOOGLE_DRIVE_PROVIDER,
+        providerFileId: result.metadata.providerFileId,
+        lastSeenRevisionId: result.revisionId,
+        lastSyncedAt: new Date().toISOString(),
+        syncStatus: 'synced',
+        syncError: undefined,
+      })
+      return
+    }
+
+    const { id: deviceId, label: deviceLabel } = getDeviceIdentity()
+    const { merged, moodConflict } = mergeEntries(entry, remoteEntry, deviceLabel)
+
+    // Fire-and-forget backup
+    const remoteRevisionId = metadata?.remoteRevisionId ?? metadata?.lastSeenRevisionId ?? 'unknown'
+    void adapter.saveConflictBackup(remoteEntry, date, remoteRevisionId)
+
+    // Save merged locally
+    await localEntryCache.saveEntry(userId, merged, 'sync-pending', {
+      provider: GOOGLE_DRIVE_PROVIDER,
+      mergedFromDeviceId: deviceId,
+    })
+
+    if (moodConflict) {
+      // Mood conflict — don't push yet, wait for user resolution
+      await markStatus(userId, date, {
+        provider: GOOGLE_DRIVE_PROVIDER,
+        syncStatus: 'merge-pending-mood',
+        moodConflict,
+        syncError: undefined,
+      })
+      notify(userId)
+      return
+    }
+
+    // No mood conflict — push merged
+    try {
+      const [freshMeta] = await localEntryCache.listMetadata(userId, { from: date, to: date })
+      const pushResult = await adapter.saveEntry(merged, freshMeta?.lastSeenRevisionId ?? undefined)
+      retryCounts.delete(retryKey(userId, date))
+      await markStatus(userId, date, {
+        provider: GOOGLE_DRIVE_PROVIDER,
+        providerFileId: pushResult.metadata.providerFileId,
+        lastSeenRevisionId: pushResult.revisionId,
+        lastSyncedAt: new Date().toISOString(),
+        syncStatus: 'synced',
+        syncError: undefined,
+        moodConflict: null,
+        remoteRevisionId: null,
+        remoteUpdatedAt: null,
+      })
+    } catch (pushError) {
+      if (pushError instanceof GoogleDriveError && pushError.code === 'conflict' && !isRetry) {
+        // Single retry: re-run the whole merge flow once
+        await syncOne(userId, date, true)
+        return
+      }
+      await markStatus(userId, date, {
+        provider: GOOGLE_DRIVE_PROVIDER,
+        syncStatus: 'conflict',
+        syncError: pushError instanceof Error ? pushError.message : 'Google Drive sync conflict.',
+      })
+    }
+  }
 }
 
 function scheduleRetry(userId: string, date: string) {
@@ -97,6 +180,23 @@ export const syncCoordinator = {
     void this.syncPending(userId)
   },
 
+  async resolveMoodConflict(
+    userId: string,
+    date: string,
+    mood: 1 | 2 | 3 | 4 | 5 | null,
+    moodLabel: string | null,
+  ): Promise<void> {
+    const entry = await localEntryCache.getEntry(userId, date)
+    if (!entry) return
+    const updated = { ...entry, mood, moodLabel, updatedAt: new Date().toISOString() }
+    await localEntryCache.saveEntry(userId, updated, 'sync-pending', {
+      moodConflict: null,
+      syncError: undefined,
+    })
+    notify(userId)
+    void this.enqueue(userId, date)
+  },
+
   async syncPending(userId: string) {
     if (processingUsers.has(userId)) return
     processingUsers.add(userId)
@@ -123,14 +223,6 @@ export const syncCoordinator = {
               await markStatus(userId, item.date, {
                 provider: GOOGLE_DRIVE_PROVIDER,
                 syncStatus: 'storage-full',
-                syncError: error.message,
-              })
-              continue
-            }
-            if (error.code === 'conflict') {
-              await markStatus(userId, item.date, {
-                provider: GOOGLE_DRIVE_PROVIDER,
-                syncStatus: 'conflict',
                 syncError: error.message,
               })
               continue

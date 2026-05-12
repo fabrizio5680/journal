@@ -5,6 +5,7 @@ import {
   connectGoogleDriveProvider,
   disconnectGoogleDriveProvider,
   getDeviceProviderState,
+  initDriveSyncListeners,
   subscribeProviderConnection,
 } from './providerConnection'
 
@@ -24,6 +25,7 @@ const {
   mockSaveEntry,
   mockSaveMetadata,
   mockUpdateMetadata,
+  mockListMetadata,
   mockAdapterConnect,
   mockAdapterDisconnect,
   mockAdapterGetEntryByFileId,
@@ -43,6 +45,7 @@ const {
   mockSaveEntry: vi.fn().mockResolvedValue(undefined),
   mockSaveMetadata: vi.fn().mockResolvedValue(undefined),
   mockUpdateMetadata: vi.fn().mockResolvedValue(undefined),
+  mockListMetadata: vi.fn().mockResolvedValue([]),
   mockAdapterConnect: vi.fn(),
   mockAdapterDisconnect: vi.fn().mockResolvedValue(undefined),
   mockAdapterGetEntryByFileId: vi.fn(),
@@ -72,6 +75,7 @@ vi.mock('./localEntryCache', () => ({
     saveEntry: (...args: unknown[]) => mockSaveEntry(...args),
     saveMetadata: (...args: unknown[]) => mockSaveMetadata(...args),
     updateMetadata: (...args: unknown[]) => mockUpdateMetadata(...args),
+    listMetadata: (...args: unknown[]) => mockListMetadata(...args),
   },
 }))
 
@@ -108,6 +112,14 @@ vi.mock('./syncCoordinator', () => ({
   syncCoordinator: {
     syncPending: (...args: unknown[]) => mockSyncPending(...args),
   },
+}))
+
+const { mockPollDriveDeltas } = vi.hoisted(() => ({
+  mockPollDriveDeltas: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('./deltaPoll', () => ({
+  pollDriveDeltas: (...args: unknown[]) => mockPollDriveDeltas(...args),
 }))
 
 describe('providerConnection', () => {
@@ -439,5 +451,51 @@ describe('providerConnection', () => {
     expect(calls[1]).toEqual({ loaded: 0, total: 0 })
     expect(calls[calls.length - 1]).toBeNull()
     expect(mockNotifyChanged).toHaveBeenCalledWith('test-uid')
+  })
+
+  // ── New hydrate guard and initDriveSyncListeners tests ──────────────────────
+
+  it('hydrate: when local entry exists with syncStatus: sync-pending → Drive entry for same date is NOT written to cache', async () => {
+    const item = {
+      date: '2026-04-13',
+      mood: null,
+      moodLabel: null,
+      tags: [],
+      wordCount: 5,
+      hasContent: true,
+      updatedAt: '2026-04-13T10:00:00.000Z',
+      provider: 'googleDrive',
+      providerFileId: 'drive-file',
+      lastSeenRevisionId: 'revision-1',
+      lastSyncedAt: '2026-04-13T10:00:00.000Z',
+      syncStatus: 'synced',
+      deletedAt: null,
+    }
+    mockAdapterListEntryMetadata.mockResolvedValue([item])
+
+    // Local entry is dirty (sync-pending)
+    mockListMetadata.mockResolvedValue([
+      {
+        ...item,
+        syncStatus: 'sync-pending',
+      },
+    ])
+
+    await backfillGoogleDriveMetadata('test-uid')
+
+    // Drive entry body should NOT be written to cache (no saveEntry call)
+    expect(mockSaveEntry).not.toHaveBeenCalled()
+    // Also no Drive download should have happened
+    expect(mockAdapterGetEntryByFileId).not.toHaveBeenCalled()
+  })
+
+  it('initDriveSyncListeners: fires syncPending + pollDriveDeltas immediately on call', () => {
+    const cleanup = initDriveSyncListeners('test-uid')
+
+    expect(mockSyncPending).toHaveBeenCalledWith('test-uid')
+    expect(mockPollDriveDeltas).toHaveBeenCalledWith('test-uid')
+
+    // Clean up listeners to avoid polluting other tests
+    cleanup()
   })
 })

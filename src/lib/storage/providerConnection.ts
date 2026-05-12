@@ -3,6 +3,7 @@ import { doc, onSnapshot, serverTimestamp, setDoc, type DocumentData } from 'fir
 import { setDriveLoadProgress } from './driveLoadProgress'
 import { EntryRepository } from './entryRepository'
 import { localEntryCache } from './localEntryCache'
+import { pollDriveDeltas } from './deltaPoll'
 import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
 import {
   clearGoogleDriveAuthState,
@@ -172,6 +173,42 @@ export async function connectGoogleDriveProvider(userId: string, loginHint?: str
   return connection
 }
 
+export function initDriveSyncListeners(userId: string): () => void {
+  function runSync() {
+    void syncCoordinator.syncPending(userId)
+    void pollDriveDeltas(userId)
+  }
+
+  // Boot resume
+  runSync()
+
+  function handleOnline() {
+    runSync()
+  }
+
+  function handleVisibilityChange() {
+    if (!document.hidden) runSync()
+  }
+
+  function handlePageShow() {
+    runSync()
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', handleOnline)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('pageshow', handlePageShow)
+  }
+
+  return () => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('online', handleOnline)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pageshow', handlePageShow)
+    }
+  }
+}
+
 export async function disconnectGoogleDriveProvider(userId: string) {
   const adapter = new GoogleDriveAdapter(userId)
   await adapter.disconnect()
@@ -190,6 +227,17 @@ export async function backfillGoogleDriveMetadata(userId: string) {
     setDriveLoadProgress({ loaded, total })
 
     for (const item of metadata) {
+      // Hydrate guard: preserve in-flight local dirty entries
+      const [existingMeta] = await localEntryCache.listMetadata(userId, {
+        from: item.date,
+        to: item.date,
+      })
+      const isDirty = existingMeta && existingMeta.syncStatus !== 'synced'
+      if (isDirty) {
+        setDriveLoadProgress({ loaded: ++loaded, total })
+        continue
+      }
+
       try {
         if (!item.providerFileId) throw new Error('Google Drive file id is missing.')
         const entry = await adapter.getEntryByFileId(item.providerFileId)
@@ -213,4 +261,13 @@ export async function backfillGoogleDriveMetadata(userId: string) {
   } finally {
     setDriveLoadProgress(null)
   }
+}
+
+// E2E helper: expose backfill for Playwright tests
+if (import.meta.env.VITE_USE_EMULATOR === 'true' && typeof window !== 'undefined') {
+  ;(
+    window as typeof window & {
+      __backfillForTest?: (userId: string) => Promise<void>
+    }
+  ).__backfillForTest = (userId: string) => backfillGoogleDriveMetadata(userId)
 }

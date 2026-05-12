@@ -1,10 +1,11 @@
 import { entryMatchesRange, toEntry, toMetadata } from './entryFormat'
-import type { EntryFile, EntryMetadata, SyncStatus } from './types'
+import type { EntryFile, EntryMetadata, SyncState, SyncStatus } from './types'
 
 const DB_NAME = 'quiet-dwelling'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const ENTRY_STORE = 'entries'
 const METADATA_STORE = 'metadata'
+const SYNC_STATE_STORE = 'syncState'
 
 type EntryRecord = EntryFile & { key: string; userId: string }
 type MetadataRecord = EntryMetadata & { key: string; userId: string }
@@ -34,7 +35,7 @@ function txDone(tx: IDBTransaction): Promise<void> {
 
 async function openDb(): Promise<IDBDatabase> {
   const request = indexedDB.open(DB_NAME, DB_VERSION)
-  request.onupgradeneeded = () => {
+  request.onupgradeneeded = (event) => {
     const db = request.result
     if (!db.objectStoreNames.contains(ENTRY_STORE)) {
       const entries = db.createObjectStore(ENTRY_STORE, { keyPath: 'key' })
@@ -46,6 +47,10 @@ async function openDb(): Promise<IDBDatabase> {
       metadata.createIndex('userId', 'userId')
       metadata.createIndex('date', 'date')
     }
+    // Version 2: add syncState store
+    if ((event.oldVersion ?? 0) < 2 && !db.objectStoreNames.contains(SYNC_STATE_STORE)) {
+      db.createObjectStore(SYNC_STATE_STORE, { keyPath: 'userId' })
+    }
   }
   return requestToPromise(request)
 }
@@ -53,6 +58,7 @@ async function openDb(): Promise<IDBDatabase> {
 class MemoryEntryCache {
   private entries = new Map<string, EntryRecord>()
   private metadata = new Map<string, MetadataRecord>()
+  private syncStates = new Map<string, SyncState>()
 
   async getEntry(userId: string, date: string): Promise<EntryFile | null> {
     return this.entries.get(storageKey(userId, date)) ?? null
@@ -105,6 +111,24 @@ class MemoryEntryCache {
       .filter((item) => entryMatchesRange(item.date, range))
       .sort((a, b) => b.date.localeCompare(a.date))
       .map((entry) => toEntry(entry))
+  }
+
+  async getSyncState(userId: string): Promise<SyncState | null> {
+    return this.syncStates.get(userId) ?? null
+  }
+
+  async setSyncState(userId: string, patch: Partial<SyncState>): Promise<void> {
+    const current = this.syncStates.get(userId)
+    const next: SyncState = {
+      userId,
+      driveStartPageToken: null,
+      driveEntriesFolderId: null,
+      monthFolderIds: [],
+      lastDeltaPollAt: null,
+      ...current,
+      ...patch,
+    }
+    this.syncStates.set(userId, next)
   }
 }
 
@@ -196,6 +220,36 @@ class IndexedDbEntryCache {
       .filter((item) => entryMatchesRange(item.date, range))
       .sort((a, b) => b.date.localeCompare(a.date))
       .map((entry) => toEntry(entry))
+  }
+
+  async getSyncState(userId: string): Promise<SyncState | null> {
+    const db = await openDb()
+    const tx = db.transaction(SYNC_STATE_STORE, 'readonly')
+    const record = await requestToPromise<SyncState | undefined>(
+      tx.objectStore(SYNC_STATE_STORE).get(userId),
+    )
+    db.close()
+    return record ?? null
+  }
+
+  async setSyncState(userId: string, patch: Partial<SyncState>): Promise<void> {
+    const db = await openDb()
+    const tx = db.transaction(SYNC_STATE_STORE, 'readwrite')
+    const current = await requestToPromise<SyncState | undefined>(
+      tx.objectStore(SYNC_STATE_STORE).get(userId),
+    )
+    const next: SyncState = {
+      userId,
+      driveStartPageToken: null,
+      driveEntriesFolderId: null,
+      monthFolderIds: [],
+      lastDeltaPollAt: null,
+      ...current,
+      ...patch,
+    }
+    tx.objectStore(SYNC_STATE_STORE).put(next)
+    await txDone(tx)
+    db.close()
   }
 }
 

@@ -18,5 +18,8 @@ export default defineConfig({
     command: 'vite --host 127.0.0.1 --mode test',
     port: 5173,
     reuseExistingServer: false,
+    env: {
+      VITE_FAKE_DRIVE: 'true',
+    },
   },
 })

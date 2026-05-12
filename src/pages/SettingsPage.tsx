@@ -354,6 +354,24 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {storageState.status === 'connected' && (
+          <p className="text-on-surface-variant/50 mt-3 text-xs">
+            Backup snapshots saved to{' '}
+            <span className="text-on-surface-variant/70 font-medium">
+              Quiet Dwelling/conflicts/
+            </span>{' '}
+            in your Drive.{' '}
+            <a
+              href="https://drive.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Open Google Drive ↗
+            </a>
+          </p>
+        )}
+
         {storageError && <p className="text-error mt-3 text-xs">{storageError}</p>}
 
         <div className="mt-5 flex justify-end gap-2">

@@ -10,6 +10,15 @@ export type SyncStatus =
   | 'conflict'
   | 'storage-full'
   | 'indexing'
+  | 'merge-pending-mood'
+
+export interface SyncState {
+  userId: string
+  driveStartPageToken: string | null
+  driveEntriesFolderId: string | null
+  monthFolderIds: string[]
+  lastDeltaPollAt: string | null
+}
 
 export interface DateRange {
   from?: string
@@ -46,6 +55,14 @@ export interface EntryMetadata {
   syncStatus: SyncStatus
   syncError?: string
   deletedAt: string | null
+  remoteRevisionId?: string | null
+  remoteUpdatedAt?: string | null
+  mergedFromDeviceId?: string | null
+  moodConflict?: {
+    remoteMood: 1 | 2 | 3 | 4 | 5 | null
+    remoteMoodLabel: string | null
+    remoteDeviceLabel: string
+  } | null
 }
 
 export interface ProviderConnection {

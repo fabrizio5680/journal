@@ -261,4 +261,42 @@ describe('googleDriveAuth', () => {
     expect(getStoredGoogleDriveConnection(USER_ID)).toBeNull()
     expect(isGoogleDriveLocallyDisconnected(USER_ID)).toBe(true)
   })
+
+  // ── Single-flight token refresh test ──────────────────────────────────────
+
+  it('concurrent calls to getValidGoogleDriveAccessToken while refresh in flight → only one refresh request fired', async () => {
+    let resolveRefresh!: (value: {
+      data: { accessToken: string; expiresAt: number; scope: string }
+    }) => void
+    const refreshPromise = new Promise<{
+      data: { accessToken: string; expiresAt: number; scope: string }
+    }>((resolve) => {
+      resolveRefresh = resolve
+    })
+
+    const getAccessToken = vi.fn().mockReturnValue(refreshPromise)
+    mockHttpsCallable.mockReturnValue(getAccessToken)
+
+    // Start two concurrent token fetch calls before the first resolves
+    const call1 = getValidGoogleDriveAccessToken(USER_ID)
+    const call2 = getValidGoogleDriveAccessToken(USER_ID)
+
+    // Now resolve the refresh
+    resolveRefresh({
+      data: {
+        accessToken: 'single-flight-token',
+        expiresAt: Date.now() + 120_000,
+        scope: GOOGLE_DRIVE_SCOPE,
+      },
+    })
+
+    const [token1, token2] = await Promise.all([call1, call2])
+
+    // Both should get the same token
+    expect(token1).toBe('single-flight-token')
+    expect(token2).toBe('single-flight-token')
+
+    // Only one actual backend call should have been made
+    expect(getAccessToken).toHaveBeenCalledTimes(1)
+  })
 })

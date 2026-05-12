@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, Navigate, useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
+import { onAuthStateChanged } from 'firebase/auth'
 import type { Editor } from '@tiptap/core'
 
 import { useEntry } from '@/hooks/useEntry'
@@ -13,6 +14,12 @@ import { useEditorControls } from '@/context/EditorControlsContext'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
 import MetadataBar from '@/components/editor/MetadataBar'
+import RemoteUpdateBanner from '@/components/editor/RemoteUpdateBanner'
+import RemoteUpdateModal from '@/components/editor/RemoteUpdateModal'
+import MoodConflictBanner from '@/components/editor/MoodConflictBanner'
+import { EntryRepository } from '@/lib/storage/entryRepository'
+import { auth } from '@/lib/firebase'
+import type { EntryFile } from '@/lib/storage/types'
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
@@ -38,6 +45,14 @@ function EntryEditorView({ date }: { date: string }) {
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null)
   const [liveWordCount, setLiveWordCount] = useState(0)
   const [typingStarted, setTypingStarted] = useState(false)
+  const [showRemoteModal, setShowRemoteModal] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => {
+      setUserId(user?.uid ?? null)
+    })
+  }, [])
 
   const wordCount = typingStarted ? liveWordCount : (entry?.wordCount ?? 0)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -107,6 +122,38 @@ function EntryEditorView({ date }: { date: string }) {
       await save({ scriptureRefs })
     },
     [save],
+  )
+
+  const handleKeepMine = useCallback(async () => {
+    if (!userId) return
+    // Re-save local entry as sync-pending to push to Drive
+    if (entry) {
+      await EntryRepository.saveEntry(userId, date, {
+        content: entry.content,
+        contentText: entry.contentText,
+        mood: entry.mood as 1 | 2 | 3 | 4 | 5 | null,
+        moodLabel: entry.moodLabel,
+        tags: entry.tags,
+        scriptureRefs: entry.scriptureRefs,
+        wordCount: entry.wordCount,
+      })
+    }
+  }, [userId, date, entry])
+
+  const handleKeepTheirs = useCallback(
+    async (remoteEntry: EntryFile) => {
+      if (!userId) return
+      await EntryRepository.saveEntry(userId, date, {
+        content: remoteEntry.content as object,
+        mood: remoteEntry.mood,
+        moodLabel: remoteEntry.moodLabel,
+        tags: remoteEntry.tags,
+        scriptureRefs: remoteEntry.scriptureRefs,
+        wordCount: remoteEntry.wordCount,
+      })
+      setShowRemoteModal(false)
+    },
+    [userId, date],
   )
 
   // Register editor controls with BottomNav and RightPanel via context
@@ -204,6 +251,41 @@ function EntryEditorView({ date }: { date: string }) {
         scriptureTranslation={scriptureTranslation}
         onScriptureRefsChange={handleScriptureRefsChange}
       />
+
+      {userId &&
+      entryMetadata?.syncStatus === 'merge-pending-mood' &&
+      entryMetadata.moodConflict ? (
+        <MoodConflictBanner
+          userId={userId}
+          date={date}
+          localMood={entry?.mood ?? null}
+          localMoodLabel={entry?.moodLabel ?? null}
+          conflict={entryMetadata.moodConflict}
+        />
+      ) : null}
+
+      {userId && entryMetadata?.remoteRevisionId && entryMetadata.syncStatus !== 'synced' ? (
+        <RemoteUpdateBanner
+          userId={userId}
+          date={date}
+          onKeepMine={() => void handleKeepMine()}
+          onView={() => setShowRemoteModal(true)}
+        />
+      ) : null}
+
+      {showRemoteModal && userId ? (
+        <RemoteUpdateModal
+          userId={userId}
+          date={date}
+          localContent={entry?.content ?? null}
+          onKeepMine={() => {
+            void handleKeepMine()
+            setShowRemoteModal(false)
+          }}
+          onKeepTheirs={(remoteEntry) => void handleKeepTheirs(remoteEntry)}
+          onClose={() => setShowRemoteModal(false)}
+        />
+      ) : null}
 
       <EntryEditor
         key={date}

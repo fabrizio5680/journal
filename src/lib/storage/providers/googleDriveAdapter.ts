@@ -1,3 +1,5 @@
+import { getDeviceIdentity } from '../deviceIdentity'
+import { toMetadata } from '../entryFormat'
 import type {
   DateRange,
   EntryFile,
@@ -9,16 +11,16 @@ import type {
   SearchHit,
   StorageProviderAdapter,
 } from '../types'
-import { toMetadata } from '../entryFormat'
 
+import type { FakeGoogleDriveBackend } from './fakeGoogleDriveBackend'
 import {
+  disconnectGoogleDriveOnDevice,
+  exchangeGoogleDriveCode,
   getStoredGoogleDriveConnection,
   getValidGoogleDriveAccessToken,
   markGoogleDriveReconnectRequired,
   requestGoogleDriveAuthorizationCode,
-  exchangeGoogleDriveCode,
   setStoredGoogleDriveConnection,
-  disconnectGoogleDriveOnDevice,
 } from './googleDriveAuth'
 import {
   GOOGLE_DRIVE_PROVIDER,
@@ -26,6 +28,11 @@ import {
   GoogleDriveError,
   type GoogleDriveStoredConnection,
 } from './googleDriveTypes'
+
+// Side-effect: initialize fake backend singleton when in fake Drive mode.
+if (import.meta.env.VITE_FAKE_DRIVE === 'true' && typeof window !== 'undefined') {
+  void import('./fakeGoogleDriveBackend')
+}
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3'
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3'
@@ -72,12 +79,29 @@ function metadataFromDriveFile(file: DriveFile, date: string): EntryMetadata {
 export class GoogleDriveAdapter implements StorageProviderAdapter {
   provider = GOOGLE_DRIVE_PROVIDER
 
+  private get fake(): FakeGoogleDriveBackend | null {
+    if (typeof window === 'undefined') return null
+    return (
+      (window as typeof window & { __fakeDriveBackend?: FakeGoogleDriveBackend })
+        .__fakeDriveBackend ?? null
+    )
+  }
+
   constructor(
     private readonly userId: string,
     private readonly loginHint?: string | null,
   ) {}
 
   async connect(): Promise<ProviderConnection> {
+    if (this.fake) {
+      return {
+        provider: GOOGLE_DRIVE_PROVIDER,
+        accountEmail: 'fake@example.com',
+        rootFolderId: 'fake-root',
+        rootPath: 'My Drive/Quiet Dwelling',
+        connectedAt: new Date().toISOString(),
+      }
+    }
     const code = await requestGoogleDriveAuthorizationCode({
       userId: this.userId,
       loginHint: this.loginHint,
@@ -104,16 +128,26 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
   }
 
   async getEntry(date: string): Promise<EntryFile | null> {
+    if (this.fake) return this.fake.getEntry(date)
     const file = await this.findEntryFile(date)
     if (!file) return null
     return this.downloadEntryFile(file.id)
   }
 
   async getEntryByFileId(fileId: string): Promise<EntryFile> {
+    if (this.fake) {
+      const all = this.fake.listEntryMetadata()
+      const item = all.find((m) => m.providerFileId === fileId)
+      if (!item) throw new GoogleDriveError('unknown', 'Fake Drive: file not found')
+      const entry = this.fake.getEntry(item.date)
+      if (!entry) throw new GoogleDriveError('unknown', 'Fake Drive: entry not found')
+      return entry
+    }
     return this.downloadEntryFile(fileId)
   }
 
   async saveEntry(entry: EntryFile, expectedRevisionId?: string): Promise<SaveResult> {
+    if (this.fake) return this.fake.saveEntry(entry, expectedRevisionId)
     const { monthFolderId, fileName } = await this.ensureEntryFolder(entry.date)
     const existing = await this.findFile(fileName, monthFolderId, ENTRY_MIME_TYPE)
 
@@ -150,6 +184,7 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
   }
 
   async listEntryMetadata(range?: DateRange): Promise<EntryMetadata[]> {
+    if (this.fake) return this.fake.listEntryMetadata(range)
     const connection = this.getConnection()
     const entriesFolder = await this.ensureFolder('entries', connection.rootFolderId)
     const files = await this.listJsonFilesRecursive(entriesFolder)
@@ -187,6 +222,31 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
     return this.driveFetch<EntryFile>(
       `${DRIVE_API}/files/${file.id}/revisions/${revisionId}?alt=media`,
     )
+  }
+
+  async saveConflictBackup(
+    entry: EntryFile,
+    date: string,
+    remoteRevisionId: string,
+  ): Promise<void> {
+    if (this.fake) {
+      this.fake.saveConflictBackup(entry, date, remoteRevisionId)
+      return
+    }
+    try {
+      const connection = this.getConnection()
+      const conflictsFolderId = await this.ensureFolder('conflicts', connection.rootFolderId)
+      const { id: deviceId } = getDeviceIdentity()
+      const ts = new Date().toISOString().replace(/[:.]/g, '-')
+      const fileName = `${date}.${remoteRevisionId}.${deviceId}-${ts}.json`
+      await this.uploadFile('POST', `${DRIVE_UPLOAD_API}/files`, entry, {
+        name: fileName,
+        mimeType: ENTRY_MIME_TYPE,
+        parents: [conflictsFolderId],
+      })
+    } catch (error) {
+      console.warn('[GoogleDriveAdapter] saveConflictBackup failed (non-fatal):', error)
+    }
   }
 
   private getConnection(): GoogleDriveStoredConnection {

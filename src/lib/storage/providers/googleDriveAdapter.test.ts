@@ -15,6 +15,7 @@ const {
   mockMarkGoogleDriveReconnectRequired,
   mockRequestGoogleDriveAuthorizationCode,
   mockSetStoredGoogleDriveConnection,
+  mockGetDeviceIdentity,
 } = vi.hoisted(() => ({
   mockDisconnectGoogleDriveOnDevice: vi.fn(),
   mockExchangeGoogleDriveCode: vi.fn(),
@@ -23,6 +24,7 @@ const {
   mockMarkGoogleDriveReconnectRequired: vi.fn(),
   mockRequestGoogleDriveAuthorizationCode: vi.fn(),
   mockSetStoredGoogleDriveConnection: vi.fn(),
+  mockGetDeviceIdentity: vi.fn().mockReturnValue({ id: 'device-abc', label: 'Mac Chrome' }),
 }))
 
 vi.mock('./googleDriveAuth', () => ({
@@ -38,6 +40,10 @@ vi.mock('./googleDriveAuth', () => ({
     mockRequestGoogleDriveAuthorizationCode(...args),
   setStoredGoogleDriveConnection: (...args: unknown[]) =>
     mockSetStoredGoogleDriveConnection(...args),
+}))
+
+vi.mock('../deviceIdentity', () => ({
+  getDeviceIdentity: (...args: unknown[]) => mockGetDeviceIdentity(...args),
 }))
 
 function makeEntry(): EntryFile {
@@ -243,5 +249,68 @@ describe('GoogleDriveAdapter', () => {
       code: 'storage-full',
       name: GoogleDriveError.name,
     })
+  })
+
+  // ── saveConflictBackup tests ───────────────────────────────────────────────
+
+  it('saveConflictBackup: ensures conflicts/ folder exists under rootFolderId; uploads with correct naming pattern', async () => {
+    const fetchMock = mockFetchSequence([
+      // findFile for 'conflicts' folder (under root-folder) → not found
+      jsonResponse({ files: [] }),
+      // create conflicts folder → returns id
+      jsonResponse({ id: 'conflicts-folder' }),
+      // upload conflict backup → returns uploaded file
+      jsonResponse({ id: 'conflict-file', headRevisionId: 'rev-backup' }),
+    ])
+
+    await new GoogleDriveAdapter(USER_ID).saveConflictBackup(makeEntry(), '2026-04-13', 'rev-99')
+
+    // Verify conflicts folder was looked up under root-folder
+    const folderSearchCall = fetchMock.mock.calls[0] as [string, unknown]
+    const folderSearchUrl = folderSearchCall[0] as string
+    expect(folderSearchUrl).toContain('conflicts')
+    expect(folderSearchUrl).toContain('root-folder')
+
+    // Verify upload happened
+    const uploadCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as [
+      string,
+      { body?: string },
+    ]
+    const uploadBody = uploadCall[1].body ?? ''
+    // File name should follow pattern: <date>.<revId>.<deviceId>-<ts>.json
+    expect(uploadBody).toContain('2026-04-13')
+    expect(uploadBody).toContain('rev-99')
+    expect(uploadBody).toContain('device-abc')
+    expect(uploadBody).toContain('.json')
+    // Parent should be the conflicts folder
+    expect(uploadBody).toContain('conflicts-folder')
+  })
+
+  it('saveConflictBackup: error does NOT throw (fire-and-forget)', async () => {
+    // Simulate a fetch failure
+    mockFetchSequence([jsonResponse({ error: { message: 'Forbidden' } }, 403)])
+
+    // Should resolve (not throw) even if the backup fails
+    await expect(
+      new GoogleDriveAdapter(USER_ID).saveConflictBackup(makeEntry(), '2026-04-13', 'rev-99'),
+    ).resolves.toBeUndefined()
+  })
+
+  it('saveConflictBackup: uses existing conflicts folder if it already exists', async () => {
+    const fetchMock = mockFetchSequence([
+      // findFile for 'conflicts' folder → found
+      jsonResponse({ files: [{ id: 'existing-conflicts-folder', name: 'conflicts' }] }),
+      // upload backup
+      jsonResponse({ id: 'conflict-backup-file', headRevisionId: 'rev-backup' }),
+    ])
+
+    await new GoogleDriveAdapter(USER_ID).saveConflictBackup(makeEntry(), '2026-04-13', 'rev-x')
+
+    // Should only have 2 calls (no folder creation)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    // Upload body should reference existing conflicts folder
+    const uploadCall = fetchMock.mock.calls[1] as [string, { body?: string }]
+    expect(uploadCall[1].body).toContain('existing-conflicts-folder')
   })
 })

@@ -40,7 +40,8 @@ Do not use Context7 for refactoring that does not depend on external APIs, writi
 ```text
 src/
   components/
-    editor/       EntryEditor, MetadataBar (hidden on md+; metadata surfaced in RightPanel), MetadataSheet
+    editor/       EntryEditor, MetadataBar (hidden on md+; metadata surfaced in RightPanel),
+                  MetadataSheet, RemoteUpdateBanner, RemoteUpdateModal, MoodConflictBanner
     layout/       AppShell, SideNav, RightPanel, TopBar, BottomNav
     calendar/     MiniCalendar
     search/       SearchModal, SearchFilters, SearchResultCard
@@ -55,14 +56,18 @@ src/
                   UserPreferencesContext, EditorControlsContext (DictationControls,
                   MetadataControls — mood/tags/scriptureRefs state+handlers)
   hooks/          useEntry, useEntryDates, useStreak, useDictation,
-                  useSearch, useInsights, useScriptureRef, useToday
+                  useSearch, useInsights, useScriptureRef, useToday,
+                  useRemoteUpdateBanner
   lib/            firebase, storage, tiptap, scriptureParser, device
+    storage/      entryRepository, localEntryCache, syncCoordinator,
+                  driveLoadProgress, deltaPoll, mergeEngine, deviceIdentity,
+                  providers/fakeGoogleDriveBackend
   types/          index.ts
   pages/          TodayPage, EntryPage, HistoryPage, InsightsPage, SettingsPage
   styles/         globals.css
   test/           setup.ts, firebase-mocks.ts, render.tsx
 functions/src/    index.ts  (sendDailyReminders, Google Drive token broker)
-e2e/              auth, editor, history, search, focus-mode specs
+e2e/              auth, editor, history, search, focus-mode, sync specs
 phases/           phase-1.md … phase-12.md
 docs/             architecture.md, data-model.md, design-system.md, testing.md
 ```
@@ -82,7 +87,7 @@ On mobile, `MetadataBar` renders as a collapsed summary strip (mood pill + scrip
 
 ## Scripts
 
-```
+```sh
 npm run dev            vite dev server
 npm run build          tsc && vite build
 npm run lint           eslint . --max-warnings 0
@@ -96,6 +101,8 @@ npm run test:coverage  vitest run --coverage
 npm run test:e2e       playwright test
 npm run precommit      format + lint + typecheck (manual run; also invoked by Husky)
 ```
+
+Set `VITE_FAKE_DRIVE=true` when running E2E sync tests to activate the in-memory fake Drive backend (`providers/fakeGoogleDriveBackend.ts`). The fake backend auto-seeds from `window.__fakeDriveSeedData` on init (survives page navigation via `page.addInitScript`) so `e2e/sync.spec.ts` can drive full cross-device sync scenarios without hitting real Drive APIs.
 
 ## Dictation (Speech-to-Text)
 
@@ -114,7 +121,7 @@ npm run precommit      format + lint + typecheck (manual run; also invoked by Hu
 
 ## Environment Variables (.env.local)
 
-```
+```env
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=journal-manna
@@ -130,7 +137,7 @@ VITE_GOOGLE_CLIENT_ID=
 
 Google Drive sync uses callable Functions in `europe-west2` as a token broker. Deploy/runtime config must provide:
 
-```
+```env
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 ```
@@ -143,6 +150,8 @@ Runtime entry access must go through `EntryRepository` in `src/lib/storage/entry
 
 Entry file contract lives in `src/lib/storage/types.ts`: `schemaVersion: 1`, `app: "quiet-dwelling"`, local civil `date`, Tiptap `content`, `searchText`, mood fields, tags, scripture refs, word count, and ISO timestamps. Do not write `content`, `contentText`, revisions, or searchable indexes to Firestore. Calendar dots, history, streaks, insights, and search read from the repository/local metadata index.
 
+`EntryRepository` enforces two push guards: (1) empty entries (null mood, no tags, no scripture, 0 wordCount) stay `saved-local` and are never pushed to Drive; (2) Drive entries with `schemaVersion > 1` return null and mark the entry `reconnect` — the app must not silently downgrade a newer-schema file.
+
 `SearchModal` is local-first and calls `EntryRepository.searchEntries()` over `searchText`; Algolia and `getSearchKey` are not part of runtime search. In emulator mode, `EntryRepository` exposes `window.__seedEntriesForTest(uid, entries)` for E2E seeding.
 
 ## Google Drive Sync
@@ -153,9 +162,48 @@ Connection uses Google Identity Services authorization-code flow in the browser.
 
 The browser remains responsible for journal content. It requests short-lived Drive access tokens from `getGoogleDriveAccessToken`, then uploads/downloads entry JSON directly with Google Drive REST APIs. Cloud Functions broker OAuth tokens only; they must not store journal bodies.
 
-Connect/hydrate flows call `backfillGoogleDriveMetadata`, which lists `Quiet Dwelling/entries`, downloads existing Drive entry JSON files sequentially, and saves valid files into `LocalEntryCache`/IndexedDB with provider metadata. This derives the local metadata index from the entry file itself (mood, `moodLabel`, tags, word count, and `searchText` tokens) so calendar dots, history, streaks, insights, and search reflect synced Drive entries after connection. If an individual Drive file is missing or invalid, backfill falls back to a metadata-only row for that file and continues; Firestore still never stores journal content or searchable indexes.
+Connect/hydrate flows call `backfillGoogleDriveMetadata`, which lists `Quiet Dwelling/entries`, downloads existing Drive entry JSON files sequentially, and saves valid files into `LocalEntryCache`/IndexedDB with provider metadata. This derives the local metadata index from the entry file itself (mood, `moodLabel`, tags, word count, and `searchText` tokens) so calendar dots, history, streaks, insights, and search reflect synced Drive entries after connection. If an individual Drive file is missing or invalid, backfill falls back to a metadata-only row for that file and continues; Firestore still never stores journal content or searchable indexes. Backfill skips dirty entries (`syncStatus !== 'synced'`) to protect in-progress edits.
 
 New devices hydrate the Drive connection from public metadata and request backend-minted access tokens, so no long-lived Drive token is stored in browser storage. `Disconnect Google Drive` in Settings is local/device-only: it clears local Drive connection/token cache and sets the device opt-out flag, but must not delete shared provider metadata or break other devices. Any future account-level revoke/change-account action must be explicit and guarded.
+
+Call `initDriveSyncListeners(userId): () => void` on Drive connect (and on connection change in `SaveStatusContext`) to wire boot, `online`, `visibilitychange`, and `pageshow` resume triggers for delta polling. Returns a cleanup/unsubscribe function.
+
+`getValidGoogleDriveAccessToken` has single-flight protection — concurrent callers share the same in-flight token request. Use `driveApiFetch` (exported from `googleDriveAuth.ts`) as the standard wrapper for all Drive REST calls.
+
+### Conflict Detection and Merge
+
+When `syncCoordinator` encounters a 409 conflict on push, it runs `mergeEngine.mergeEntries(local, remote, remoteDeviceLabel)`:
+
+- Body merge: local content on top, `<hr>` separator, remote content below.
+- Metadata merge: tag union, scripture ref union.
+- Mood conflict: if moods differ, returns `moodConflict` in `MergeResult` and sets `syncStatus: 'merge-pending-mood'` on the metadata row. The entry is not re-pushed until the user resolves the mood conflict via `syncCoordinator.resolveMoodConflict(userId, date, mood, moodLabel)`.
+- Backup: before re-enqueuing, `GoogleDriveAdapter.saveConflictBackup(entry, date, remoteRevisionId)` writes the pre-merge local snapshot to `Quiet Dwelling/conflicts/<date>.<revId>.<deviceId>-<ts>.json` (fire-and-forget).
+- `SettingsPage` shows the `Quiet Dwelling/conflicts/` path with a Google Drive link when connected.
+
+`EntryPage` mounts `RemoteUpdateBanner`, `RemoteUpdateModal`, and `MoodConflictBanner`:
+
+- `RemoteUpdateBanner` — shown when delta polling detects a newer Drive revision while the user has the entry open. "View" opens the side-by-side diff modal; "Keep mine" marks the entry dirty.
+- `RemoteUpdateModal` — read-only side-by-side diff portal (`document.body`). "Keep mine" / "Keep theirs" resolve the banner.
+- `MoodConflictBanner` — shown when merge produces diverged mood. "Keep mine" / "Keep theirs" calls `syncCoordinator.resolveMoodConflict`.
+
+`useRemoteUpdateBanner` reads `remoteRevisionId` from entry metadata and subscribes to repo changes to drive banner visibility.
+
+`EntryMetadata` carries new fields: `remoteRevisionId`, `remoteUpdatedAt`, `mergedFromDeviceId`, `moodConflict`. `SyncStatus` union adds `'merge-pending-mood'`.
+
+### Delta Polling
+
+`src/lib/storage/deltaPoll.ts` exports `pollDriveDeltas(userId)`. It uses the Drive Changes API with a start-page token persisted in the `syncState` IndexedDB object store:
+
+- 30-second debounce between polls.
+- Per-change dirty-entry guard: never overwrites a local entry with `syncStatus !== 'synced'`.
+- 410 token-expiry fallback: triggers a full `backfillGoogleDriveMetadata` call to resync.
+- Triggers: boot, `online` event, `visibilitychange` (tab refocus), `pageshow`, and after each successful push.
+
+`SyncState` type (exported from `src/lib/storage/types.ts`) holds: `driveStartPageToken`, `driveEntriesFolderId`, `monthFolderIds[]`, `lastDeltaPollAt`. `LocalEntryCache` exposes `getSyncState(userId)` / `setSyncState(userId, patch)`.
+
+### Device Identity
+
+`src/lib/storage/deviceIdentity.ts` exports `getDeviceIdentity(): { id, label }`. Generates a stable per-device UUID and a userAgent-derived label on first call; persisted in `localStorage` under `device_identity`. Used by merge engine and conflict backup filenames for attribution.
 
 ### Drive Load Progress
 
@@ -177,7 +225,8 @@ New devices hydrate the Drive connection from public metadata and request backen
 | `fcm_device_token_<uid>`          | FCM registration token string                                          | Per-device FCM token stored on reminder enable; cleared on disable. Compared against `getToken()` on mount to detect token rotation; if rotated, old token is swapped out in Firestore `fcmTokens` silently. |
 | `google_drive_connection_<uid>`   | JSON `{ accountEmail, rootFolderId, connectedAt, reconnectRequired? }` | Device-local cached Drive metadata hydrated from Firestore public provider metadata; no Drive access or refresh tokens are stored here.                                                                      |
 | `google_drive_disconnected_<uid>` | `true`                                                                 | Device-local opt-out set by Settings disconnect. Prevents that device from auto-hydrating the shared account-level Drive connection.                                                                         |
-| IndexedDB `quiet-dwelling`        | `entries`, `metadata` stores                                           | Device-local journal entry cache and metadata index used for offline writing, history, calendar dots, streaks, insights, and search.                                                                         |
+| `device_identity`                 | JSON `{ id, label }`                                                   | Stable per-device UUID and userAgent-derived label. Generated once by `deviceIdentity.ts` and persisted for conflict attribution (merge engine, backup filenames).                                           |
+| IndexedDB `quiet-dwelling`        | `entries`, `metadata`, `syncState` stores (DB_VERSION 2)               | Device-local journal cache, metadata index, and Drive sync state. Covers offline writing, history, calendar dots, streaks, insights, search, and delta polling (`driveStartPageToken`, folder IDs stored).   |
 
 `UserPreferencesContext` manages `pref_editor_font_size`: initializes state from localStorage on mount (before Firestore arrives), seeds from Firestore on first snapshot when absent, and writes only to localStorage via `updateEditorFontSize` — no Firestore `updateDoc` call for font size.
 

@@ -58,6 +58,17 @@ export const EntryRepository = {
         setDriveLoadProgress(null)
         return null
       }
+
+      // Schema version guard
+      if ((driveEntry as { schemaVersion?: number }).schemaVersion > 1) {
+        await localEntryCache.updateMetadata(userId, date, {
+          syncStatus: 'reconnect',
+          syncError: 'Entry uses a newer format. Please update the app.',
+        })
+        setDriveLoadProgress(null)
+        return null
+      }
+
       const [driveMetadata] = await adapter.listEntryMetadata({ from: date, to: date })
       await localEntryCache.saveEntry(userId, driveEntry, 'synced', {
         provider: GOOGLE_DRIVE_PROVIDER,
@@ -86,7 +97,15 @@ export const EntryRepository = {
   async saveEntry(userId: string, date: string, draft: EntryDraft) {
     const existing = await localEntryCache.getEntry(userId, date)
     const entry = createEntryFile(date, draft, existing ?? undefined)
-    const shouldSync = syncCoordinator.isConnectedOnDevice(userId)
+
+    // Empty entry guard: don't sync if there's nothing to sync
+    const isEmpty =
+      entry.wordCount === 0 &&
+      entry.tags.length === 0 &&
+      entry.mood == null &&
+      entry.scriptureRefs.length === 0
+
+    const shouldSync = syncCoordinator.isConnectedOnDevice(userId) && !isEmpty
     const metadata = await localEntryCache.saveEntry(
       userId,
       entry,
@@ -161,4 +180,14 @@ if (import.meta.env.VITE_USE_EMULATOR === 'true' && typeof window !== 'undefined
       await EntryRepository.saveEntry(userId, entry.date, entry)
     }
   }
+}
+
+if (import.meta.env.VITE_USE_EMULATOR === 'true' && typeof window !== 'undefined') {
+  void import('./deltaPoll').then(({ pollDriveDeltas }) => {
+    ;(
+      window as typeof window & {
+        __pollDriveDeltas?: (userId: string) => Promise<void>
+      }
+    ).__pollDriveDeltas = pollDriveDeltas
+  })
 }
