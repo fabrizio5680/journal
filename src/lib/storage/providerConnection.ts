@@ -271,7 +271,6 @@ export async function backfillFromManifest(userId: string): Promise<void> {
 export async function backfillGoogleDriveMetadata(userId: string) {
   const adapter = new GoogleDriveAdapter(userId)
 
-  const hadManifest = (await adapter.readManifest()) !== null
   await backfillFromManifest(userId)
 
   setDriveLoadProgress({ loaded: 0, total: 0 })
@@ -315,20 +314,20 @@ export async function backfillGoogleDriveMetadata(userId: string) {
 
     EntryRepository.notifyChanged(userId)
 
-    if (!hadManifest) {
-      const allMeta = await localEntryCache.listMetadata(userId)
-      const manifestEntries: ManifestEntry[] = allMeta
-        .filter((m) => m.providerFileId)
-        .map((m) => ({
-          date: m.date,
-          mood: m.mood,
-          moodLabel: m.moodLabel,
-          tags: m.tags,
-          wordCount: m.wordCount,
-          providerFileId: m.providerFileId!,
-        }))
-      void adapter.writeManifest(manifestEntries)
-    }
+    // Always rebuild manifest after full backfill so pre-existing entries
+    // (created before manifest was introduced) are included.
+    const allMeta = await localEntryCache.listMetadata(userId)
+    const manifestEntries: ManifestEntry[] = allMeta
+      .filter((m) => m.providerFileId)
+      .map((m) => ({
+        date: m.date,
+        mood: m.mood,
+        moodLabel: m.moodLabel,
+        tags: m.tags,
+        wordCount: m.wordCount,
+        providerFileId: m.providerFileId!,
+      }))
+    void adapter.writeManifest(manifestEntries)
   } finally {
     setDriveLoadProgress(null)
   }

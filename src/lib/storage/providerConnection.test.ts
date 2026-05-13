@@ -674,7 +674,7 @@ describe('providerConnection', () => {
 
     await backfillGoogleDriveMetadata('test-uid')
 
-    // readManifest is called twice: once for hadManifest check, once inside backfillFromManifest
+    // readManifest is called once inside backfillFromManifest
     expect(mockAdapterReadManifest).toHaveBeenCalled()
   })
 
@@ -724,8 +724,8 @@ describe('providerConnection', () => {
     )
   })
 
-  it('backfillGoogleDriveMetadata: does NOT write manifest when one already existed', async () => {
-    // Manifest already exists on Drive
+  it('backfillGoogleDriveMetadata: writes manifest even when one already existed (repairs pre-existing entries)', async () => {
+    // Manifest already exists on Drive but may be incomplete
     mockAdapterReadManifest.mockResolvedValue([
       {
         date: '2026-04-26',
@@ -737,10 +737,28 @@ describe('providerConnection', () => {
       },
     ])
     mockAdapterListEntryMetadata.mockResolvedValue([])
+    mockListMetadata.mockResolvedValue([
+      {
+        date: '2026-04-26',
+        mood: null,
+        moodLabel: null,
+        tags: [],
+        wordCount: 0,
+        providerFileId: 'file-existing',
+        hasContent: false,
+        updatedAt: '2026-04-26T10:00:00.000Z',
+        provider: 'googleDrive' as const,
+        lastSeenRevisionId: null,
+        syncStatus: 'synced' as const,
+        deletedAt: null,
+      },
+    ])
 
     await backfillGoogleDriveMetadata('test-uid')
 
-    // writeManifest must NOT be called when manifest already existed
-    expect(mockAdapterWriteManifest).not.toHaveBeenCalled()
+    // writeManifest must be called to capture any pre-existing entries missed before manifest was introduced
+    expect(mockAdapterWriteManifest).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ providerFileId: 'file-existing' })]),
+    )
   })
 })
