@@ -11,8 +11,10 @@ import {
 import { functions } from '@/lib/firebase'
 
 const SCRIPT_SRC = 'https://accounts.google.com/gsi/client'
+const DRIVE_API = 'https://www.googleapis.com/drive/v3'
 const TOKEN_SKEW_MS = 60_000
 const REFRESH_WAIT_MS = 5_000
+const REFRESH_LOCK_MS = 6_000
 const LOCAL_DISCONNECT_KEY_PREFIX = 'google_drive_disconnected_'
 
 const tokenCache = new Map<string, GoogleDriveTokenState>()
@@ -25,6 +27,10 @@ function connectionKey(userId: string) {
 
 function localDisconnectKey(userId: string) {
   return `${LOCAL_DISCONNECT_KEY_PREFIX}${userId}`
+}
+
+function refreshLockKey(userId: string) {
+  return `drive_token_refresh_lock_${userId}`
 }
 
 let scriptPromise: Promise<void> | null = null
@@ -46,10 +52,14 @@ export interface DriveTokenSession {
 }
 
 type TokenBroadcastMessage =
-  | { type: 'refresh-start' }
-  | { type: 'refresh-done'; token: AccessToken }
-  | { type: 'refresh-fail'; reason: string }
-  | { type: 'invalidate'; reason: 'expired-401' | 'forbidden-403' | 'manual' }
+  | { type: 'refresh-start'; senderId: string }
+  | { type: 'refresh-done'; senderId: string; token: AccessToken }
+  | { type: 'refresh-fail'; senderId: string; reason: string }
+  | {
+      type: 'invalidate'
+      senderId: string
+      reason: 'expired-401' | 'forbidden-403' | 'manual'
+    }
 
 export class TokenUnavailableError extends Error {
   constructor(message = 'Google Drive needs to be reconnected.') {
@@ -126,9 +136,15 @@ function writeJson(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value))
 }
 
-class DriveTokenSessionImpl implements DriveTokenSession {
+function createSessionId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}-${Math.random()}`
+}
+
+export class DriveTokenSessionImpl implements DriveTokenSession {
   private channel: BroadcastChannel | null = null
+  private readonly sessionId = createSessionId()
   private statusValue: TokenStatus = 'disconnected'
+  private scopeValidated = false
   private listeners = new Set<(status: TokenStatus) => void>()
   private waiters = new Set<{
     resolve: (token: AccessToken) => void
@@ -149,12 +165,19 @@ class DriveTokenSessionImpl implements DriveTokenSession {
   async getToken(): Promise<AccessToken> {
     const cached = tokenCache.get(this.userId)
     if (isUsableToken(cached)) {
+      const token = tokenStateToAccessToken(cached)
+      await this.validateScopeIfNeeded(token)
       this.setStatus('connected')
-      return tokenStateToAccessToken(cached)
+      return token
     }
 
     if (this.statusValue === 'reconnect') {
       throw new TokenUnavailableError()
+    }
+
+    if (this.statusValue === 'refreshing' && !refreshInFlight.has(this.userId)) {
+      const peerToken = await this.waitForPeerRefresh()
+      if (peerToken) return peerToken
     }
 
     const inFlight = refreshInFlight.get(this.userId)
@@ -162,6 +185,12 @@ class DriveTokenSessionImpl implements DriveTokenSession {
       const token = await inFlight
       if (!token) throw new TokenUnavailableError()
       return token
+    }
+
+    if (!this.tryAcquireRefreshLock()) {
+      this.setStatus('refreshing')
+      const peerToken = await this.waitForPeerRefresh()
+      if (peerToken) return peerToken
     }
 
     return this.refreshToken()
@@ -181,13 +210,14 @@ class DriveTokenSessionImpl implements DriveTokenSession {
 
   invalidate(reason: 'expired-401' | 'forbidden-403' | 'manual'): void {
     tokenCache.delete(this.userId)
+    this.scopeValidated = false
     if (reason === 'forbidden-403' || reason === 'manual') {
       markGoogleDriveReconnectRequired(this.userId)
       this.setStatus('reconnect')
     } else {
       this.setStatus('disconnected')
     }
-    this.broadcast({ type: 'invalidate', reason })
+    this.broadcast({ type: 'invalidate', senderId: this.sessionId, reason })
   }
 
   destroy(): void {
@@ -201,7 +231,7 @@ class DriveTokenSessionImpl implements DriveTokenSession {
 
   private async refreshToken(): Promise<AccessToken> {
     this.setStatus('refreshing')
-    this.broadcast({ type: 'refresh-start' })
+    this.broadcast({ type: 'refresh-start', senderId: this.sessionId })
 
     const refreshPromise = (async (): Promise<AccessToken | null> => {
       try {
@@ -217,14 +247,16 @@ class DriveTokenSessionImpl implements DriveTokenSession {
         }
 
         const token = tokenStateToAccessToken(state)
+        await this.validateScopeIfNeeded(token)
         tokenCache.set(this.userId, state)
         this.setStatus('connected')
-        this.broadcast({ type: 'refresh-done', token })
+        this.broadcast({ type: 'refresh-done', senderId: this.sessionId, token })
         return token
       } catch (error) {
         this.handleRefreshFailure(error instanceof Error ? error.message : 'refresh-failed')
         return null
       } finally {
+        this.releaseRefreshLock()
         refreshInFlight.delete(this.userId)
       }
     })()
@@ -237,15 +269,17 @@ class DriveTokenSessionImpl implements DriveTokenSession {
 
   private handleRefreshFailure(reason: string) {
     tokenCache.delete(this.userId)
+    this.scopeValidated = false
     markGoogleDriveReconnectRequired(this.userId)
     this.setStatus('reconnect')
-    this.broadcast({ type: 'refresh-fail', reason })
+    this.broadcast({ type: 'refresh-fail', senderId: this.sessionId, reason })
     this.rejectWaiters(new TokenUnavailableError())
   }
 
   private readonly handleBroadcast = (event: MessageEvent<TokenBroadcastMessage>) => {
     const message = event.data
     if (!message || typeof message !== 'object') return
+    if ('senderId' in message && message.senderId === this.sessionId) return
 
     if (message.type === 'refresh-start') {
       this.setStatus('refreshing')
@@ -255,6 +289,7 @@ class DriveTokenSessionImpl implements DriveTokenSession {
 
     if (message.type === 'refresh-done') {
       tokenCache.set(this.userId, accessTokenToTokenState(message.token))
+      this.scopeValidated = true
       this.setStatus('connected')
       this.resolveWaiters(message.token)
       return
@@ -262,6 +297,7 @@ class DriveTokenSessionImpl implements DriveTokenSession {
 
     if (message.type === 'refresh-fail') {
       tokenCache.delete(this.userId)
+      this.scopeValidated = false
       this.setStatus('reconnect')
       this.rejectWaiters(new TokenUnavailableError())
       return
@@ -269,14 +305,16 @@ class DriveTokenSessionImpl implements DriveTokenSession {
 
     if (message.type === 'invalidate') {
       tokenCache.delete(this.userId)
+      this.scopeValidated = false
       this.setStatus(message.reason === 'expired-401' ? 'disconnected' : 'reconnect')
     }
   }
 
-  private async waitForPeerRefresh(): Promise<void> {
-    if (refreshInFlight.has(this.userId)) return
+  private async waitForPeerRefresh(): Promise<AccessToken | null> {
+    const inFlight = refreshInFlight.get(this.userId)
+    if (inFlight) return inFlight
     try {
-      await new Promise<AccessToken>((resolve, reject) => {
+      return await new Promise<AccessToken>((resolve, reject) => {
         const waiter = {
           resolve,
           reject,
@@ -289,7 +327,27 @@ class DriveTokenSessionImpl implements DriveTokenSession {
       })
     } catch {
       if (this.statusValue === 'refreshing') this.setStatus('disconnected')
+      return null
     }
+  }
+
+  private async validateScopeIfNeeded(token: AccessToken): Promise<void> {
+    if (this.scopeValidated) return
+    const response = await fetch(`${DRIVE_API}/about?fields=user`, {
+      headers: { Authorization: `Bearer ${token.token}` },
+    })
+    if (response.status === 403) {
+      this.invalidate('forbidden-403')
+      throw new TokenUnavailableError()
+    }
+    if (response.status === 401) {
+      this.invalidate('expired-401')
+      throw new TokenUnavailableError('Google Drive token expired.')
+    }
+    if (!response.ok) {
+      throw new Error(`Google Drive scope validation failed: ${response.statusText}`)
+    }
+    this.scopeValidated = true
   }
 
   private resolveWaiters(token: AccessToken) {
@@ -316,6 +374,24 @@ class DriveTokenSessionImpl implements DriveTokenSession {
 
   private broadcast(message: TokenBroadcastMessage) {
     this.channel?.postMessage(message)
+  }
+
+  private tryAcquireRefreshLock(): boolean {
+    if (typeof localStorage === 'undefined') return true
+    const key = refreshLockKey(this.userId)
+    const now = Date.now()
+    const current = readJson<{ owner: string; expiresAt: number }>(key)
+    if (current && current.expiresAt > now && current.owner !== this.sessionId) return false
+    writeJson(key, { owner: this.sessionId, expiresAt: now + REFRESH_LOCK_MS })
+    const claimed = readJson<{ owner: string; expiresAt: number }>(key)
+    return claimed?.owner === this.sessionId
+  }
+
+  private releaseRefreshLock() {
+    if (typeof localStorage === 'undefined') return
+    const key = refreshLockKey(this.userId)
+    const current = readJson<{ owner: string; expiresAt: number }>(key)
+    if (current?.owner === this.sessionId) localStorage.removeItem(key)
   }
 }
 
@@ -350,6 +426,7 @@ export function clearGoogleDriveAuthState(userId: string) {
   tokenCache.delete(userId)
   sessions.get(userId)?.destroy()
   localStorage.removeItem(connectionKey(userId))
+  localStorage.removeItem(refreshLockKey(userId))
 }
 
 export function disconnectGoogleDriveOnDevice(userId: string) {

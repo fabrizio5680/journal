@@ -10,6 +10,7 @@ import {
   getStoredGoogleDriveConnection,
   hydrateGoogleDriveConnectionFromMetadata,
   isGoogleDriveLocallyDisconnected,
+  openDriveTokenSession,
   setStoredGoogleDriveConnection,
 } from './providers/googleDriveAuth'
 import { GOOGLE_DRIVE_PROVIDER } from './providers/googleDriveTypes'
@@ -105,14 +106,20 @@ export function getDeviceProviderState(userId: string, metadata: ProviderMetadat
     })
   }
   const hydratedLocal = getStoredGoogleDriveConnection(userId)
+  const sessionStatus =
+    isDriveActive && !isLocallyDisconnected
+      ? openDriveTokenSession(userId).status()
+      : 'disconnected'
   const isDeviceConnected =
     isDriveActive &&
     !isLocallyDisconnected &&
     !!metadata.storageRootFolderId &&
-    !hydratedLocal?.reconnectRequired
+    !hydratedLocal?.reconnectRequired &&
+    sessionStatus !== 'reconnect'
   const requiresReconnect =
     isDriveActive &&
-    (metadata.storageTokenStatus === 'reconnect' ||
+    (sessionStatus === 'reconnect' ||
+      metadata.storageTokenStatus === 'reconnect' ||
       !metadata.storageRootFolderId ||
       hydratedLocal?.reconnectRequired)
 
@@ -133,16 +140,26 @@ export function subscribeProviderConnection(
   onChange: (state: ProviderConnectionState) => void,
   onError?: () => void,
 ): () => void {
-  return onSnapshot(
+  let latestMetadata: ProviderMetadata = {}
+  const emit = () => onChange(getDeviceProviderState(userId, latestMetadata))
+  const tokenUnsubscribe = openDriveTokenSession(userId).onStatusChange(emit)
+  const firestoreUnsubscribe = onSnapshot(
     doc(db, 'users', userId),
     (snapshot) => {
-      onChange(getDeviceProviderState(userId, metadataFromDoc(snapshot.data())))
+      latestMetadata = metadataFromDoc(snapshot.data())
+      emit()
     },
     () => {
       onError?.()
-      onChange({ status: 'disconnected', deviceConnected: false })
+      latestMetadata = {}
+      emit()
     },
   )
+
+  return () => {
+    firestoreUnsubscribe()
+    tokenUnsubscribe()
+  }
 }
 
 export async function connectGoogleDriveProvider(userId: string, loginHint?: string | null) {

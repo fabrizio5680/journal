@@ -37,6 +37,7 @@ const {
   mockGetStoredGoogleDriveConnection,
   mockHydrateGoogleDriveConnectionFromMetadata,
   mockIsGoogleDriveLocallyDisconnected,
+  mockOpenDriveTokenSession,
   mockSetStoredGoogleDriveConnection,
   mockSyncPending,
   mockNotifyChanged,
@@ -59,6 +60,7 @@ const {
   mockGetStoredGoogleDriveConnection: vi.fn(),
   mockHydrateGoogleDriveConnectionFromMetadata: vi.fn(),
   mockIsGoogleDriveLocallyDisconnected: vi.fn(),
+  mockOpenDriveTokenSession: vi.fn(),
   mockSetStoredGoogleDriveConnection: vi.fn(),
   mockSyncPending: vi.fn().mockResolvedValue(undefined),
   mockNotifyChanged: vi.fn(),
@@ -111,6 +113,7 @@ vi.mock('./providers/googleDriveAuth', () => ({
     mockHydrateGoogleDriveConnectionFromMetadata(...args),
   isGoogleDriveLocallyDisconnected: (...args: unknown[]) =>
     mockIsGoogleDriveLocallyDisconnected(...args),
+  openDriveTokenSession: (userId: string) => mockOpenDriveTokenSession(userId),
   setStoredGoogleDriveConnection: (...args: unknown[]) =>
     mockSetStoredGoogleDriveConnection(...args),
 }))
@@ -134,6 +137,10 @@ describe('providerConnection', () => {
     vi.clearAllMocks()
     mockGetStoredGoogleDriveConnection.mockReturnValue(null)
     mockIsGoogleDriveLocallyDisconnected.mockReturnValue(false)
+    mockOpenDriveTokenSession.mockReturnValue({
+      status: () => 'disconnected',
+      onStatusChange: vi.fn(() => vi.fn()),
+    })
     mockAdapterConnect.mockResolvedValue({
       provider: 'googleDrive',
       accountEmail: 'drive@example.com',
@@ -158,6 +165,7 @@ describe('providerConnection', () => {
       rootFolderId: 'root-folder',
       connectedAt: '2026-04-13T00:00:00.000Z',
     })
+    mockOpenDriveTokenSession.mockReturnValueOnce({ status: () => 'connected' })
     expect(
       getDeviceProviderState('test-uid', {
         activeStorageProvider: 'googleDrive',
@@ -180,6 +188,7 @@ describe('providerConnection', () => {
       connectedAt: '2026-04-13T00:00:00.000Z',
       reconnectRequired: true,
     })
+    mockOpenDriveTokenSession.mockReturnValueOnce({ status: () => 'connected' })
     expect(
       getDeviceProviderState('test-uid', {
         activeStorageProvider: 'googleDrive',
@@ -202,6 +211,11 @@ describe('providerConnection', () => {
 
   it('subscribes to Firestore provider metadata and normalizes timestamps', () => {
     const unsubscribe = vi.fn()
+    const tokenUnsubscribe = vi.fn()
+    mockOpenDriveTokenSession.mockReturnValue({
+      status: () => 'connected',
+      onStatusChange: vi.fn(() => tokenUnsubscribe),
+    })
     mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({
         data: () => ({
@@ -224,13 +238,15 @@ describe('providerConnection', () => {
 
     const result = subscribeProviderConnection('test-uid', onChange)
 
-    expect(result).toBe(unsubscribe)
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'connected',
         storageConnectedAt: '2026-04-13T10:00:00.000Z',
       }),
     )
+    result()
+    expect(unsubscribe).toHaveBeenCalled()
+    expect(tokenUnsubscribe).toHaveBeenCalled()
   })
 
   it('connects Google Drive and writes only non-secret provider metadata', async () => {
