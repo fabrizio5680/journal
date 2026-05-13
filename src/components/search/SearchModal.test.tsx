@@ -22,7 +22,7 @@ vi.mock('@/lib/firebase', () => ({
 const { mockListMetadata, mockSearchEntries, mockSubscribe } = vi.hoisted(() => ({
   mockListMetadata: vi.fn().mockResolvedValue([]),
   mockSearchEntries: vi.fn().mockResolvedValue([]),
-  mockSubscribe: vi.fn(() => vi.fn()),
+  mockSubscribe: vi.fn((..._: unknown[]) => vi.fn()),
 }))
 
 vi.mock('@/lib/storage/entryRepository', () => ({

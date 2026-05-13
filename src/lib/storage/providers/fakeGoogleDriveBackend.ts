@@ -8,7 +8,7 @@
  * Exposed as window.__fakeDriveBackend for Playwright test seeding.
  */
 
-import type { DateRange, EntryFile, EntryMetadata, SaveResult } from '../types'
+import type { DateRange, EntryFile, EntryMetadata, ManifestEntry, SaveResult } from '../types'
 import { toMetadata } from '../entryFormat'
 
 import { GOOGLE_DRIVE_PROVIDER } from './googleDriveTypes'
@@ -126,6 +126,10 @@ export class FakeGoogleDriveBackend {
   hasConflictBackupFor(date: string): boolean {
     return this.conflictBackups.some((b) => b.fileName.startsWith(date))
   }
+
+  readManifest?(): ManifestEntry[] | null
+
+  writeManifest?(entries: ManifestEntry[]): void
 
   clear(): void {
     this.entries.clear()

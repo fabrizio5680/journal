@@ -11,7 +11,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b",
     "test:run": "vitest run && npm --prefix functions run test",
     "test:coverage": "vitest run --coverage && npm --prefix functions run test",
     "test:e2e": "playwright test",
