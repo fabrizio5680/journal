@@ -1,18 +1,27 @@
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
 
-import { bodyTextFromSearchText, createEntryFile, toEntry } from './entryFormat'
+import { bodyTextFromSearchText, toEntry } from './entryFormat'
 import { setDriveLoadProgress } from './driveLoadProgress'
 import { localEntryCache } from './localEntryCache'
 import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
 import { GOOGLE_DRIVE_PROVIDER, GoogleDriveError } from './providers/googleDriveTypes'
 import { syncCoordinator } from './syncCoordinator'
-import type { DateRange, EntryDraft, EntryMetadata, SearchFilters, SearchHit } from './types'
+import type {
+  DateRange,
+  EntryDraft,
+  EntryMetadata,
+  EntryState,
+  SearchFilters,
+  SearchHit,
+} from './types'
+import { openWriteCoordinator } from './writeCoordinator'
 
 import { db } from '@/lib/firebase'
 
 type Listener = () => void
 
 const listeners = new Map<string, Set<Listener>>()
+const writeCoordinators = new Map<string, ReturnType<typeof openWriteCoordinator>>()
 
 function emit(userId: string) {
   listeners.get(userId)?.forEach((listener) => listener())
@@ -28,6 +37,15 @@ function excerptFor(text: string, query: string): string {
 
   const start = Math.max(0, index - 50)
   return body.slice(start, start + 180).trim()
+}
+
+function getWriteCoordinator(userId: string) {
+  let coordinator = writeCoordinators.get(userId)
+  if (!coordinator) {
+    coordinator = openWriteCoordinator(userId)
+    writeCoordinators.set(userId, coordinator)
+  }
+  return coordinator
 }
 
 export const EntryRepository = {
@@ -94,23 +112,31 @@ export const EntryRepository = {
     }
   },
 
-  async saveEntry(userId: string, date: string, draft: EntryDraft) {
-    const existing = await localEntryCache.getEntry(userId, date)
-    const entry = createEntryFile(date, draft, existing ?? undefined)
+  async getEntryState(userId: string, date: string): Promise<EntryState> {
+    return getWriteCoordinator(userId).read(date)
+  },
 
-    // Empty entry guard: don't sync if there's nothing to sync
-    const isEmpty =
-      entry.wordCount === 0 &&
-      entry.tags.length === 0 &&
-      entry.mood == null &&
-      entry.scriptureRefs.length === 0
+  async saveEntry(
+    userId: string,
+    date: string,
+    draft: EntryDraft,
+    options: { baseGen?: number } = {},
+  ) {
+    const result = await getWriteCoordinator(userId).save({
+      date,
+      baseGen: options.baseGen,
+      changes: draft,
+      origin: 'user-edit',
+    })
 
-    const shouldSync = syncCoordinator.isConnectedOnDevice(userId) && !isEmpty
-    const metadata = await localEntryCache.saveEntry(
-      userId,
-      entry,
-      shouldSync ? 'sync-pending' : 'saved-local',
-    )
+    if (result.kind === 'stale') {
+      return {
+        entry: result.current,
+        metadata: result.metadata,
+        stale: true,
+        gen: result.currentGen,
+      }
+    }
 
     await setDoc(
       doc(db, 'users', userId),
@@ -122,8 +148,7 @@ export const EntryRepository = {
     )
 
     emit(userId)
-    if (shouldSync) void syncCoordinator.enqueue(userId, date)
-    return { entry: toEntry(entry), metadata }
+    return { entry: result.entry, metadata: result.metadata, stale: false, gen: result.gen }
   },
 
   async listMetadata(userId: string, range?: DateRange): Promise<EntryMetadata[]> {

@@ -25,6 +25,7 @@ export function useEntry(date: string): UseEntryReturn {
 
   const isDirtyRef = useRef(false)
   const saveGenerationRef = useRef(0)
+  const entryGenRef = useRef(0)
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -42,6 +43,7 @@ export function useEntry(date: string): UseEntryReturn {
     async function loadEntry() {
       try {
         const nextEntry = await EntryRepository.getEntry(activeUid, date)
+        const nextState = await EntryRepository.getEntryState(activeUid, date)
         const [nextMetadata] = await EntryRepository.listMetadata(activeUid, {
           from: date,
           to: date,
@@ -51,6 +53,7 @@ export function useEntry(date: string): UseEntryReturn {
         if (!isDirtyRef.current) {
           setEntry(nextEntry)
           setMetadata(nextMetadata ?? null)
+          entryGenRef.current = nextState.kind === 'committed' ? nextState.gen : 0
         }
       } catch {
         if (cancelled) return
@@ -90,7 +93,14 @@ export function useEntry(date: string): UseEntryReturn {
       const isContentSave = 'content' in data
       const genAtStart = saveGenerationRef.current
 
-      const result = await EntryRepository.saveEntry(uid, date, entryPatch)
+      const result = await EntryRepository.saveEntry(uid, date, entryPatch, {
+        baseGen: isContentSave ? entryGenRef.current : undefined,
+      })
+
+      if (result.stale) {
+        entryGenRef.current = result.gen ?? entryGenRef.current
+        return { stale: true }
+      }
 
       if (isContentSave && genAtStart !== saveGenerationRef.current) {
         return { stale: true }
@@ -98,6 +108,7 @@ export function useEntry(date: string): UseEntryReturn {
 
       setEntry(result.entry)
       setMetadata(result.metadata)
+      entryGenRef.current = result.gen ?? entryGenRef.current
       setIsDirty(false)
       isDirtyRef.current = false
       return { stale: false }

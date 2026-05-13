@@ -3,8 +3,26 @@ import { describe, expect, it, beforeEach } from 'vitest'
 // The MemoryEntryCache is used in test environment (no real IndexedDB in jsdom).
 // localEntryCache is a MemoryEntryCache when IndexedDB is unavailable.
 import { localEntryCache } from './localEntryCache'
+import type { EntryFile } from './types'
 
 const USER_ID = 'sync-state-test-uid'
+
+function makeEntry(date: string, text = 'Hello world'): EntryFile {
+  return {
+    schemaVersion: 1,
+    app: 'quiet-dwelling',
+    date,
+    content: { type: 'doc', content: [] },
+    searchText: text,
+    mood: null,
+    moodLabel: null,
+    tags: [],
+    scriptureRefs: [],
+    wordCount: text.trim().split(/\s+/).length,
+    createdAt: `${date}T00:00:00.000Z`,
+    updatedAt: `${date}T00:00:00.000Z`,
+  }
+}
 
 describe('localEntryCache syncState store', () => {
   beforeEach(async () => {
@@ -85,5 +103,36 @@ describe('localEntryCache syncState store', () => {
     expect(state?.driveEntriesFolderId).toBeNull()
     expect(state?.monthFolderIds).toEqual([])
     expect(state?.lastDeltaPollAt).toBeNull()
+  })
+})
+
+describe('localEntryCache entry generations', () => {
+  it('saveEntry persists and increments localGen', async () => {
+    const userId = `gen-save-${Date.now()}`
+    const date = '2026-05-11'
+
+    await localEntryCache.saveEntry(userId, makeEntry(date, 'first'), 'saved-local')
+    expect((await localEntryCache.getEntrySnapshot(userId, date)).localGen).toBe(1)
+
+    await localEntryCache.saveEntry(userId, makeEntry(date, 'second'), 'saved-local')
+    expect((await localEntryCache.getEntrySnapshot(userId, date)).localGen).toBe(2)
+  })
+
+  it('commitEntry returns stale when baseGen is older than the stored generation', async () => {
+    const userId = `gen-stale-${Date.now()}`
+    const date = '2026-05-12'
+
+    await localEntryCache.saveEntry(userId, makeEntry(date, 'current'), 'saved-local')
+    const result = await localEntryCache.commitEntry(
+      userId,
+      makeEntry(date, 'stale'),
+      'saved-local',
+      {
+        baseGen: 0,
+      },
+    )
+
+    expect(result).toMatchObject({ kind: 'stale', currentGen: 1 })
+    expect((await localEntryCache.getEntry(userId, date))?.searchText).toBe('current')
   })
 })

@@ -2,14 +2,35 @@ import { entryMatchesRange, toEntry, toMetadata } from './entryFormat'
 import type { EntryFile, EntryMetadata, SyncState, SyncStatus } from './types'
 
 const DB_NAME = 'quiet-dwelling'
-const DB_VERSION = 3
+const DB_VERSION = 4
 const ENTRY_STORE = 'entries'
 const METADATA_STORE = 'metadata'
 const SYNC_STATE_STORE = 'syncState'
 const DEVICE_IDENTITY_STORE = 'deviceIdentity'
 
-type EntryRecord = EntryFile & { key: string; userId: string }
+type EntryRecord = EntryFile & {
+  key: string
+  userId: string
+  localGen?: number
+  remoteRevId?: string | null
+}
 type MetadataRecord = EntryMetadata & { key: string; userId: string }
+
+export interface EntrySnapshot {
+  entry: EntryFile | null
+  metadata: EntryMetadata | null
+  localGen: number
+  remoteRevId: string | null
+}
+
+export type CommitEntryResult =
+  | { kind: 'committed'; metadata: EntryMetadata; localGen: number }
+  | {
+      kind: 'stale'
+      current: EntryFile
+      metadata: EntryMetadata | null
+      currentGen: number
+    }
 
 function storageKey(userId: string, date: string): string {
   return `${userId}:${date}`
@@ -34,6 +55,10 @@ function txDone(tx: IDBTransaction): Promise<void> {
   })
 }
 
+function entryGen(entry: EntryRecord | null | undefined): number {
+  return entry ? (entry.localGen ?? 1) : 0
+}
+
 async function openDb(): Promise<IDBDatabase> {
   const request = indexedDB.open(DB_NAME, DB_VERSION)
   request.onupgradeneeded = (event) => {
@@ -56,6 +81,23 @@ async function openDb(): Promise<IDBDatabase> {
       const deviceIdentity = db.createObjectStore(DEVICE_IDENTITY_STORE, { keyPath: 'key' })
       deviceIdentity.createIndex('userId', 'userId')
     }
+    if ((event.oldVersion ?? 0) < 4 && db.objectStoreNames.contains(ENTRY_STORE)) {
+      const entries = request.transaction?.objectStore(ENTRY_STORE)
+      if (entries) {
+        const cursorRequest = entries.openCursor()
+        cursorRequest.onsuccess = (cursorEvent) => {
+          const cursor = (cursorEvent.target as IDBRequest<IDBCursorWithValue | null>).result
+          if (!cursor) return
+          const value = cursor.value as EntryRecord
+          cursor.update({
+            ...value,
+            localGen: value.localGen ?? 1,
+            remoteRevId: value.remoteRevId ?? null,
+          })
+          cursor.continue()
+        }
+      }
+    }
   }
   return requestToPromise(request)
 }
@@ -69,6 +111,18 @@ class MemoryEntryCache {
     return this.entries.get(storageKey(userId, date)) ?? null
   }
 
+  async getEntrySnapshot(userId: string, date: string): Promise<EntrySnapshot> {
+    const key = storageKey(userId, date)
+    const entry = this.entries.get(key) ?? null
+    const metadata = this.metadata.get(key) ?? null
+    return {
+      entry,
+      metadata,
+      localGen: entryGen(entry),
+      remoteRevId: entry?.remoteRevId ?? null,
+    }
+  }
+
   async saveEntry(
     userId: string,
     entry: EntryFile,
@@ -78,9 +132,55 @@ class MemoryEntryCache {
     const key = storageKey(userId, entry.date)
     const previous = this.metadata.get(key) ?? null
     const metadata = { ...toMetadata(entry, syncStatus, previous), ...metadataPatch }
-    this.entries.set(key, { ...entry, key, userId })
+    const previousEntry = this.entries.get(key)
+    this.entries.set(key, {
+      ...entry,
+      key,
+      userId,
+      localGen: entryGen(previousEntry) + 1,
+      remoteRevId: metadataPatch.remoteRevisionId ?? previousEntry?.remoteRevId ?? null,
+    })
     this.metadata.set(key, { ...metadata, key, userId })
     return metadata
+  }
+
+  async commitEntry(
+    userId: string,
+    entry: EntryFile,
+    syncStatus: SyncStatus,
+    options: {
+      baseGen?: number
+      bumpGeneration?: boolean
+      metadataPatch?: Partial<EntryMetadata>
+    } = {},
+  ): Promise<CommitEntryResult> {
+    const key = storageKey(userId, entry.date)
+    const previousEntry = this.entries.get(key)
+    const currentGen = entryGen(previousEntry)
+    if (options.baseGen !== undefined && currentGen !== options.baseGen && previousEntry) {
+      return {
+        kind: 'stale',
+        current: previousEntry,
+        metadata: this.metadata.get(key) ?? null,
+        currentGen,
+      }
+    }
+
+    const previousMetadata = this.metadata.get(key) ?? null
+    const metadata = {
+      ...toMetadata(entry, syncStatus, previousMetadata),
+      ...options.metadataPatch,
+    }
+    const nextGen = currentGen + (options.bumpGeneration === false ? 0 : 1)
+    this.entries.set(key, {
+      ...entry,
+      key,
+      userId,
+      localGen: nextGen,
+      remoteRevId: options.metadataPatch?.remoteRevisionId ?? previousEntry?.remoteRevId ?? null,
+    })
+    this.metadata.set(key, { ...metadata, key, userId })
+    return { kind: 'committed', metadata, localGen: nextGen }
   }
 
   async updateMetadata(
@@ -148,6 +248,26 @@ class IndexedDbEntryCache {
     return record ?? null
   }
 
+  async getEntrySnapshot(userId: string, date: string): Promise<EntrySnapshot> {
+    const db = await openDb()
+    const key = storageKey(userId, date)
+    const tx = db.transaction([ENTRY_STORE, METADATA_STORE], 'readonly')
+    const entry =
+      (await requestToPromise<EntryRecord | undefined>(tx.objectStore(ENTRY_STORE).get(key))) ??
+      null
+    const metadata =
+      (await requestToPromise<MetadataRecord | undefined>(
+        tx.objectStore(METADATA_STORE).get(key),
+      )) ?? null
+    db.close()
+    return {
+      entry,
+      metadata,
+      localGen: entryGen(entry),
+      remoteRevId: entry?.remoteRevId ?? null,
+    }
+  }
+
   async saveEntry(
     userId: string,
     entry: EntryFile,
@@ -162,11 +282,69 @@ class IndexedDbEntryCache {
         tx.objectStore(METADATA_STORE).get(key),
       )) ?? null
     const metadata = { ...toMetadata(entry, syncStatus, previous), ...metadataPatch }
-    tx.objectStore(ENTRY_STORE).put({ ...entry, key, userId })
+    const previousEntry =
+      (await requestToPromise<EntryRecord | undefined>(tx.objectStore(ENTRY_STORE).get(key))) ??
+      null
+    tx.objectStore(ENTRY_STORE).put({
+      ...entry,
+      key,
+      userId,
+      localGen: entryGen(previousEntry) + 1,
+      remoteRevId: metadataPatch.remoteRevisionId ?? previousEntry?.remoteRevId ?? null,
+    })
     tx.objectStore(METADATA_STORE).put({ ...metadata, key, userId })
     await txDone(tx)
     db.close()
     return metadata
+  }
+
+  async commitEntry(
+    userId: string,
+    entry: EntryFile,
+    syncStatus: SyncStatus,
+    options: {
+      baseGen?: number
+      bumpGeneration?: boolean
+      metadataPatch?: Partial<EntryMetadata>
+    } = {},
+  ): Promise<CommitEntryResult> {
+    const db = await openDb()
+    const key = storageKey(userId, entry.date)
+    const tx = db.transaction([ENTRY_STORE, METADATA_STORE], 'readwrite')
+    const entryStore = tx.objectStore(ENTRY_STORE)
+    const metadataStore = tx.objectStore(METADATA_STORE)
+    const previousEntry =
+      (await requestToPromise<EntryRecord | undefined>(entryStore.get(key))) ?? null
+    const currentGen = entryGen(previousEntry)
+    const previousMetadata =
+      (await requestToPromise<MetadataRecord | undefined>(metadataStore.get(key))) ?? null
+
+    if (options.baseGen !== undefined && currentGen !== options.baseGen && previousEntry) {
+      db.close()
+      return {
+        kind: 'stale',
+        current: previousEntry,
+        metadata: previousMetadata,
+        currentGen,
+      }
+    }
+
+    const metadata = {
+      ...toMetadata(entry, syncStatus, previousMetadata),
+      ...options.metadataPatch,
+    }
+    const nextGen = currentGen + (options.bumpGeneration === false ? 0 : 1)
+    entryStore.put({
+      ...entry,
+      key,
+      userId,
+      localGen: nextGen,
+      remoteRevId: options.metadataPatch?.remoteRevisionId ?? previousEntry?.remoteRevId ?? null,
+    })
+    metadataStore.put({ ...metadata, key, userId })
+    await txDone(tx)
+    db.close()
+    return { kind: 'committed', metadata, localGen: nextGen }
   }
 
   async updateMetadata(

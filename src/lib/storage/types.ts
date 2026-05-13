@@ -65,6 +65,22 @@ export interface EntryMetadata {
   } | null
 }
 
+export type EntryState =
+  | { kind: 'empty' }
+  | { kind: 'draft'; entry: Entry }
+  | { kind: 'committed'; entry: Entry; gen: number }
+
+export interface WriteSaveRequest {
+  date: string
+  baseGen?: number
+  changes: EntryDraft
+  origin: 'user-edit' | 'merge-result' | 'remote-pull'
+}
+
+export type WriteSaveResult =
+  | { kind: 'committed'; entry: Entry; metadata: EntryMetadata; gen: number }
+  | { kind: 'stale'; current: Entry; metadata: EntryMetadata | null; currentGen: number }
+
 export interface ProviderConnection {
   provider: StorageProvider
   accountEmail: string

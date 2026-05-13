@@ -5,6 +5,8 @@ import type { EntryFile, EntryMetadata } from './types'
 const {
   mockCacheGetEntry,
   mockCacheSaveEntry,
+  mockCacheGetEntrySnapshot,
+  mockCacheCommitEntry,
   mockCacheListMetadata,
   mockCacheListEntries,
   mockCacheUpdateMetadata,
@@ -19,6 +21,8 @@ const {
 } = vi.hoisted(() => ({
   mockCacheGetEntry: vi.fn(),
   mockCacheSaveEntry: vi.fn(),
+  mockCacheGetEntrySnapshot: vi.fn(),
+  mockCacheCommitEntry: vi.fn(),
   mockCacheListMetadata: vi.fn(),
   mockCacheListEntries: vi.fn(),
   mockCacheUpdateMetadata: vi.fn(),
@@ -36,6 +40,8 @@ vi.mock('./localEntryCache', () => ({
   localEntryCache: {
     getEntry: (...args: unknown[]) => mockCacheGetEntry(...args),
     saveEntry: (...args: unknown[]) => mockCacheSaveEntry(...args),
+    getEntrySnapshot: (...args: unknown[]) => mockCacheGetEntrySnapshot(...args),
+    commitEntry: (...args: unknown[]) => mockCacheCommitEntry(...args),
     listMetadata: (...args: unknown[]) => mockCacheListMetadata(...args),
     listEntries: (...args: unknown[]) => mockCacheListEntries(...args),
     updateMetadata: (...args: unknown[]) => mockCacheUpdateMetadata(...args),
@@ -101,6 +107,17 @@ describe('EntryRepository', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCacheSaveEntry.mockResolvedValue(makeMetadata())
+    mockCacheGetEntrySnapshot.mockResolvedValue({
+      entry: null,
+      metadata: null,
+      localGen: 0,
+      remoteRevId: null,
+    })
+    mockCacheCommitEntry.mockResolvedValue({
+      kind: 'committed',
+      metadata: makeMetadata(),
+      localGen: 1,
+    })
     mockCacheGetEntry.mockResolvedValue(null)
     mockCacheListMetadata.mockResolvedValue([])
     mockCacheListEntries.mockResolvedValue([])
@@ -125,7 +142,12 @@ describe('EntryRepository', () => {
         wordCount: 0,
       })
 
-      expect(mockCacheSaveEntry).toHaveBeenCalledWith('test-uid', expect.any(Object), 'saved-local')
+      expect(mockCacheCommitEntry).toHaveBeenCalledWith(
+        'test-uid',
+        expect.any(Object),
+        'saved-local',
+        expect.any(Object),
+      )
       // Should NOT enqueue for sync because entry is empty
       expect(mockSyncCoordinatorEnqueue).not.toHaveBeenCalled()
     })
@@ -145,10 +167,11 @@ describe('EntryRepository', () => {
         wordCount: 2,
       })
 
-      expect(mockCacheSaveEntry).toHaveBeenCalledWith(
+      expect(mockCacheCommitEntry).toHaveBeenCalledWith(
         'test-uid',
         expect.any(Object),
         'sync-pending',
+        expect.any(Object),
       )
     })
   })
