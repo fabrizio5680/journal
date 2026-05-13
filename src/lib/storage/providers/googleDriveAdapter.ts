@@ -256,7 +256,13 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
       const connection = this.getConnection()
       const file = await this.findFile('metadata.json', connection.rootFolderId, ENTRY_MIME_TYPE)
       if (!file) return null
-      return this.driveFetch<ManifestEntry[]>(`${DRIVE_API}/files/${file.id}?alt=media`)
+      const data = await this.driveFetch<
+        ManifestEntry[] | { schemaVersion: number; entries: ManifestEntry[] }
+      >(`${DRIVE_API}/files/${file.id}?alt=media`)
+      if (Array.isArray(data)) return data
+      if (data && Array.isArray((data as { entries?: unknown }).entries))
+        return (data as { schemaVersion: number; entries: ManifestEntry[] }).entries
+      return null
     } catch {
       return null
     }
