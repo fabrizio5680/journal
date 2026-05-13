@@ -104,6 +104,18 @@ Repository push guards:
 - Drive entries with a newer schema are not downgraded; they mark the entry as
   requiring reconnect/attention.
 
+Save race guard (`useEntry`):
+
+- `save()` captures `saveGenerationRef.current` before the async
+  `EntryRepository.saveEntry` call. `markDirty()` increments the generation
+  counter on every keystroke. If the generation changed during a content save,
+  `save()` returns `{ stale: true }` and skips `setEntry` / `setMetadata` /
+  dirty-flag reset, so newer typing is never overwritten by a stale result.
+  Metadata-only saves (no `content` key) always commit regardless of generation.
+- `EntryEditor` accepts an `isDirty` prop; the content-sync `useEffect` returns
+  early when `isDirty` is true — defence-in-depth against editor reset.
+- The autosave debounce window in `EntryPage` is 800ms.
+
 ## Google Drive Sync
 
 Drive continuity is account-level per Firebase user. One Drive account/root

@@ -192,6 +192,34 @@ describe('EntryEditor', () => {
     expect(wrapper.className).toContain('md:pb-32')
   })
 
+  it('does not reset editor content when isDirty is true', () => {
+    const currentEditorContent = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'New typing' }] }],
+    }
+    getJSON.mockReturnValue(currentEditorContent)
+    const staleContent = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Old saved' }] }],
+    }
+
+    render(<EntryEditor content={staleContent} onUpdate={vi.fn()} isDirty={true} />)
+
+    expect(setContent).not.toHaveBeenCalled()
+  })
+
+  it('resets editor content when isDirty is false', () => {
+    getJSON.mockReturnValue({ type: 'doc', content: [] })
+    const incoming = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Loaded' }] }],
+    }
+
+    render(<EntryEditor content={incoming} onUpdate={vi.fn()} isDirty={false} />)
+
+    expect(setContent).toHaveBeenCalledWith(incoming, { emitUpdate: false })
+  })
+
   it('passes spellcheck="true" to editorProps.attributes when spellcheckEnabled is true and not mobile', () => {
     mockSpellcheckEnabled = true
     getJSON.mockReturnValue({ type: 'doc', content: [] })

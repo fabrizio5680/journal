@@ -12,7 +12,7 @@ export interface UseEntryReturn {
   isDirty: boolean
   metadata: EntryMetadata | null
   markDirty: () => void
-  save: (data: Partial<Entry>) => Promise<void>
+  save: (data: Partial<Entry>) => Promise<{ stale: boolean }>
   wordCount: number
 }
 
@@ -24,6 +24,7 @@ export function useEntry(date: string): UseEntryReturn {
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
 
   const isDirtyRef = useRef(false)
+  const saveGenerationRef = useRef(0)
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -76,20 +77,30 @@ export function useEntry(date: string): UseEntryReturn {
   const markDirty = useCallback(() => {
     setIsDirty(true)
     isDirtyRef.current = true
+    saveGenerationRef.current++
   }, [])
 
   const save = useCallback(
-    async (data: Partial<Entry>) => {
-      if (!uid) return
+    async (data: Partial<Entry>): Promise<{ stale: boolean }> => {
+      if (!uid) return { stale: false }
 
       const entryPatch: Partial<Entry> = { ...data }
       delete entryPatch.date
 
+      const isContentSave = 'content' in data
+      const genAtStart = saveGenerationRef.current
+
       const result = await EntryRepository.saveEntry(uid, date, entryPatch)
+
+      if (isContentSave && genAtStart !== saveGenerationRef.current) {
+        return { stale: true }
+      }
+
       setEntry(result.entry)
       setMetadata(result.metadata)
       setIsDirty(false)
       isDirtyRef.current = false
+      return { stale: false }
     },
     [uid, date],
   )

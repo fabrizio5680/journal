@@ -34,7 +34,7 @@ export default function EntryPage() {
 function EntryEditorView({ date }: { date: string }) {
   usePageTitle(format(parseISO(date), 'MMMM d, yyyy'))
   const navigate = useNavigate()
-  const { entry, isLoading, markDirty, save, metadata: entryMetadata } = useEntry(date)
+  const { entry, isLoading, isDirty, markDirty, save, metadata: entryMetadata } = useEntry(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved, setEntrySyncStatus } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
@@ -91,14 +91,16 @@ function EntryEditorView({ date }: { date: string }) {
 
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
       saveTimeoutRef.current = setTimeout(async () => {
-        await save({
+        const { stale } = await save({
           content: editor.getJSON(),
           contentText: editor.getText(),
           wordCount: editor.storage.characterCount.words(),
         })
-        setDirty(false)
-        setLastSaved(new Date())
-      }, 1500)
+        if (!stale) {
+          setDirty(false)
+          setLastSaved(new Date())
+        }
+      }, 800)
     },
     [markDirty, save, setDirty, setLastSaved],
   )
@@ -293,6 +295,7 @@ function EntryEditorView({ date }: { date: string }) {
         onUpdate={handleUpdate}
         onEditorReady={setEditorInstance}
         placeholder={placeholder}
+        isDirty={isDirty}
       />
     </div>
   )

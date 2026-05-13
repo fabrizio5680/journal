@@ -32,6 +32,7 @@ interface EntryEditorProps {
   onUpdate: (editor: Editor) => void
   onEditorReady?: (editor: Editor) => void
   placeholder?: string
+  isDirty?: boolean
 }
 
 export default function EntryEditor({
@@ -39,6 +40,7 @@ export default function EntryEditor({
   onUpdate,
   onEditorReady,
   placeholder,
+  isDirty,
 }: EntryEditorProps) {
   const { editorFontSize, spellcheckEnabled } = useUserPreferences()
   const fontSizeClass = FONT_SIZE_CLASS[editorFontSize] ?? FONT_SIZE_CLASS.medium
@@ -78,6 +80,7 @@ export default function EntryEditor({
   // Load initial content from Firestore once editor is ready
   useEffect(() => {
     if (!editor) return
+    if (isDirty) return
 
     // Keep the editor in sync when the loaded entry changes.
     // Use emitUpdate=false so hydrating content doesn't trigger autosave.
@@ -98,7 +101,7 @@ export default function EntryEditor({
         to: Math.min(to, docSize),
       })
     }
-  }, [editor, content])
+  }, [editor, content, isDirty])
 
   if (!editor) return null
 

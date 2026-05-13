@@ -117,6 +117,91 @@ describe('useEntry', () => {
     expect(result.current.isDirty).toBe(false)
   })
 
+  it('save() returns { stale: false } and updates state when no new typing occurs during content save', async () => {
+    const savedEntry = makeEntry({ contentText: 'saved content' })
+    mockSaveEntry.mockResolvedValue({ entry: savedEntry, metadata: {} })
+
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    let saveResult: { stale: boolean } | undefined
+    await act(async () => {
+      saveResult = await result.current.save({
+        content: { type: 'doc', content: [] },
+        contentText: 'saved content',
+        wordCount: 2,
+      })
+    })
+
+    expect(saveResult).toEqual({ stale: false })
+    expect(result.current.entry?.contentText).toBe('saved content')
+    expect(result.current.isDirty).toBe(false)
+  })
+
+  it('save() returns { stale: true } and skips state update when markDirty fires during content save', async () => {
+    let resolveSave!: (value: { entry: Entry; metadata: object }) => void
+    mockSaveEntry.mockReturnValue(
+      new Promise<{ entry: Entry; metadata: object }>((resolve) => {
+        resolveSave = resolve
+      }),
+    )
+
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    // Start a content save — this captures genAtStart
+    let savePromise: Promise<{ stale: boolean }>
+    act(() => {
+      savePromise = result.current.save({
+        content: { type: 'doc', content: [] },
+        contentText: 'first typing',
+        wordCount: 2,
+      })
+    })
+
+    // User types more while save is in-flight — increments generation
+    act(() => result.current.markDirty())
+
+    // Now the save resolves
+    const staleEntry = makeEntry({ contentText: 'first typing' })
+    act(() => resolveSave({ entry: staleEntry, metadata: {} }))
+
+    let saveResult: { stale: boolean }
+    await act(async () => {
+      saveResult = await savePromise!
+    })
+
+    expect(saveResult!).toEqual({ stale: true })
+    // entry state should NOT have been updated with stale data
+    expect(result.current.entry).toBe(null)
+    // dirty should still be true since we skipped the reset
+    expect(result.current.isDirty).toBe(true)
+  })
+
+  it('save() returns { stale: false } for metadata-only saves (no content key) even when generation changed', async () => {
+    const savedEntry = makeEntry({ mood: 3 })
+    mockSaveEntry.mockResolvedValue({ entry: savedEntry, metadata: {} })
+
+    const { result } = renderHook(() => useEntry('2026-04-13'))
+    fireAuth()
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    // Bump generation as if user is typing
+    act(() => result.current.markDirty())
+
+    let saveResult: { stale: boolean } | undefined
+    await act(async () => {
+      // Mood save — no 'content' key
+      saveResult = await result.current.save({ mood: 3, moodLabel: 'okay' })
+    })
+
+    expect(saveResult).toEqual({ stale: false })
+    expect(result.current.entry?.mood).toBe(3)
+    expect(result.current.isDirty).toBe(false)
+  })
+
   it('save() writes through the repository using requested date', async () => {
     const { result } = renderHook(() => useEntry('2026-04-13'))
     fireAuth()
