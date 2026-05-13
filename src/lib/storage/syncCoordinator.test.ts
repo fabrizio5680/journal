@@ -52,8 +52,9 @@ vi.mock('./providers/googleDriveAdapter', () => ({
   }),
 }))
 
-vi.mock('./deviceIdentity', () => ({
-  getDeviceIdentity: () => ({ id: 'test-device-id', label: 'Test Device' }),
+vi.mock('./deviceFingerprint', () => ({
+  getDeviceFingerprint: () =>
+    Promise.resolve({ deviceId: 'test-device-id', deviceLabel: 'Test Device', generatedAt: 1 }),
 }))
 
 function makeEntry(date = '2026-04-13'): EntryFile {

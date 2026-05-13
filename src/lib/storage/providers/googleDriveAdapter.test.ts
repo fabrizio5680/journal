@@ -15,7 +15,7 @@ const {
   mockMarkGoogleDriveReconnectRequired,
   mockRequestGoogleDriveAuthorizationCode,
   mockSetStoredGoogleDriveConnection,
-  mockGetDeviceIdentity,
+  mockGetDeviceFingerprint,
 } = vi.hoisted(() => ({
   mockDisconnectGoogleDriveOnDevice: vi.fn(),
   mockExchangeGoogleDriveCode: vi.fn(),
@@ -24,7 +24,9 @@ const {
   mockMarkGoogleDriveReconnectRequired: vi.fn(),
   mockRequestGoogleDriveAuthorizationCode: vi.fn(),
   mockSetStoredGoogleDriveConnection: vi.fn(),
-  mockGetDeviceIdentity: vi.fn().mockReturnValue({ id: 'device-abc', label: 'Mac Chrome' }),
+  mockGetDeviceFingerprint: vi
+    .fn()
+    .mockResolvedValue({ deviceId: 'device-abc', deviceLabel: 'Mac Chrome', generatedAt: 1 }),
 }))
 
 vi.mock('./googleDriveAuth', () => ({
@@ -42,8 +44,8 @@ vi.mock('./googleDriveAuth', () => ({
     mockSetStoredGoogleDriveConnection(...args),
 }))
 
-vi.mock('../deviceIdentity', () => ({
-  getDeviceIdentity: (...args: unknown[]) => mockGetDeviceIdentity(...args),
+vi.mock('../deviceFingerprint', () => ({
+  getDeviceFingerprint: (...args: unknown[]) => mockGetDeviceFingerprint(...args),
 }))
 
 function makeEntry(): EntryFile {

@@ -1,4 +1,4 @@
-import { getDeviceIdentity } from '../deviceIdentity'
+import { getDeviceFingerprint } from '../deviceFingerprint'
 import { toMetadata } from '../entryFormat'
 import type {
   DateRange,
@@ -237,7 +237,7 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
     try {
       const connection = this.getConnection()
       const conflictsFolderId = await this.ensureFolder('conflicts', connection.rootFolderId)
-      const { id: deviceId } = getDeviceIdentity()
+      const { deviceId } = await getDeviceFingerprint(this.userId)
       const ts = new Date().toISOString().replace(/[:.]/g, '-')
       const fileName = `${date}.${remoteRevisionId}.${deviceId}-${ts}.json`
       await this.uploadFile('POST', `${DRIVE_UPLOAD_API}/files`, entry, {

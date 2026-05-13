@@ -1,5 +1,5 @@
 import { localEntryCache } from './localEntryCache'
-import { getDeviceIdentity } from './deviceIdentity'
+import { getDeviceFingerprint } from './deviceFingerprint'
 import { mergeEntries } from './mergeEngine'
 import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
 import {
@@ -114,7 +114,7 @@ async function syncOne(userId: string, date: string, isRetry = false): Promise<v
       return
     }
 
-    const { id: deviceId, label: deviceLabel } = getDeviceIdentity()
+    const { deviceId, deviceLabel } = await getDeviceFingerprint(userId)
     const { merged, moodConflict } = mergeEntries(entry, remoteEntry, deviceLabel)
 
     // Fire-and-forget backup

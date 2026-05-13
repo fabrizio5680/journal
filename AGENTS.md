@@ -236,11 +236,13 @@ Important localStorage keys:
 - `fcm_device_token_<uid>`: per-device FCM token.
 - `google_drive_connection_<uid>`: cached Drive provider metadata, no tokens.
 - `google_drive_disconnected_<uid>`: device opt-out for Drive auto-hydration.
-- `device_identity`: stable per-device UUID and label for conflict attribution.
 
-IndexedDB database `quiet-dwelling` contains `entries`, `metadata`, and
-`syncState` stores. `syncState` tracks Drive polling state such as start-page
-token, entry folder ID, month folder IDs, and last poll time.
+IndexedDB database `quiet-dwelling` contains `entries`, `metadata`, `syncState`,
+and `deviceIdentity` stores. `syncState` tracks Drive polling state such as
+start-page token, entry folder ID, month folder IDs, and last poll time.
+`deviceIdentity` stores account-bound device fingerprints keyed by user and
+browser fingerprint; conflict attribution should use `getDeviceFingerprint(uid)`
+rather than localStorage.
 
 `UserPreferencesContext` initializes editor font size from localStorage, may seed
 once from Firestore if absent, and then writes only to localStorage.

@@ -2,10 +2,11 @@ import { entryMatchesRange, toEntry, toMetadata } from './entryFormat'
 import type { EntryFile, EntryMetadata, SyncState, SyncStatus } from './types'
 
 const DB_NAME = 'quiet-dwelling'
-const DB_VERSION = 2
+const DB_VERSION = 3
 const ENTRY_STORE = 'entries'
 const METADATA_STORE = 'metadata'
 const SYNC_STATE_STORE = 'syncState'
+const DEVICE_IDENTITY_STORE = 'deviceIdentity'
 
 type EntryRecord = EntryFile & { key: string; userId: string }
 type MetadataRecord = EntryMetadata & { key: string; userId: string }
@@ -50,6 +51,10 @@ async function openDb(): Promise<IDBDatabase> {
     // Version 2: add syncState store
     if ((event.oldVersion ?? 0) < 2 && !db.objectStoreNames.contains(SYNC_STATE_STORE)) {
       db.createObjectStore(SYNC_STATE_STORE, { keyPath: 'userId' })
+    }
+    if (!db.objectStoreNames.contains(DEVICE_IDENTITY_STORE)) {
+      const deviceIdentity = db.createObjectStore(DEVICE_IDENTITY_STORE, { keyPath: 'key' })
+      deviceIdentity.createIndex('userId', 'userId')
     }
   }
   return requestToPromise(request)
