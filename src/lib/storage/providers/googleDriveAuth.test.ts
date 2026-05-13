@@ -10,6 +10,7 @@ import {
   hydrateGoogleDriveConnectionFromMetadata,
   isGoogleDriveLocallyDisconnected,
   markGoogleDriveReconnectRequired,
+  openDriveTokenSession,
   requestGoogleDriveAccessToken,
   requestGoogleDriveAuthorizationCode,
   revokeGoogleDriveAccess,
@@ -71,6 +72,13 @@ function installCodeClient(response: {
     },
   }
   return { initCodeClient, requestCode }
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
 }
 
 describe('googleDriveAuth', () => {
@@ -298,5 +306,131 @@ describe('googleDriveAuth', () => {
 
     // Only one actual backend call should have been made
     expect(getAccessToken).toHaveBeenCalledTimes(1)
+  })
+
+  it('openDriveTokenSession shares a refresh across simultaneous callers and emits status changes', async () => {
+    let resolveRefresh!: (value: {
+      data: { accessToken: string; expiresAt: number; scope: string }
+    }) => void
+    const refreshPromise = new Promise<{
+      data: { accessToken: string; expiresAt: number; scope: string }
+    }>((resolve) => {
+      resolveRefresh = resolve
+    })
+    const getAccessToken = vi.fn().mockReturnValue(refreshPromise)
+    mockHttpsCallable.mockReturnValue(getAccessToken)
+
+    const session = openDriveTokenSession(USER_ID)
+    const statuses: string[] = []
+    const unsubscribe = session.onStatusChange((status) => statuses.push(status))
+    const call1 = session.getToken()
+    const call2 = session.getToken()
+
+    resolveRefresh({
+      data: {
+        accessToken: 'session-token',
+        expiresAt: Date.now() + 120_000,
+        scope: GOOGLE_DRIVE_SCOPE,
+      },
+    })
+
+    await expect(Promise.all([call1, call2])).resolves.toEqual([
+      {
+        token: 'session-token',
+        expiresAt: expect.any(Number),
+        scopes: [GOOGLE_DRIVE_SCOPE],
+      },
+      {
+        token: 'session-token',
+        expiresAt: expect.any(Number),
+        scopes: [GOOGLE_DRIVE_SCOPE],
+      },
+    ])
+
+    expect(getAccessToken).toHaveBeenCalledTimes(1)
+    expect(statuses).toEqual(['disconnected', 'refreshing', 'connected'])
+    unsubscribe()
+  })
+
+  it('moves the session to reconnect when backend refresh fails', async () => {
+    mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('revoked')))
+
+    const session = openDriveTokenSession(USER_ID)
+    const statuses: string[] = []
+    session.onStatusChange((status) => statuses.push(status))
+
+    await expect(session.getToken()).rejects.toThrow('Google Drive needs to be reconnected.')
+
+    expect(session.status()).toBe('reconnect')
+    expect(getStoredGoogleDriveConnection(USER_ID)?.reconnectRequired).toBeUndefined()
+    expect(statuses).toEqual(['disconnected', 'refreshing', 'reconnect'])
+  })
+
+  it('driveApiFetch refreshes once after a 401 and retries the Drive call', async () => {
+    const { driveApiFetch } = await import('./googleDriveAuth')
+    const getAccessToken = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          accessToken: 'first-token',
+          expiresAt: Date.now() + 120_000,
+          scope: GOOGLE_DRIVE_SCOPE,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          accessToken: 'second-token',
+          expiresAt: Date.now() + 120_000,
+          scope: GOOGLE_DRIVE_SCOPE,
+        },
+      })
+    mockHttpsCallable.mockReturnValue(getAccessToken)
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: { message: 'expired' } }, 401))
+      .mockResolvedValueOnce(jsonResponse({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      driveApiFetch<{ ok: boolean }>(USER_ID, 'https://www.googleapis.com/drive/v3/files'),
+    ).resolves.toEqual({ ok: true })
+
+    expect(getAccessToken).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      headers: { Authorization: 'Bearer first-token' },
+    })
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({
+      headers: { Authorization: 'Bearer second-token' },
+    })
+  })
+
+  it('driveApiFetch marks reconnect immediately after a 403', async () => {
+    const { driveApiFetch } = await import('./googleDriveAuth')
+    setStoredGoogleDriveConnection(USER_ID, {
+      accountEmail: 'drive@example.com',
+      rootFolderId: 'root-folder',
+      connectedAt: '2026-04-13T00:00:00.000Z',
+    })
+    mockHttpsCallable.mockReturnValue(
+      vi.fn().mockResolvedValue({
+        data: {
+          accessToken: 'forbidden-token',
+          expiresAt: Date.now() + 120_000,
+          scope: GOOGLE_DRIVE_SCOPE,
+        },
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ error: { message: 'Forbidden' } }, 403)),
+    )
+
+    await expect(
+      driveApiFetch(USER_ID, 'https://www.googleapis.com/drive/v3/files'),
+    ).rejects.toMatchObject({ code: 'unknown', status: 403 })
+
+    expect(getStoredGoogleDriveConnection(USER_ID)).toMatchObject({ reconnectRequired: true })
+    expect(openDriveTokenSession(USER_ID).status()).toBe('reconnect')
   })
 })

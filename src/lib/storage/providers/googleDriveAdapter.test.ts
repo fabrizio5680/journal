@@ -31,6 +31,57 @@ const {
 
 vi.mock('./googleDriveAuth', () => ({
   disconnectGoogleDriveOnDevice: (...args: unknown[]) => mockDisconnectGoogleDriveOnDevice(...args),
+  driveApiFetch: async (
+    _userId: string,
+    url: string,
+    init: NonNullable<Parameters<typeof fetch>[1]> = {},
+  ) => {
+    const accessToken = await mockGetValidGoogleDriveAccessToken(_userId)
+    if (!accessToken) {
+      mockMarkGoogleDriveReconnectRequired(_userId)
+      const error = new Error('Google Drive needs to be reconnected.') as Error & {
+        code?: string
+      }
+      error.code = 'reconnect'
+      throw error
+    }
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        ...init.headers,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+    if (!response.ok) {
+      let reason = ''
+      let message = response.statusText
+      try {
+        const body = (await response.json()) as {
+          error?: { message?: string; errors?: Array<{ reason?: string }> }
+        }
+        reason = body.error?.errors?.[0]?.reason ?? ''
+        message = body.error?.message ?? message
+      } catch {
+        // Keep status text when Drive does not return JSON.
+      }
+      const error = new Error(message) as Error & { code?: string; status?: number }
+      error.status = response.status
+      if (response.status === 401) {
+        mockMarkGoogleDriveReconnectRequired(_userId)
+        error.code = 'reconnect'
+      } else if (reason === 'storageQuotaExceeded' || reason === 'quotaExceeded') {
+        error.code = 'storage-full'
+        error.name = 'GoogleDriveError'
+      } else if (response.status === 410 || response.status === 429 || response.status >= 500) {
+        error.code = 'retryable'
+      } else {
+        error.code = 'unknown'
+      }
+      throw error
+    }
+    if (response.status === 204) return undefined
+    return response.json()
+  },
   exchangeGoogleDriveCode: (...args: unknown[]) => mockExchangeGoogleDriveCode(...args),
   getStoredGoogleDriveConnection: (...args: unknown[]) =>
     mockGetStoredGoogleDriveConnection(...args),

@@ -16,10 +16,9 @@ import type {
 import type { FakeGoogleDriveBackend } from './fakeGoogleDriveBackend'
 import {
   disconnectGoogleDriveOnDevice,
+  driveApiFetch,
   exchangeGoogleDriveCode,
   getStoredGoogleDriveConnection,
-  getValidGoogleDriveAccessToken,
-  markGoogleDriveReconnectRequired,
   requestGoogleDriveAuthorizationCode,
   setStoredGoogleDriveConnection,
 } from './googleDriveAuth'
@@ -432,54 +431,6 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
   }
 
   private async driveFetch<T>(url: string, init: FetchInit = {}): Promise<T> {
-    const accessToken = await getValidGoogleDriveAccessToken(this.userId)
-    if (!accessToken) {
-      markGoogleDriveReconnectRequired(this.userId)
-      throw new GoogleDriveError('reconnect', 'Google Drive needs to be reconnected.')
-    }
-
-    const response = await fetch(url, {
-      ...init,
-      headers: {
-        ...init.headers,
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-
-    if (!response.ok) {
-      await this.handleErrorResponse(response)
-    }
-
-    if (response.status === 204) return undefined as T
-    return response.json() as Promise<T>
-  }
-
-  private async handleErrorResponse(response: Response): Promise<never> {
-    const status = response.status
-    let reason = ''
-    let message = response.statusText
-
-    try {
-      const body = (await response.json()) as {
-        error?: { message?: string; errors?: Array<{ reason?: string }> }
-      }
-      reason = body.error?.errors?.[0]?.reason ?? ''
-      message = body.error?.message ?? message
-    } catch {
-      // Keep status text when Drive does not return JSON.
-    }
-
-    if (status === 401) {
-      markGoogleDriveReconnectRequired(this.userId)
-      throw new GoogleDriveError('reconnect', message, status)
-    }
-    if (reason === 'storageQuotaExceeded' || reason === 'quotaExceeded') {
-      throw new GoogleDriveError('storage-full', message, status)
-    }
-    if (status === 429 || status >= 500) {
-      throw new GoogleDriveError('retryable', message, status)
-    }
-
-    throw new GoogleDriveError('unknown', message, status)
+    return driveApiFetch<T>(this.userId, url, init)
   }
 }
