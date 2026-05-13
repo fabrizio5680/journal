@@ -158,7 +158,10 @@ Key sync APIs:
 - `backfillGoogleDriveMetadata` runs manifest first, then full content backfill;
   bootstraps the manifest if none exists.
 - `initDriveSyncListeners(userId)` wires boot, online, visibility, pageshow, and
-  post-push delta polling triggers. Call it on Drive connect/connection changes.
+  post-push delta polling triggers. At boot it also calls
+  `backfillFromManifest(userId)` once (not on subsequent online/visibility/pageshow
+  events) so already-connected devices repopulate metadata on every app open.
+  Call it on Drive connect/connection changes.
 - `pollDriveDeltas(userId)` uses Drive Changes API state persisted in the
   IndexedDB `syncState` store.
 
@@ -174,6 +177,11 @@ entry content in the local cache, it clears the stuck `sync-pending` status to
 `Disconnect Google Drive` in Settings is device-local. It clears that device's
 connection/token cache and opt-outs from auto-hydration, but must not delete
 shared provider metadata or break other devices.
+
+The Settings Storage section exposes a **"Sync from Drive"** button when Drive is
+connected. It calls `backfillGoogleDriveMetadata(user.uid)` (full content backfill)
+and shows "Syncing..." during the operation. Progress is surfaced via the global
+`driveLoadProgress` banner; errors surface via `storageError`.
 
 ## Conflicts and Remote Updates
 

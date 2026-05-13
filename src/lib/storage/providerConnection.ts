@@ -198,6 +198,7 @@ export function initDriveSyncListeners(userId: string): () => void {
 
   // Boot resume
   runSync()
+  void backfillFromManifest(userId)
 
   function handleOnline() {
     runSync()

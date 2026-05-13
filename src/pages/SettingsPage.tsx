@@ -10,6 +10,7 @@ import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { isMobileDevice } from '@/lib/device'
 import {
+  backfillGoogleDriveMetadata,
   connectGoogleDriveProvider,
   disconnectGoogleDriveProvider,
   getDeviceProviderState,
@@ -124,6 +125,7 @@ export default function SettingsPage() {
   })
   const [storageError, setStorageError] = useState<string | null>(null)
   const [storageAction, setStorageAction] = useState<'connect' | 'disconnect' | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
@@ -299,6 +301,19 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleSyncFromDrive() {
+    if (!user) return
+    setStorageError(null)
+    setIsSyncing(true)
+    try {
+      await backfillGoogleDriveMetadata(user.uid)
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Sync from Drive failed.')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   async function handleSignOut() {
     await signOut(auth)
     navigate('/login')
@@ -375,6 +390,16 @@ export default function SettingsPage() {
         {storageError && <p className="text-error mt-3 text-xs">{storageError}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
+          {storageState.status === 'connected' && (
+            <button
+              type="button"
+              onClick={handleSyncFromDrive}
+              disabled={storageAction !== null || isSyncing}
+              className="text-on-surface-variant/60 hover:text-on-surface-variant rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              {isSyncing ? 'Syncing...' : 'Sync from Drive'}
+            </button>
+          )}
           {storageState.status === 'connected' && (
             <button
               type="button"

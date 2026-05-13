@@ -524,6 +524,30 @@ describe('providerConnection', () => {
     cleanup()
   })
 
+  it('initDriveSyncListeners: calls backfillFromManifest once on boot and not on subsequent events', async () => {
+    const cleanup = initDriveSyncListeners('test-uid')
+
+    // Flush the microtask queue so backfillFromManifest's async work runs
+    await Promise.resolve()
+
+    // backfillFromManifest invokes adapter.readManifest — verify it was called exactly once at boot
+    expect(mockAdapterReadManifest).toHaveBeenCalledTimes(1)
+
+    // Firing online, visibilitychange, and pageshow should NOT trigger another backfillFromManifest
+    window.dispatchEvent(new Event('online'))
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+    window.dispatchEvent(new Event('pageshow'))
+
+    // Give any async work another tick to settle
+    await Promise.resolve()
+
+    // Still only called once — only boot fires backfillFromManifest
+    expect(mockAdapterReadManifest).toHaveBeenCalledTimes(1)
+
+    cleanup()
+  })
+
   // ── backfillFromManifest tests ───────────────────────────────────────────────
 
   describe('backfillFromManifest', () => {

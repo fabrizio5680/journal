@@ -17,9 +17,14 @@ const mockOnSnapshot = vi.fn((_: unknown, cb: (snap: unknown) => void) => {
   return mockUnsub
 })
 
-const { mockConnectGoogleDriveProvider, mockDisconnectGoogleDriveProvider } = vi.hoisted(() => ({
+const {
+  mockConnectGoogleDriveProvider,
+  mockDisconnectGoogleDriveProvider,
+  mockBackfillGoogleDriveMetadata,
+} = vi.hoisted(() => ({
   mockConnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
   mockDisconnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
+  mockBackfillGoogleDriveMetadata: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('firebase/firestore', () => ({
@@ -76,6 +81,7 @@ vi.mock('@/lib/firebase', () => ({
 vi.mock('@/lib/storage/providerConnection', () => ({
   connectGoogleDriveProvider: (...args: unknown[]) => mockConnectGoogleDriveProvider(...args),
   disconnectGoogleDriveProvider: (...args: unknown[]) => mockDisconnectGoogleDriveProvider(...args),
+  backfillGoogleDriveMetadata: (...args: unknown[]) => mockBackfillGoogleDriveMetadata(...args),
   getDeviceProviderState: (_userId: string, metadata: Record<string, unknown>) => {
     if (metadata.activeStorageProvider !== 'googleDrive') {
       return { status: 'disconnected', deviceConnected: false }
@@ -152,6 +158,7 @@ describe('SettingsPage', () => {
     mockUpdateEditorFontSize.mockResolvedValue(undefined)
     mockConnectGoogleDriveProvider.mockResolvedValue(undefined)
     mockDisconnectGoogleDriveProvider.mockResolvedValue(undefined)
+    mockBackfillGoogleDriveMetadata.mockResolvedValue(undefined)
     mockPrefs.grainEnabled = true
     mockPrefs.scriptureTranslation = 'NLT'
     mockPrefs.editorFontSize = 'medium'
@@ -494,6 +501,74 @@ describe('SettingsPage', () => {
     })
     expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/on this device/i))
     confirmSpy.mockRestore()
+  })
+
+  it('"Sync from Drive" button is visible when storage status is connected', () => {
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: false,
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'test@example.com',
+      storageRootFolderId: 'drive-root',
+    })
+
+    expect(screen.getByRole('button', { name: /sync from drive/i })).toBeInTheDocument()
+  })
+
+  it('"Sync from Drive" button is NOT visible when storage status is disconnected', () => {
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false })
+
+    expect(screen.queryByRole('button', { name: /sync from drive/i })).not.toBeInTheDocument()
+  })
+
+  it('clicking "Sync from Drive" calls backfillGoogleDriveMetadata and shows "Syncing..." during the call', async () => {
+    let resolveBackfill!: () => void
+    mockBackfillGoogleDriveMetadata.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveBackfill = resolve
+      }),
+    )
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: false,
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'test@example.com',
+      storageRootFolderId: 'drive-root',
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: /sync from drive/i }))
+
+    // While the promise is pending the button should read "Syncing..."
+    expect(screen.getByRole('button', { name: /syncing\.\.\./i })).toBeInTheDocument()
+    expect(mockBackfillGoogleDriveMetadata).toHaveBeenCalledWith('test-uid')
+
+    // Resolve the backfill and check the button returns to its idle label
+    resolveBackfill()
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /sync from drive/i })).toBeInTheDocument()
+    })
+  })
+
+  it('error from backfillGoogleDriveMetadata is shown to the user', async () => {
+    mockBackfillGoogleDriveMetadata.mockRejectedValue(new Error('Drive sync failed'))
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: false,
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'test@example.com',
+      storageRootFolderId: 'drive-root',
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: /sync from drive/i }))
+
+    await screen.findByText('Drive sync failed')
   })
 
   it('sign out calls signOut and navigates to /login', async () => {
