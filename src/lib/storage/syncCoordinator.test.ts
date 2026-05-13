@@ -10,6 +10,10 @@ const {
   mockUpdateMetadata,
   mockSaveEntry,
   mockCacheSaveEntry,
+  mockGetConflict,
+  mockSetConflict,
+  mockDeleteConflict,
+  mockListConflicts,
   mockGetStoredGoogleDriveConnection,
   mockIsGoogleDriveLocallyDisconnected,
   mockSaveConflictBackup,
@@ -20,9 +24,13 @@ const {
   mockUpdateMetadata: vi.fn(),
   mockSaveEntry: vi.fn(),
   mockCacheSaveEntry: vi.fn(),
+  mockGetConflict: vi.fn(),
+  mockSetConflict: vi.fn(),
+  mockDeleteConflict: vi.fn(),
+  mockListConflicts: vi.fn(),
   mockGetStoredGoogleDriveConnection: vi.fn(),
   mockIsGoogleDriveLocallyDisconnected: vi.fn(),
-  mockSaveConflictBackup: vi.fn().mockResolvedValue(undefined),
+  mockSaveConflictBackup: vi.fn().mockResolvedValue('backup-id'),
   mockAdapterGetEntry: vi.fn(),
 }))
 
@@ -32,6 +40,10 @@ vi.mock('./localEntryCache', () => ({
     listMetadata: (...args: unknown[]) => mockListMetadata(...args),
     updateMetadata: (...args: unknown[]) => mockUpdateMetadata(...args),
     saveEntry: (...args: unknown[]) => mockCacheSaveEntry(...args),
+    getConflict: (...args: unknown[]) => mockGetConflict(...args),
+    setConflict: (...args: unknown[]) => mockSetConflict(...args),
+    deleteConflict: (...args: unknown[]) => mockDeleteConflict(...args),
+    listConflicts: (...args: unknown[]) => mockListConflicts(...args),
   },
 }))
 
@@ -104,6 +116,10 @@ describe('syncCoordinator', () => {
     mockListMetadata.mockResolvedValue([makeMetadata()])
     mockUpdateMetadata.mockResolvedValue(makeMetadata())
     mockCacheSaveEntry.mockResolvedValue(makeMetadata())
+    mockGetConflict.mockResolvedValue(null)
+    mockSetConflict.mockResolvedValue(undefined)
+    mockDeleteConflict.mockResolvedValue(undefined)
+    mockListConflicts.mockResolvedValue([])
     mockAdapterGetEntry.mockResolvedValue(null)
     mockSaveEntry.mockResolvedValue({
       metadata: { providerFileId: 'entry-file' },
@@ -309,11 +325,12 @@ describe('syncCoordinator', () => {
 
     await syncCoordinator.syncPending('test-uid')
 
-    // Status should be merge-pending-mood, not synced
-    expect(mockUpdateMetadata).toHaveBeenCalledWith(
+    // Status should be merge-pending-mood via saveEntry, not via updateMetadata
+    expect(mockCacheSaveEntry).toHaveBeenCalledWith(
       'test-uid',
-      '2026-04-13',
-      expect.objectContaining({ syncStatus: 'merge-pending-mood' }),
+      expect.any(Object),
+      'merge-pending-mood',
+      expect.objectContaining({ mergedFromDeviceId: 'test-device-id' }),
     )
 
     // Push should NOT have been called a second time

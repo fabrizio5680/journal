@@ -1,6 +1,7 @@
 import { localEntryCache } from './localEntryCache'
+import { conflictResolver } from './conflictResolver'
 import { getDeviceFingerprint } from './deviceFingerprint'
-import { mergeEntries } from './mergeEngine'
+import { toEntry } from './entryFormat'
 import { GoogleDriveAdapter } from './providers/googleDriveAdapter'
 import {
   getStoredGoogleDriveConnection,
@@ -96,7 +97,7 @@ async function syncOne(userId: string, date: string, isRetry = false): Promise<v
       throw error
     }
 
-    // Conflict: download remote, merge, re-push
+    // Conflict: download remote, route through ConflictResolver
     const remoteEntry = await adapter.getEntry(date)
     if (!remoteEntry) {
       // Remote gone — just push local
@@ -115,34 +116,58 @@ async function syncOne(userId: string, date: string, isRetry = false): Promise<v
     }
 
     const { deviceId, deviceLabel } = await getDeviceFingerprint(userId)
-    const { merged, moodConflict } = mergeEntries(entry, remoteEntry, deviceLabel)
-
-    // Fire-and-forget backup
     const remoteRevisionId = metadata?.remoteRevisionId ?? metadata?.lastSeenRevisionId ?? 'unknown'
-    void adapter.saveConflictBackup(remoteEntry, date, remoteRevisionId)
 
-    // Save merged locally
-    await localEntryCache.saveEntry(userId, merged, 'sync-pending', {
-      provider: GOOGLE_DRIVE_PROVIDER,
-      mergedFromDeviceId: deviceId,
-    })
+    // Record conflict (awaits backup, persists to IDB)
+    const { conflict, proposedFile } = await conflictResolver.record(
+      userId,
+      date,
+      entry,
+      remoteEntry,
+      deviceLabel,
+      remoteRevisionId,
+    )
 
-    if (moodConflict) {
-      // Mood conflict — don't push yet, wait for user resolution
+    // Backup failed — surface blocking banner, do not merge
+    if (conflict.backupStatus === 'failed') {
       await markStatus(userId, date, {
         provider: GOOGLE_DRIVE_PROVIDER,
-        syncStatus: 'merge-pending-mood',
-        moodConflict,
+        syncStatus: 'conflict',
+        syncError: 'Conflict backup failed. Retry sync to attempt again.',
+      })
+      return
+    }
+
+    if (conflict.kinds.includes('mood')) {
+      // Mood conflict — save proposed locally and wait for user resolution
+      await localEntryCache.saveEntry(userId, proposedFile, 'merge-pending-mood', {
+        provider: GOOGLE_DRIVE_PROVIDER,
+        mergedFromDeviceId: deviceId,
+        moodConflict: {
+          remoteMood: remoteEntry.mood,
+          remoteMoodLabel: remoteEntry.moodLabel,
+          remoteDeviceLabel: deviceLabel,
+        },
         syncError: undefined,
       })
       notify(userId)
       return
     }
 
-    // No mood conflict — push merged
+    // No mood conflict — auto-accept proposed and push
+    await localEntryCache.saveEntry(userId, proposedFile, 'sync-pending', {
+      provider: GOOGLE_DRIVE_PROVIDER,
+      mergedFromDeviceId: deviceId,
+      syncError: undefined,
+    })
+    await localEntryCache.deleteConflict(userId, date)
+
     try {
       const [freshMeta] = await localEntryCache.listMetadata(userId, { from: date, to: date })
-      const pushResult = await adapter.saveEntry(merged, freshMeta?.lastSeenRevisionId ?? undefined)
+      const pushResult = await adapter.saveEntry(
+        proposedFile,
+        freshMeta?.lastSeenRevisionId ?? undefined,
+      )
       retryCounts.delete(retryKey(userId, date))
       await markStatus(userId, date, {
         provider: GOOGLE_DRIVE_PROVIDER,
@@ -158,7 +183,7 @@ async function syncOne(userId: string, date: string, isRetry = false): Promise<v
       pushManifest(userId, adapter)
     } catch (pushError) {
       if (pushError instanceof GoogleDriveError && pushError.code === 'conflict' && !isRetry) {
-        // Single retry: re-run the whole merge flow once
+        // Single retry of the full merge flow
         await syncOne(userId, date, true)
         return
       }
@@ -211,13 +236,24 @@ export const syncCoordinator = {
     mood: 1 | 2 | 3 | 4 | 5 | null,
     moodLabel: string | null,
   ): Promise<void> {
-    const entry = await localEntryCache.getEntry(userId, date)
-    if (!entry) return
-    const updated = { ...entry, mood, moodLabel, updatedAt: new Date().toISOString() }
-    await localEntryCache.saveEntry(userId, updated, 'sync-pending', {
-      moodConflict: null,
-      syncError: undefined,
-    })
+    const store = await localEntryCache.getConflict(userId, date)
+    if (store) {
+      // Resolve through ConflictResolver: apply user's mood choice onto the proposed content
+      const proposedEntry = toEntry(store.proposedFile)
+      await conflictResolver.resolve(userId, date, {
+        kind: 'custom',
+        entry: { ...proposedEntry, mood, moodLabel },
+      })
+    } else {
+      // Fallback for entries without a ConflictRecord (pre-migration or content-only merge)
+      const entry = await localEntryCache.getEntry(userId, date)
+      if (!entry) return
+      const updated = { ...entry, mood, moodLabel, updatedAt: new Date().toISOString() }
+      await localEntryCache.saveEntry(userId, updated, 'sync-pending', {
+        moodConflict: null,
+        syncError: undefined,
+      })
+    }
     notify(userId)
     void this.enqueue(userId, date)
   },

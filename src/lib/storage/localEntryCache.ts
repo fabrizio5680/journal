@@ -1,12 +1,13 @@
 import { entryMatchesRange, toEntry, toMetadata } from './entryFormat'
-import type { EntryFile, EntryMetadata, SyncState, SyncStatus } from './types'
+import type { ConflictRecordStore, EntryFile, EntryMetadata, SyncState, SyncStatus } from './types'
 
 const DB_NAME = 'quiet-dwelling'
-const DB_VERSION = 4
+const DB_VERSION = 5
 const ENTRY_STORE = 'entries'
 const METADATA_STORE = 'metadata'
 const SYNC_STATE_STORE = 'syncState'
 const DEVICE_IDENTITY_STORE = 'deviceIdentity'
+const CONFLICTS_STORE = 'conflicts'
 
 type EntryRecord = EntryFile & {
   key: string
@@ -15,6 +16,7 @@ type EntryRecord = EntryFile & {
   remoteRevId?: string | null
 }
 type MetadataRecord = EntryMetadata & { key: string; userId: string }
+type ConflictRecord = ConflictRecordStore & { key: string; userId: string }
 
 export interface EntrySnapshot {
   entry: EntryFile | null
@@ -81,6 +83,10 @@ async function openDb(): Promise<IDBDatabase> {
       const deviceIdentity = db.createObjectStore(DEVICE_IDENTITY_STORE, { keyPath: 'key' })
       deviceIdentity.createIndex('userId', 'userId')
     }
+    if ((event.oldVersion ?? 0) < 5 && !db.objectStoreNames.contains(CONFLICTS_STORE)) {
+      const conflicts = db.createObjectStore(CONFLICTS_STORE, { keyPath: 'key' })
+      conflicts.createIndex('userId', 'userId')
+    }
     if ((event.oldVersion ?? 0) < 4 && db.objectStoreNames.contains(ENTRY_STORE)) {
       const entries = request.transaction?.objectStore(ENTRY_STORE)
       if (entries) {
@@ -106,6 +112,7 @@ class MemoryEntryCache {
   private entries = new Map<string, EntryRecord>()
   private metadata = new Map<string, MetadataRecord>()
   private syncStates = new Map<string, SyncState>()
+  private conflicts = new Map<string, ConflictRecord>()
 
   async getEntry(userId: string, date: string): Promise<EntryFile | null> {
     return this.entries.get(storageKey(userId, date)) ?? null
@@ -234,6 +241,25 @@ class MemoryEntryCache {
       ...patch,
     }
     this.syncStates.set(userId, next)
+  }
+
+  async getConflict(userId: string, date: string): Promise<ConflictRecordStore | null> {
+    return this.conflicts.get(storageKey(userId, date)) ?? null
+  }
+
+  async setConflict(userId: string, record: ConflictRecordStore): Promise<void> {
+    const key = storageKey(userId, record.date)
+    this.conflicts.set(key, { ...record, key, userId })
+  }
+
+  async deleteConflict(userId: string, date: string): Promise<void> {
+    this.conflicts.delete(storageKey(userId, date))
+  }
+
+  async listConflicts(userId: string): Promise<ConflictRecordStore[]> {
+    return [...this.conflicts.values()]
+      .filter((r) => r.userId === userId)
+      .sort((a, b) => a.date.localeCompare(b.date))
   }
 }
 
@@ -433,6 +459,43 @@ class IndexedDbEntryCache {
     tx.objectStore(SYNC_STATE_STORE).put(next)
     await txDone(tx)
     db.close()
+  }
+
+  async getConflict(userId: string, date: string): Promise<ConflictRecordStore | null> {
+    const db = await openDb()
+    const tx = db.transaction(CONFLICTS_STORE, 'readonly')
+    const record = await requestToPromise<ConflictRecord | undefined>(
+      tx.objectStore(CONFLICTS_STORE).get(storageKey(userId, date)),
+    )
+    db.close()
+    return record ?? null
+  }
+
+  async setConflict(userId: string, record: ConflictRecordStore): Promise<void> {
+    const db = await openDb()
+    const key = storageKey(userId, record.date)
+    const tx = db.transaction(CONFLICTS_STORE, 'readwrite')
+    tx.objectStore(CONFLICTS_STORE).put({ ...record, key, userId })
+    await txDone(tx)
+    db.close()
+  }
+
+  async deleteConflict(userId: string, date: string): Promise<void> {
+    const db = await openDb()
+    const tx = db.transaction(CONFLICTS_STORE, 'readwrite')
+    tx.objectStore(CONFLICTS_STORE).delete(storageKey(userId, date))
+    await txDone(tx)
+    db.close()
+  }
+
+  async listConflicts(userId: string): Promise<ConflictRecordStore[]> {
+    const db = await openDb()
+    const tx = db.transaction(CONFLICTS_STORE, 'readonly')
+    const records = await requestToPromise<ConflictRecord[]>(
+      tx.objectStore(CONFLICTS_STORE).getAll(),
+    )
+    db.close()
+    return records.filter((r) => r.userId === userId).sort((a, b) => a.date.localeCompare(b.date))
   }
 }
 

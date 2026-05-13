@@ -113,10 +113,12 @@ export class FakeGoogleDriveBackend {
     return all.sort((a, b) => b.date.localeCompare(a.date))
   }
 
-  saveConflictBackup(entry: EntryFile, date: string, remoteRevisionId: string): void {
+  saveConflictBackup(entry: EntryFile, date: string, remoteRevisionId: string): string {
     const ts = new Date().toISOString().replace(/[:.]/g, '-')
     const fileName = `${date}.${remoteRevisionId}.conflict-${ts}.json`
+    const fileId = `fake-conflict-${date}-${ts}`
     this.conflictBackups.push({ fileName, entry })
+    return fileId
   }
 
   getConflictBackups(): ConflictBackup[] {

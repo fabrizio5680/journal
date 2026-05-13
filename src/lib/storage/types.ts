@@ -1,5 +1,37 @@
 import type { Entry, ScriptureRef } from '@/types'
 
+export type ConflictKind = 'content' | 'mood' | 'tags' | 'scripture'
+
+export interface ConflictRecordStore {
+  date: string
+  detectedAt: number
+  remoteDevice: string
+  kinds: ConflictKind[]
+  proposedFile: EntryFile
+  localFile: EntryFile
+  remoteFile: EntryFile
+  backupRef: string | null
+  backupStatus: 'pending' | 'saved' | 'failed'
+}
+
+export interface ConflictRecord {
+  date: string
+  detectedAt: number
+  remoteDevice: string
+  kinds: ConflictKind[]
+  proposed: Entry
+  local: Entry
+  remote: Entry
+  backupRef: string | null
+  backupStatus: 'pending' | 'saved' | 'failed'
+}
+
+export type Resolution =
+  | { kind: 'accept-proposed' }
+  | { kind: 'keep-local' }
+  | { kind: 'keep-remote' }
+  | { kind: 'custom'; entry: Entry }
+
 export type StorageProvider = 'googleDrive' | 'dropbox'
 
 export type SyncStatus =

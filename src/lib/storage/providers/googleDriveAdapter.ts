@@ -228,10 +228,9 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
     entry: EntryFile,
     date: string,
     remoteRevisionId: string,
-  ): Promise<void> {
+  ): Promise<string | null> {
     if (this.fake) {
-      this.fake.saveConflictBackup(entry, date, remoteRevisionId)
-      return
+      return this.fake.saveConflictBackup(entry, date, remoteRevisionId)
     }
     try {
       const connection = this.getConnection()
@@ -239,13 +238,15 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
       const { deviceId } = await getDeviceFingerprint(this.userId)
       const ts = new Date().toISOString().replace(/[:.]/g, '-')
       const fileName = `${date}.${remoteRevisionId}.${deviceId}-${ts}.json`
-      await this.uploadFile('POST', `${DRIVE_UPLOAD_API}/files`, entry, {
+      const uploaded = await this.uploadFile('POST', `${DRIVE_UPLOAD_API}/files`, entry, {
         name: fileName,
         mimeType: ENTRY_MIME_TYPE,
         parents: [conflictsFolderId],
       })
+      return uploaded.id
     } catch (error) {
-      console.warn('[GoogleDriveAdapter] saveConflictBackup failed (non-fatal):', error)
+      console.warn('[GoogleDriveAdapter] saveConflictBackup failed:', error)
+      return null
     }
   }
 

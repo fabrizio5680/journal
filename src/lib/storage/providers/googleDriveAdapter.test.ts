@@ -346,7 +346,7 @@ describe('GoogleDriveAdapter', () => {
     // Should resolve (not throw) even if the backup fails
     await expect(
       new GoogleDriveAdapter(USER_ID).saveConflictBackup(makeEntry(), '2026-04-13', 'rev-99'),
-    ).resolves.toBeUndefined()
+    ).resolves.toBeNull()
   })
 
   it('saveConflictBackup: uses existing conflicts folder if it already exists', async () => {
