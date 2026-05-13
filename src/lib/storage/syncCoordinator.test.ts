@@ -382,4 +382,56 @@ describe('syncCoordinator', () => {
       expect.objectContaining({ syncStatus: 'conflict' }),
     )
   })
+
+  it('enqueue during active syncPending triggers follow-up sync for the new entry', async () => {
+    const flushPromises = () => new Promise<void>((r) => setTimeout(r, 0))
+
+    let resolveListMetadata!: (val: EntryMetadata[]) => void
+    const listMetadataGate = new Promise<EntryMetadata[]>((r) => {
+      resolveListMetadata = r
+    })
+
+    // First syncPending blocks on listMetadata; re-run sees date2 as pending
+    mockListMetadata
+      .mockImplementationOnce(() => listMetadataGate)
+      .mockResolvedValueOnce([makeMetadata('2026-04-14')])
+
+    // saveEntry for the re-run date succeeds
+    mockSaveEntry.mockResolvedValueOnce({
+      metadata: { providerFileId: 'file-2' },
+      revisionId: 'revision-2',
+    })
+
+    // Start syncPending — processingUsers.add runs synchronously before first await
+    const syncPromise = syncCoordinator.syncPending('test-uid')
+
+    // Enqueue a new date while syncPending is blocked; should flag for re-run
+    await syncCoordinator.enqueue('test-uid', '2026-04-14')
+
+    // Release the blocked listMetadata with no items (original snapshot was empty)
+    resolveListMetadata([])
+
+    await syncPromise
+    // Flush the fire-and-forget re-run
+    await flushPromises()
+
+    expect(mockUpdateMetadata).toHaveBeenCalledWith(
+      'test-uid',
+      '2026-04-14',
+      expect.objectContaining({ syncStatus: 'synced' }),
+    )
+  })
+
+  it('clears sync-pending when entry content is missing from cache', async () => {
+    mockGetEntry.mockResolvedValueOnce(null)
+
+    await syncCoordinator.syncPending('test-uid')
+
+    expect(mockSaveEntry).not.toHaveBeenCalled()
+    expect(mockUpdateMetadata).toHaveBeenCalledWith(
+      'test-uid',
+      '2026-04-13',
+      expect.objectContaining({ syncStatus: 'saved-local', syncError: undefined }),
+    )
+  })
 })

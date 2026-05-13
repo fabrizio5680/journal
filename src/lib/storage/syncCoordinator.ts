@@ -13,6 +13,7 @@ import type { ManifestEntry } from './types'
 type Listener = (userId: string) => void
 
 const processingUsers = new Set<string>()
+const newEnqueuesWhileProcessing = new Set<string>()
 const scheduledRetries = new Map<string, ReturnType<typeof setTimeout>>()
 const retryCounts = new Map<string, number>()
 const listeners = new Set<Listener>()
@@ -72,7 +73,15 @@ async function syncOne(userId: string, date: string, isRetry = false): Promise<v
   }
 
   const entry = await localEntryCache.getEntry(userId, date)
-  if (!entry) return
+  if (!entry) {
+    // Content missing from cache but metadata says sync-pending; clear the stuck state
+    await markStatus(userId, date, {
+      provider: GOOGLE_DRIVE_PROVIDER,
+      syncStatus: 'saved-local',
+      syncError: undefined,
+    })
+    return
+  }
 
   const [metadata] = await localEntryCache.listMetadata(userId, { from: date, to: date })
   const adapter = new GoogleDriveAdapter(userId)
@@ -227,6 +236,12 @@ export const syncCoordinator = {
       syncStatus: 'sync-pending',
       syncError: undefined,
     })
+    if (processingUsers.has(userId)) {
+      // syncPending already running — flag it to re-run after current batch finishes
+      // so this entry isn't missed by the in-progress snapshot
+      newEnqueuesWhileProcessing.add(userId)
+      return
+    }
     void this.syncPending(userId)
   },
 
@@ -261,6 +276,7 @@ export const syncCoordinator = {
   async syncPending(userId: string) {
     if (processingUsers.has(userId)) return
     processingUsers.add(userId)
+    newEnqueuesWhileProcessing.delete(userId)
 
     try {
       const pending = (await localEntryCache.listMetadata(userId)).filter(
@@ -304,6 +320,11 @@ export const syncCoordinator = {
       }
     } finally {
       processingUsers.delete(userId)
+      // Re-run if new enqueues arrived while this batch was processing
+      if (newEnqueuesWhileProcessing.has(userId)) {
+        newEnqueuesWhileProcessing.delete(userId)
+        void this.syncPending(userId)
+      }
     }
   },
 }

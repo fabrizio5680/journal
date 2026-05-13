@@ -162,6 +162,15 @@ Key sync APIs:
 - `pollDriveDeltas(userId)` uses Drive Changes API state persisted in the
   IndexedDB `syncState` store.
 
+`syncCoordinator.enqueue` guards against missing a new entry when a sync run is
+already in flight: if `processingUsers` holds the lock, it sets a
+`newEnqueuesWhileProcessing` flag instead of calling `syncPending` directly. The
+running `syncPending` checks and clears that flag in its `finally` block and
+triggers a follow-up pass. This prevents `sync-pending` entries from getting
+stuck when a save races a concurrent sync batch. If `syncOne` cannot find the
+entry content in the local cache, it clears the stuck `sync-pending` status to
+`saved-local` rather than returning silently.
+
 `Disconnect Google Drive` in Settings is device-local. It clears that device's
 connection/token cache and opt-outs from auto-hydration, but must not delete
 shared provider metadata or break other devices.
