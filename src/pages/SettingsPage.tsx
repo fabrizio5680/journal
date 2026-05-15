@@ -8,7 +8,6 @@ import { auth, db, messagingPromise } from '@/lib/firebase'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
-import { isMobileDevice } from '@/lib/device'
 import {
   backfillGoogleDriveMetadata,
   connectGoogleDriveProvider,
@@ -134,13 +133,7 @@ export default function SettingsPage() {
   usePageTitle('Settings')
   const [user, setUser] = useState<User | null>(null)
   const navigate = useNavigate()
-  const {
-    scriptureTranslation,
-    editorFontSize,
-    updateEditorFontSize,
-    spellcheckEnabled,
-    updateSpellcheck,
-  } = useUserPreferences()
+  const { scriptureTranslation, editorFontSize, updateEditorFontSize } = useUserPreferences()
 
   const [reminderEnabled, setReminderEnabled] = useState(false)
   const [reminderTime, setReminderTime] = useState('20:00')
@@ -542,18 +535,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-        {!isMobileDevice() && (
-          <div className="border-outline-variant/20 mt-4 border-t pt-4">
-            <SettingsRow icon="spellcheck" label="Spell Check">
-              <Toggle
-                id="spellcheck-toggle"
-                label="Spell Check"
-                enabled={spellcheckEnabled}
-                onChange={updateSpellcheck}
-              />
-            </SettingsRow>
-          </div>
-        )}
       </SettingsSection>
 
       {/* Scripture */}

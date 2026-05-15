@@ -107,13 +107,10 @@ vi.mock('@/lib/storage/providers/googleDriveAdapter', () => ({
 
 // --- UserPreferencesContext mock ---
 const mockUpdateEditorFontSize = vi.fn().mockResolvedValue(undefined)
-const mockUpdateSpellcheck = vi.fn()
 const mockPrefs = {
   scriptureTranslation: 'NLT' as const,
   editorFontSize: 'medium' as const,
-  spellcheckEnabled: true,
   updateEditorFontSize: mockUpdateEditorFontSize,
-  updateSpellcheck: mockUpdateSpellcheck,
 }
 vi.mock('@/context/UserPreferencesContext', () => ({
   useUserPreferences: () => mockPrefs,

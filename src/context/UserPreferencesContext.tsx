@@ -8,36 +8,30 @@ type Translation = 'NLT' | 'MSG' | 'ESV'
 export type EditorFontSize = 'small' | 'medium' | 'large'
 
 const FONT_SIZE_KEY = 'pref_editor_font_size'
-const SPELLCHECK_KEY = 'pref_spellcheck'
 
 interface UserPreferences {
   scriptureTranslation: Translation
   editorFontSize: EditorFontSize
-  spellcheckEnabled: boolean
 }
 
 interface UserPreferencesContextValue extends UserPreferences {
   updateEditorFontSize: (size: EditorFontSize) => Promise<void>
-  updateSpellcheck: (enabled: boolean) => void
 }
 
 const defaultPreferences: UserPreferences = {
   scriptureTranslation: 'NLT',
   editorFontSize: 'medium',
-  spellcheckEnabled: true,
 }
 
 const UserPreferencesContext = createContext<UserPreferencesContextValue>({
   ...defaultPreferences,
   updateEditorFontSize: async () => {},
-  updateSpellcheck: () => {},
 })
 
 export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefs] = useState<UserPreferences>({
     ...defaultPreferences,
     editorFontSize: (localStorage.getItem(FONT_SIZE_KEY) as EditorFontSize) ?? 'medium',
-    spellcheckEnabled: localStorage.getItem(SPELLCHECK_KEY) !== 'false',
   })
 
   useEffect(() => {
@@ -97,13 +91,8 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     setPrefs((prev) => ({ ...prev, editorFontSize: size }))
   }
 
-  function updateSpellcheck(enabled: boolean) {
-    localStorage.setItem(SPELLCHECK_KEY, String(enabled))
-    setPrefs((prev) => ({ ...prev, spellcheckEnabled: enabled }))
-  }
-
   return (
-    <UserPreferencesContext.Provider value={{ ...prefs, updateEditorFontSize, updateSpellcheck }}>
+    <UserPreferencesContext.Provider value={{ ...prefs, updateEditorFontSize }}>
       {children}
     </UserPreferencesContext.Provider>
   )

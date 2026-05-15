@@ -4,17 +4,10 @@ import React from 'react'
 
 import EntryEditor from './EntryEditor'
 
-let mockSpellcheckEnabled = true
-
 vi.mock('@/context/UserPreferencesContext', () => ({
   useUserPreferences: () => ({
     editorFontSize: 'medium',
-    spellcheckEnabled: mockSpellcheckEnabled,
   }),
-}))
-
-vi.mock('@/lib/device', () => ({
-  isMobileDevice: () => false,
 }))
 
 const mockUseEditor = vi.fn()
@@ -220,8 +213,7 @@ describe('EntryEditor', () => {
     expect(setContent).toHaveBeenCalledWith(incoming, { emitUpdate: false })
   })
 
-  it('passes spellcheck="true" to editorProps.attributes when spellcheckEnabled is true and not mobile', () => {
-    mockSpellcheckEnabled = true
+  it('always passes spellcheck="true" to editorProps.attributes', () => {
     getJSON.mockReturnValue({ type: 'doc', content: [] })
     render(<EntryEditor content={null} onUpdate={vi.fn()} />)
 
@@ -229,16 +221,5 @@ describe('EntryEditor', () => {
       editorProps: { attributes: Record<string, string> }
     }
     expect(lastCall.editorProps.attributes.spellcheck).toBe('true')
-  })
-
-  it('passes spellcheck="false" to editorProps.attributes when spellcheckEnabled is false', () => {
-    mockSpellcheckEnabled = false
-    getJSON.mockReturnValue({ type: 'doc', content: [] })
-    render(<EntryEditor content={null} onUpdate={vi.fn()} />)
-
-    const lastCall = mockUseEditor.mock.calls[mockUseEditor.mock.calls.length - 1][0] as {
-      editorProps: { attributes: Record<string, string> }
-    }
-    expect(lastCall.editorProps.attributes.spellcheck).toBe('false')
   })
 })

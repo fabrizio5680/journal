@@ -62,7 +62,6 @@ why charts are empty.
 Important localStorage keys:
 
 - `pref_editor_font_size`: `small | medium | large`; device-local only.
-- `pref_spellcheck`: `true | false`; always false on mobile.
 - `scripture_<T>_<date>`: cached daily verse.
 - `fcm_device_token_<uid>`: per-device FCM token.
 - `google_drive_connection_<uid>`: cached Drive provider metadata, no tokens.
