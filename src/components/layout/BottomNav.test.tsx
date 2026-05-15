@@ -20,13 +20,13 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe('BottomNav', () => {
-  it('renders Today link and Focus button', () => {
+  it('renders Today button and Focus button', () => {
     render(
       <Wrapper>
         <BottomNav />
       </Wrapper>,
     )
-    expect(screen.getByRole('link', { name: /today/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /today/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /enter focus mode/i })).toBeInTheDocument()
   })
 

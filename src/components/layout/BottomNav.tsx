@@ -1,10 +1,13 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 
 import { useFocusMode } from '@/context/FocusModeContext'
 
 export default function BottomNav() {
   const { isFocused, toggle } = useFocusMode()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const isTodayActive = pathname === '/'
 
   return (
     <nav
@@ -14,33 +17,30 @@ export default function BottomNav() {
       )}
     >
       {/* Today */}
-      <NavLink
-        to="/"
-        end
+      <button
         aria-label="Today"
-        className={({ isActive }) =>
-          clsx(
-            'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-200',
-            isActive ? 'text-primary' : 'text-on-surface-variant/60 hover:text-on-surface-variant',
-          )
+        onClick={() =>
+          navigate('/', { replace: pathname === '/', state: { navigatedAt: Date.now() } })
         }
-      >
-        {({ isActive }) => (
-          <>
-            <span
-              className="material-symbols-outlined text-[22px] transition-all duration-200"
-              style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
-            >
-              edit_note
-            </span>
-            <span
-              className={clsx('text-[9px] font-medium tracking-wide', isActive && 'font-semibold')}
-            >
-              Today
-            </span>
-          </>
+        className={clsx(
+          'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-200',
+          isTodayActive
+            ? 'text-primary'
+            : 'text-on-surface-variant/60 hover:text-on-surface-variant',
         )}
-      </NavLink>
+      >
+        <span
+          className="material-symbols-outlined text-[22px] transition-all duration-200"
+          style={isTodayActive ? { fontVariationSettings: "'FILL' 1" } : {}}
+        >
+          edit_note
+        </span>
+        <span
+          className={clsx('text-[9px] font-medium tracking-wide', isTodayActive && 'font-semibold')}
+        >
+          Today
+        </span>
+      </button>
 
       {/* History */}
       <NavLink

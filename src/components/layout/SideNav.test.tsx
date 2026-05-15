@@ -1,6 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { format } from 'date-fns'
 
@@ -8,6 +9,17 @@ import SideNav from './SideNav'
 
 import { FocusModeProvider } from '@/context/FocusModeContext'
 import { SearchProvider } from '@/context/SearchContext'
+
+// --- react-router-dom mock (navigate spy) ---
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useLocation: () => ({ pathname: '/', search: '', hash: '', state: null, key: 'default' }),
+  }
+})
 
 // --- Firebase auth mock ---
 let authCallback: ((user: { uid: string } | null) => void) | null = null
@@ -97,6 +109,22 @@ describe('SideNav', () => {
     )
 
     expect(screen.getByRole('button', { name: /today/i })).toBeInTheDocument()
+  })
+
+  it('Today button navigates with state: { navigatedAt } so React Router generates a new location key', async () => {
+    render(
+      <Wrapper>
+        <SideNav />
+      </Wrapper>,
+    )
+
+    const todayBtn = screen.getByRole('button', { name: /today/i })
+    await userEvent.click(todayBtn)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/', {
+      replace: true, // pathname === '/' so replace is true
+      state: { navigatedAt: expect.any(Number) },
+    })
   })
 
   it('renders navigation links for Journal, History, Insights, Settings', () => {

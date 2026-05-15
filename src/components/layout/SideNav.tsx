@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, type User } from 'firebase/auth'
 import { format, parseISO } from 'date-fns'
@@ -22,6 +22,7 @@ export default function SideNav() {
   const { current: streakCount } = useStreak()
   const todayDate = useToday()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { isFocused } = useFocusMode()
   const { openSearch } = useSearch()
 
@@ -105,7 +106,9 @@ export default function SideNav() {
       {/* Bottom section */}
       <div className="mt-auto flex flex-col gap-4">
         <button
-          onClick={() => navigate('/')}
+          onClick={() =>
+            navigate('/', { replace: pathname === '/', state: { navigatedAt: Date.now() } })
+          }
           className="bg-primary hover:bg-primary-dim text-on-primary w-full rounded-full px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors"
         >
           Today

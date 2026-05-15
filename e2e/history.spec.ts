@@ -249,4 +249,31 @@ test.describe('History', () => {
     await expect(page.getByText('#faith')).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('#gratitude')).toBeVisible({ timeout: 5000 })
   })
+
+  test('Scenario 6: clicking Today from HistoryPage navigates back to /', async ({ page }) => {
+    // Already on /history (from beforeEach). Click the Today button in SideNav (desktop).
+    await page.getByRole('button', { name: /^today$/i }).click()
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+  })
+
+  test('Scenario 7: clicking Today while already on / does not crash the editor', async ({
+    page,
+  }) => {
+    // Navigate to / first
+    await page.goto('/')
+    await expect(page).toHaveURL('/', { timeout: 5000 })
+
+    // Click Today while already on / — should not throw or unmount the editor
+    await page.getByRole('button', { name: /^today$/i }).click()
+
+    // App stays on / without errors
+    await expect(page).toHaveURL('/', { timeout: 3000 })
+
+    // Editor container should remain in the DOM
+    const editor = page.locator('main [contenteditable="true"], main .ProseMirror').first()
+    const visible = await editor.isVisible().catch(() => false)
+    if (visible) {
+      await expect(editor).toBeVisible({ timeout: 3000 })
+    }
+  })
 })

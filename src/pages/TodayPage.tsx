@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
+import { useLocation } from 'react-router-dom'
+import { format } from 'date-fns'
 
 import { useEntry } from '@/hooks/useEntry'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -15,7 +17,10 @@ import MetadataBar from '@/components/editor/MetadataBar'
 
 export default function TodayPage() {
   usePageTitle("Today's Entry")
-  const today = useToday()
+  const { key: locationKey } = useLocation()
+  const reactiveToday = useToday() // keeps midnight rollover working
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- locationKey and reactiveToday are intentional triggers, not values read inside the memo
+  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [locationKey, reactiveToday])
   const { entry, isLoading, markDirty, save, metadata: entryMetadata } = useEntry(today)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
   const { setDirty, setLastSaved, setEntrySyncStatus } = useSaveStatus()

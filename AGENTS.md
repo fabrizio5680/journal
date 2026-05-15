@@ -215,6 +215,20 @@ not connected, `SearchModal` shows a Drive connection notice.
 `InsightsPage` shows an inline Drive connection prompt when `totalEntries === 0`
 and Drive is disconnected, so users understand why charts are empty.
 
+## Navigation
+
+- The Today button in `SideNav` and `BottomNav` navigates with
+  `state: { navigatedAt: Date.now() }` so React Router always generates a new
+  location key, even when the user is already at `/`. This is intentional — it
+  is not a bug.
+- `TodayPage` derives `today` via
+  `useMemo(() => format(new Date(), 'yyyy-MM-dd'), [locationKey, reactiveToday])`.
+  The `locationKey` dependency ensures a fresh `new Date()` read on every
+  navigation event; `reactiveToday` (from `useToday()`) keeps midnight-rollover
+  working as belt-and-suspenders.
+- `BottomNav` uses a `<button>` for Today (not a `<NavLink>`). Active styling is
+  computed from `pathname === '/'` rather than React Router's `isActive`.
+
 ## UI Rules Worth Preserving
 
 - Mobile metadata lives in `MetadataBar` and `MetadataSheet`. The sheet is a
