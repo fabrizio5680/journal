@@ -146,9 +146,9 @@ body {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: url('/textures/natural-paper.webp');
+  background-image: url('/textures/background-texture.png');
   background-repeat: repeat;
-  opacity: 0.12;
+  opacity: 0.3;
   pointer-events: none;
   z-index: 9999;
 }
