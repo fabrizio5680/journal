@@ -21,10 +21,12 @@ const {
   mockConnectGoogleDriveProvider,
   mockDisconnectGoogleDriveProvider,
   mockBackfillGoogleDriveMetadata,
+  mockGetStorageUsage,
 } = vi.hoisted(() => ({
   mockConnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
   mockDisconnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
   mockBackfillGoogleDriveMetadata: vi.fn().mockResolvedValue(undefined),
+  mockGetStorageUsage: vi.fn(),
 }))
 
 vi.mock('firebase/firestore', () => ({
@@ -94,11 +96,19 @@ vi.mock('@/lib/storage/providerConnection', () => ({
   },
 }))
 
+vi.mock('@/lib/storage/providers/googleDriveAdapter', () => ({
+  GoogleDriveAdapter: class {
+    constructor(public userId: string) {}
+    getStorageUsage(...args: unknown[]) {
+      return mockGetStorageUsage(...args)
+    }
+  },
+}))
+
 // --- UserPreferencesContext mock ---
 const mockUpdateEditorFontSize = vi.fn().mockResolvedValue(undefined)
 const mockUpdateSpellcheck = vi.fn()
 const mockPrefs = {
-  grainEnabled: true,
   scriptureTranslation: 'NLT' as const,
   editorFontSize: 'medium' as const,
   spellcheckEnabled: true,
@@ -159,7 +169,11 @@ describe('SettingsPage', () => {
     mockConnectGoogleDriveProvider.mockResolvedValue(undefined)
     mockDisconnectGoogleDriveProvider.mockResolvedValue(undefined)
     mockBackfillGoogleDriveMetadata.mockResolvedValue(undefined)
-    mockPrefs.grainEnabled = true
+    mockGetStorageUsage.mockResolvedValue({
+      folderBytes: 1_258_291, // ≈ 1.2 MB
+      driveUsage: 4_617_089_843, // ≈ 4.3 GB
+      driveLimit: 16_106_127_360, // 15 GB
+    })
     mockPrefs.scriptureTranslation = 'NLT'
     mockPrefs.editorFontSize = 'medium'
   })
@@ -353,21 +367,6 @@ describe('SettingsPage', () => {
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ reminderTime: '08:30' }),
-      )
-    })
-  })
-
-  it('grain toggle saves grainEnabled: false when toggled off', async () => {
-    renderPage()
-    fireAuth()
-    fireSnapshot({ reminderEnabled: false })
-
-    await userEvent.click(screen.getByRole('switch', { name: /grain/i }))
-
-    await waitFor(() => {
-      expect(mockUpdateDoc).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ grainEnabled: false }),
       )
     })
   })
@@ -569,6 +568,133 @@ describe('SettingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /sync from drive/i }))
 
     await screen.findByText('Drive sync failed')
+  })
+
+  describe('Drive usage row', () => {
+    it('renders "Drive usage" row with placeholder while fetching, then the formatted string when Drive is connected', async () => {
+      let resolveUsage!: (value: {
+        folderBytes: number
+        driveUsage: number | null
+        driveLimit: number | null
+      }) => void
+      mockGetStorageUsage.mockReturnValue(
+        new Promise((resolve) => {
+          resolveUsage = resolve
+        }),
+      )
+
+      renderPage()
+      fireAuth()
+      fireSnapshot({
+        reminderEnabled: false,
+        activeStorageProvider: 'googleDrive',
+        storageAccountEmail: 'test@example.com',
+        storageRootFolderId: 'drive-root',
+      })
+
+      // Row label is present
+      expect(screen.getByText('Drive usage')).toBeInTheDocument()
+      // While loading the value is "—"
+      expect(screen.getByText('—')).toBeInTheDocument()
+
+      // Resolve the adapter promise — formatted string should appear
+      resolveUsage({
+        folderBytes: 1_258_291, // ≈ 1.2 MB
+        driveUsage: 4_617_089_843, // ≈ 4.3 GB
+        driveLimit: 16_106_127_360, // 15 GB
+      })
+
+      const formatted = await screen.findByText(/Drive used/i)
+      expect(formatted.textContent).toMatch(/of\s+\S+\s+GB\s+Drive used/i)
+      // Folder portion uses MB; total uses GB
+      expect(formatted.textContent).toMatch(/MB/)
+      expect(formatted.textContent).toMatch(/GB/)
+    })
+
+    it('does NOT render the "Drive usage" row when Drive is disconnected', () => {
+      renderPage()
+      fireAuth()
+      fireSnapshot({ reminderEnabled: false })
+
+      expect(screen.queryByText('Drive usage')).not.toBeInTheDocument()
+      expect(mockGetStorageUsage).not.toHaveBeenCalled()
+    })
+
+    it('on adapter throw, the row stays at the dash placeholder and emits console.warn (no error text shown)', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      mockGetStorageUsage.mockRejectedValue(new Error('quota fetch failed'))
+
+      renderPage()
+      fireAuth()
+      fireSnapshot({
+        reminderEnabled: false,
+        activeStorageProvider: 'googleDrive',
+        storageAccountEmail: 'test@example.com',
+        storageRootFolderId: 'drive-root',
+      })
+
+      // Row label still present — error path keeps the dash placeholder
+      expect(screen.getByText('Drive usage')).toBeInTheDocument()
+
+      await waitFor(() => {
+        expect(warnSpy).toHaveBeenCalled()
+      })
+
+      // Error text from the adapter must NOT be visible to the user
+      expect(screen.queryByText('quota fetch failed')).not.toBeInTheDocument()
+      // The placeholder dash should still be the displayed value
+      expect(screen.getByText('—')).toBeInTheDocument()
+
+      warnSpy.mockRestore()
+    })
+
+    it('format check: omits "of … Drive used" suffix when driveLimit is null', async () => {
+      mockGetStorageUsage.mockResolvedValue({
+        folderBytes: 1_258_291, // ≈ 1.2 MB
+        driveUsage: null,
+        driveLimit: null,
+      })
+
+      renderPage()
+      fireAuth()
+      fireSnapshot({
+        reminderEnabled: false,
+        activeStorageProvider: 'googleDrive',
+        storageAccountEmail: 'test@example.com',
+        storageRootFolderId: 'drive-root',
+      })
+
+      // Should eventually show only the folder bytes, not the Drive total
+      await waitFor(() => {
+        expect(screen.queryByText('—')).not.toBeInTheDocument()
+      })
+
+      // Find the Drive usage value cell — should contain MB but NOT "Drive used"
+      expect(screen.queryByText(/Drive used/i)).not.toBeInTheDocument()
+      // A bytes value (e.g. "1.2 MB") should be present near the Drive usage label
+      const driveUsageRow = screen.getByText('Drive usage').parentElement?.parentElement
+      expect(driveUsageRow?.textContent ?? '').toMatch(/MB/)
+    })
+
+    it('format check: includes "of X GB Drive used" suffix when driveLimit is present', async () => {
+      mockGetStorageUsage.mockResolvedValue({
+        folderBytes: 1_258_291,
+        driveUsage: 4_617_089_843,
+        driveLimit: 16_106_127_360, // 15 GB
+      })
+
+      renderPage()
+      fireAuth()
+      fireSnapshot({
+        reminderEnabled: false,
+        activeStorageProvider: 'googleDrive',
+        storageAccountEmail: 'test@example.com',
+        storageRootFolderId: 'drive-root',
+      })
+
+      const formatted = await screen.findByText(/of\s+\S+\s+GB\s+Drive used/i)
+      expect(formatted).toBeInTheDocument()
+    })
   })
 
   it('sign out calls signOut and navigates to /login', async () => {

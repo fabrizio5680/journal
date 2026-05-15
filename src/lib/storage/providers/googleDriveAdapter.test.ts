@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { EntryFile } from '../types'
 
+import { FakeGoogleDriveBackend } from './fakeGoogleDriveBackend'
 import { GoogleDriveAdapter } from './googleDriveAdapter'
 import { GoogleDriveError } from './googleDriveTypes'
 
@@ -138,6 +139,12 @@ describe('GoogleDriveAdapter', () => {
     vi.restoreAllMocks()
     vi.clearAllMocks()
     localStorage.clear()
+    // Importing fakeGoogleDriveBackend sets window.__fakeDriveBackend as a side
+    // effect. Clear it here so tests that exercise the real Drive code path
+    // (via mocked driveApiFetch + mockFetchSequence) don't accidentally hit
+    // the fake path. Individual tests that need the fake backend set it
+    // explicitly.
+    delete (window as typeof window & { __fakeDriveBackend?: unknown }).__fakeDriveBackend
     mockGetStoredGoogleDriveConnection.mockReturnValue({
       accountEmail: 'drive@example.com',
       rootFolderId: 'root-folder',
@@ -486,5 +493,114 @@ describe('GoogleDriveAdapter', () => {
     mockFetchSequence([jsonResponse({ error: { message: 'Internal Server Error' } }, 500)])
 
     await expect(new GoogleDriveAdapter(USER_ID).writeManifest([])).resolves.toBeUndefined()
+  })
+
+  // ── getStorageUsage tests ────────────────────────────────────────────────────
+
+  describe('getStorageUsage', () => {
+    type WinFake = typeof window & { __fakeDriveBackend?: FakeGoogleDriveBackend }
+
+    afterEach(() => {
+      delete (window as WinFake).__fakeDriveBackend
+    })
+
+    it('returns { folderBytes, driveUsage, driveLimit } shape with fixed 15 GB limit from fake backend', async () => {
+      const fake = new FakeGoogleDriveBackend()
+      ;(window as WinFake).__fakeDriveBackend = fake
+
+      const result = await new GoogleDriveAdapter(USER_ID).getStorageUsage()
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          folderBytes: expect.any(Number),
+          driveUsage: expect.any(Number),
+          driveLimit: 15 * 1024 * 1024 * 1024,
+        }),
+      )
+      // Empty backend means folderBytes is 0
+      expect(result.folderBytes).toBe(0)
+    })
+
+    it('folderBytes sums sizes of seeded entries (entries/<year>/<month>) AND conflict backups', async () => {
+      const fake = new FakeGoogleDriveBackend()
+      ;(window as WinFake).__fakeDriveBackend = fake
+
+      // Seed two entries in different month folders to verify recursion works
+      // (entries/2025/03/ and entries/2026/04/ in real Drive — fake just tracks per-date)
+      fake.seed([
+        {
+          date: '2025-03-15',
+          content: {
+            type: 'doc',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'March entry' }] }],
+          },
+          searchText: 'March entry',
+          tags: ['faith'],
+          wordCount: 2,
+        },
+        {
+          date: '2026-04-13',
+          content: {
+            type: 'doc',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'April entry' }] }],
+          },
+          searchText: 'April entry',
+          wordCount: 2,
+        },
+      ])
+
+      // Compute expected byte length: fake sums JSON.stringify(entry).length for each entry
+      const marchEntry = fake.getEntry('2025-03-15')
+      const aprilEntry = fake.getEntry('2026-04-13')
+      const expectedEntriesBytes =
+        JSON.stringify(marchEntry).length + JSON.stringify(aprilEntry).length
+
+      // Now save a conflict backup — should also be summed in
+      const backupEntry: EntryFile = makeEntry()
+      fake.saveConflictBackup(backupEntry, '2026-04-13', 'rev-old')
+      const expectedBackupBytes = JSON.stringify(backupEntry).length
+
+      const result = await new GoogleDriveAdapter(USER_ID).getStorageUsage()
+
+      expect(result.folderBytes).toBe(expectedEntriesBytes + expectedBackupBytes)
+      // driveUsage in the fake mirrors folderBytes
+      expect(result.driveUsage).toBe(expectedEntriesBytes + expectedBackupBytes)
+      expect(result.driveLimit).toBe(15 * 1024 * 1024 * 1024)
+    })
+
+    it('includes deeply nested entries (e.g. entries/2025/03/x.json) via recursion', async () => {
+      // The fake backend stores entries flat-by-date but conceptually represents
+      // entries/<year>/<month>/<date>.json. The real adapter's listAllFilesRecursive
+      // walks the tree. Here we verify that an entry whose path implies a deep
+      // nested folder layout still contributes its bytes to folderBytes.
+      const fake = new FakeGoogleDriveBackend()
+      ;(window as WinFake).__fakeDriveBackend = fake
+
+      fake.seed([
+        {
+          date: '2025-03-07',
+          content: {
+            type: 'doc',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'nested' }] }],
+          },
+          searchText: 'nested',
+          wordCount: 1,
+        },
+      ])
+
+      const result = await new GoogleDriveAdapter(USER_ID).getStorageUsage()
+      const expected = JSON.stringify(fake.getEntry('2025-03-07')).length
+      expect(result.folderBytes).toBe(expected)
+    })
+
+    it('rejects with reconnect error when connection has no rootFolderId (real Drive path)', async () => {
+      // No fake backend set → real Drive code path runs → getConnection() called
+      mockGetStoredGoogleDriveConnection.mockReturnValue(null)
+
+      await expect(new GoogleDriveAdapter(USER_ID).getStorageUsage()).rejects.toMatchObject({
+        code: 'reconnect',
+        name: GoogleDriveError.name,
+      })
+    })
   })
 })

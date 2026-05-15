@@ -141,18 +141,6 @@ body {
   color: var(--color-on-surface);
 }
 
-/* ─── Grain overlay ─────────────────────────────────────────── */
-.grain-enabled::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url('/textures/background-texture.png');
-  background-repeat: repeat;
-  opacity: 0.3;
-  pointer-events: none;
-  z-index: 9999;
-}
-
 /* ─── Scrollbar hide ────────────────────────────────────────── */
 .no-scrollbar {
   scrollbar-width: none;

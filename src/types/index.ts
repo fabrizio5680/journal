@@ -29,7 +29,6 @@ export interface User {
   reminderEnabled: boolean
   reminderTime: string // "HH:MM"
   reminderTimezone: string // IANA, e.g. "Europe/London"
-  grainEnabled: boolean // default true
   scriptureTranslation: 'NLT' | 'MSG' | 'ESV' // default 'NLT'
   fcmTokens: string[]
   createdAt: import('firebase/firestore').Timestamp

@@ -11,7 +11,6 @@
   reminderEnabled: boolean
   reminderTime: string           // "HH:MM"
   reminderTimezone: string       // IANA, e.g. "Europe/London"
-  grainEnabled: boolean          // default true
   scriptureTranslation: 'NLT' | 'MSG' | 'ESV'  // default 'NLT'
   editorFontSize: 'small' | 'medium' | 'large'  // default 'medium'
   fcmTokens: string[]            // one entry per registered device

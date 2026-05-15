@@ -11,7 +11,6 @@ const FONT_SIZE_KEY = 'pref_editor_font_size'
 const SPELLCHECK_KEY = 'pref_spellcheck'
 
 interface UserPreferences {
-  grainEnabled: boolean
   scriptureTranslation: Translation
   editorFontSize: EditorFontSize
   spellcheckEnabled: boolean
@@ -23,7 +22,6 @@ interface UserPreferencesContextValue extends UserPreferences {
 }
 
 const defaultPreferences: UserPreferences = {
-  grainEnabled: true,
   scriptureTranslation: 'NLT',
   editorFontSize: 'medium',
   spellcheckEnabled: true,
@@ -67,14 +65,12 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
             localStorage.setItem(FONT_SIZE_KEY, seeded)
             setPrefs((prev) => ({
               ...prev,
-              grainEnabled: data.grainEnabled ?? true,
               scriptureTranslation: (data.scriptureTranslation as Translation) ?? 'NLT',
               editorFontSize: seeded,
             }))
           } else {
             setPrefs((prev) => ({
               ...prev,
-              grainEnabled: data.grainEnabled ?? true,
               scriptureTranslation: (data.scriptureTranslation as Translation) ?? 'NLT',
             }))
           }

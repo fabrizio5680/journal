@@ -133,6 +133,21 @@ export class FakeGoogleDriveBackend {
 
   writeManifest?(entries: ManifestEntry[]): void
 
+  getStorageUsage(): { folderBytes: number; driveUsage: number | null; driveLimit: number | null } {
+    let folderBytes = 0
+    for (const { entry } of this.entries.values()) {
+      folderBytes += JSON.stringify(entry).length
+    }
+    for (const { entry } of this.conflictBackups) {
+      folderBytes += JSON.stringify(entry).length
+    }
+    return {
+      folderBytes,
+      driveUsage: folderBytes,
+      driveLimit: 15 * 1024 * 1024 * 1024,
+    }
+  }
+
   clear(): void {
     this.entries.clear()
     this.conflictBackups = []

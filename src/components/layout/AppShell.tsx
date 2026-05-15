@@ -10,12 +10,10 @@ import RightPanel from './RightPanel'
 import SearchModal from '@/components/search/SearchModal'
 import { useSearch } from '@/context/SearchContext'
 import { useFocusMode } from '@/context/FocusModeContext'
-import { useUserPreferences } from '@/context/UserPreferencesContext'
 
 export default function AppShell() {
   const { isFocused, exit } = useFocusMode()
   const { openSearch } = useSearch()
-  const { grainEnabled } = useUserPreferences()
 
   // Cmd/Ctrl+K global shortcut
   useEffect(() => {
@@ -30,7 +28,7 @@ export default function AppShell() {
   }, [openSearch])
 
   return (
-    <div className={clsx('bg-background min-h-screen', grainEnabled && 'grain-enabled')}>
+    <div className="bg-background min-h-screen">
       {/* Mobile: fixed top bar */}
       <TopBar />
 

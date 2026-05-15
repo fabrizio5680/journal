@@ -16,8 +16,37 @@ import {
   getDeviceProviderState,
   type ProviderConnectionState,
 } from '@/lib/storage/providerConnection'
+import { GoogleDriveAdapter } from '@/lib/storage/providers/googleDriveAdapter'
 
 type Translation = 'NLT' | 'MSG' | 'ESV'
+
+interface DriveUsage {
+  folderBytes: number
+  driveUsage: number | null
+  driveLimit: number | null
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '0 B'
+  if (bytes < 1024) return `${Math.round(bytes)} B`
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let value = bytes / 1024
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex += 1
+  }
+  const formatted = value >= 100 ? value.toFixed(0) : value.toFixed(1)
+  return `${formatted} ${units[unitIndex]}`
+}
+
+function formatDriveUsage(usage: DriveUsage): string {
+  const folder = formatBytes(usage.folderBytes)
+  if (usage.driveUsage === null || usage.driveLimit === null) {
+    return folder
+  }
+  return `${folder} · ${formatBytes(usage.driveUsage)} of ${formatBytes(usage.driveLimit)} Drive used`
+}
 
 function Toggle({
   enabled,
@@ -106,7 +135,6 @@ export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null)
   const navigate = useNavigate()
   const {
-    grainEnabled,
     scriptureTranslation,
     editorFontSize,
     updateEditorFontSize,
@@ -126,6 +154,7 @@ export default function SettingsPage() {
   const [storageError, setStorageError] = useState<string | null>(null)
   const [storageAction, setStorageAction] = useState<'connect' | 'disconnect' | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [driveUsage, setDriveUsage] = useState<DriveUsage | null>(null)
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
@@ -194,6 +223,27 @@ export default function SettingsPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!user?.uid || storageState.status !== 'connected') {
+      setDriveUsage(null)
+      return
+    }
+    let cancelled = false
+    const adapter = new GoogleDriveAdapter(user.uid)
+    adapter
+      .getStorageUsage()
+      .then((usage) => {
+        if (!cancelled) setDriveUsage(usage)
+      })
+      .catch((error) => {
+        console.warn('[SettingsPage] Drive usage fetch failed:', error)
+        if (!cancelled) setDriveUsage(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.uid, storageState.status])
+
   async function updateUserDoc(fields: Record<string, unknown>) {
     if (!user) return
     await updateDoc(doc(db, 'users', user.uid), fields)
@@ -254,10 +304,6 @@ export default function SettingsPage() {
   async function handleTimeChange(value: string) {
     setReminderTime(value)
     await updateUserDoc({ reminderTime: value })
-  }
-
-  async function handleGrainToggle(enabled: boolean) {
-    await updateUserDoc({ grainEnabled: enabled })
   }
 
   async function handleTranslationChange(translation: Translation) {
@@ -367,6 +413,14 @@ export default function SettingsPage() {
               <StorageStatusText state={storageState} appEmail={user?.email} />
             </span>
           </div>
+          {storageState.status === 'connected' && (
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-on-surface-variant/50 text-xs font-medium">Drive usage</span>
+              <span className="text-on-surface-variant/70 text-right text-xs">
+                {driveUsage ? formatDriveUsage(driveUsage) : '—'}
+              </span>
+            </div>
+          )}
         </div>
 
         {storageState.status === 'connected' && (
@@ -461,15 +515,7 @@ export default function SettingsPage() {
 
       {/* Appearance */}
       <SettingsSection>
-        <SettingsRow icon="texture" label="Paper Grain Texture">
-          <Toggle
-            id="grain-toggle"
-            label="Paper Grain Texture"
-            enabled={grainEnabled}
-            onChange={handleGrainToggle}
-          />
-        </SettingsRow>
-        <div className="border-outline-variant/20 mt-4 border-t pt-4">
+        <div>
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary text-[20px]">

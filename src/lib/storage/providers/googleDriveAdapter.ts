@@ -47,10 +47,17 @@ interface DriveFile {
   mimeType?: string
   headRevisionId?: string
   modifiedTime?: string
+  size?: string
 }
 
 function escapeDriveQueryValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+}
+
+function parseQuotaNumber(value: string | undefined): number | null {
+  if (value === undefined || value === null) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function entryPathParts(date: string) {
@@ -308,6 +315,34 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
     }
   }
 
+  async getStorageUsage(): Promise<{
+    folderBytes: number
+    driveUsage: number | null
+    driveLimit: number | null
+  }> {
+    if (this.fake) {
+      return this.fake.getStorageUsage()
+    }
+    const connection = this.getConnection()
+    const [files, about] = await Promise.all([
+      this.listAllFilesRecursive(connection.rootFolderId),
+      this.driveFetch<{
+        storageQuota?: { limit?: string; usage?: string }
+      }>(`${DRIVE_API}/about?fields=storageQuota`),
+    ])
+
+    const folderBytes = files.reduce((sum, file) => {
+      const parsed = file.size ? Number(file.size) : 0
+      return sum + (Number.isFinite(parsed) ? parsed : 0)
+    }, 0)
+
+    const quota = about.storageQuota ?? {}
+    const driveUsage = parseQuotaNumber(quota.usage)
+    const driveLimit = parseQuotaNumber(quota.limit)
+
+    return { folderBytes, driveUsage, driveLimit }
+  }
+
   private getConnection(): GoogleDriveStoredConnection {
     const connection = getStoredGoogleDriveConnection(this.userId)
     if (!connection?.rootFolderId) {
@@ -380,6 +415,14 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
     return files.concat(nested.flat())
   }
 
+  private async listAllFilesRecursive(parentId: string): Promise<DriveFile[]> {
+    const children = await this.listChildren(parentId)
+    const files = children.filter((item) => item.mimeType !== FOLDER_MIME_TYPE)
+    const folders = children.filter((item) => item.mimeType === FOLDER_MIME_TYPE)
+    const nested = await Promise.all(folders.map((folder) => this.listAllFilesRecursive(folder.id)))
+    return files.concat(nested.flat())
+  }
+
   private async listChildren(parentId: string): Promise<DriveFile[]> {
     const files: DriveFile[] = []
     let pageToken: string | undefined
@@ -388,7 +431,7 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
       const params = new URLSearchParams({
         q: `'${escapeDriveQueryValue(parentId)}' in parents and trashed = false`,
         spaces: 'drive',
-        fields: 'nextPageToken,files(id,name,mimeType,headRevisionId,modifiedTime)',
+        fields: 'nextPageToken,files(id,name,mimeType,headRevisionId,modifiedTime,size)',
         pageSize: '100',
       })
       if (pageToken) params.set('pageToken', pageToken)

@@ -237,4 +237,67 @@ test.describe('Settings — Google Drive account connection', () => {
     expect(publicDoc.fields?.activeStorageProvider?.stringValue).toBe('googleDrive')
     expect(publicDoc.fields?.storageRootFolderId?.stringValue).toBe('drive-root')
   })
+
+  test('shows Drive usage row with a non-dash byte value when Drive is connected', async ({
+    page,
+  }, testInfo) => {
+    // Only assert this on chromium to keep the suite fast; the row is a
+    // device-agnostic feature and Mobile Safari + Tablet collapse to the same
+    // SettingsPage layout, so chromium coverage is enough.
+    if (testInfo.project.name !== 'chromium') {
+      test.skip()
+      return
+    }
+
+    // Seed the fake Drive backend so getStorageUsage() returns a deterministic
+    // byte total > 0. Without seed the fake returns folderBytes=0 ("0 B"),
+    // which we still want to allow — but to assert a concrete byte unit we
+    // pre-populate one entry.
+    await page.addInitScript(() => {
+      type WinExt = typeof window & {
+        __fakeDriveSeedData?: Array<{
+          date: string
+          content: { type: string; content: Array<{ type: string; content: unknown[] }> }
+          searchText: string
+          wordCount: number
+        }>
+      }
+      const w = window as WinExt
+      w.__fakeDriveSeedData = [
+        {
+          date: '2026-04-13',
+          content: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'Drive usage e2e seed entry' } as unknown as never],
+              },
+            ],
+          },
+          searchText: 'Drive usage e2e seed entry',
+          wordCount: 5,
+        },
+      ]
+    })
+
+    // Re-sign-in inside the new init-script context so the seed is applied.
+    await page.goto('/settings')
+
+    // Wait until the Settings page shows the connected Drive state. The
+    // Firestore snapshot drives this — the beforeEach already patched it.
+    await expect(page.getByText(/Google Drive · drive@example.com · connected/i)).toBeVisible({
+      timeout: 5000,
+    })
+
+    // The new Drive usage row should be visible.
+    await expect(page.getByText('Drive usage')).toBeVisible({ timeout: 5000 })
+
+    // The value should resolve from "—" to a formatted byte string within a
+    // few seconds. We don't assert an exact number — only that it leaves the
+    // dash placeholder and includes a byte unit (B/KB/MB/GB).
+    const driveUsageLabel = page.getByText('Drive usage')
+    const row = driveUsageLabel.locator('xpath=ancestor::div[1]')
+    await expect(row).toContainText(/\b(?:B|KB|MB|GB|TB)\b/, { timeout: 8000 })
+  })
 })
