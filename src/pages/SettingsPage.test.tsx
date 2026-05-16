@@ -22,11 +22,13 @@ const {
   mockDisconnectGoogleDriveProvider,
   mockBackfillGoogleDriveMetadata,
   mockGetStorageUsage,
+  mockListEntries,
 } = vi.hoisted(() => ({
   mockConnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
   mockDisconnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
   mockBackfillGoogleDriveMetadata: vi.fn().mockResolvedValue(undefined),
   mockGetStorageUsage: vi.fn(),
+  mockListEntries: vi.fn(),
 }))
 
 vi.mock('firebase/firestore', () => ({
@@ -105,6 +107,12 @@ vi.mock('@/lib/storage/providers/googleDriveAdapter', () => ({
   },
 }))
 
+vi.mock('@/lib/storage/entryRepository', () => ({
+  EntryRepository: {
+    listEntries: (...args: unknown[]) => mockListEntries(...args),
+  },
+}))
+
 // --- UserPreferencesContext mock ---
 const mockUpdateEditorFontSize = vi.fn().mockResolvedValue(undefined)
 const mockPrefs = {
@@ -171,6 +179,7 @@ describe('SettingsPage', () => {
       driveUsage: 4_617_089_843, // ≈ 4.3 GB
       driveLimit: 16_106_127_360, // 15 GB
     })
+    mockListEntries.mockResolvedValue([])
     mockPrefs.scriptureTranslation = 'NLT'
     mockPrefs.editorFontSize = 'medium'
   })
@@ -429,6 +438,89 @@ describe('SettingsPage', () => {
       'href',
       '/account-deletion',
     )
+  })
+
+  it('exports profile metadata and local entries as a JSON bundle', async () => {
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    })
+    const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:export')
+    const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    mockGetDoc.mockResolvedValueOnce({
+      data: () => ({
+        reminderEnabled: true,
+        storageAccountEmail: 'drive@example.com',
+        scriptureTranslation: 'ESV',
+      }),
+    })
+    mockListEntries.mockResolvedValueOnce([
+      {
+        schemaVersion: 1,
+        app: 'quiet-dwelling',
+        date: '2026-05-16',
+        content: { type: 'doc', content: [] },
+        searchText: 'quiet export',
+        mood: 3,
+        moodLabel: 'Calm',
+        tags: ['gratitude'],
+        scriptureRefs: [{ reference: 'John 14:27', passageId: 'JHN.14.27' }],
+        wordCount: 2,
+        createdAt: '2026-05-16T08:00:00.000Z',
+        updatedAt: '2026-05-16T08:05:00.000Z',
+      },
+    ])
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false })
+
+    await userEvent.click(screen.getByRole('button', { name: /export my data/i }))
+
+    await waitFor(() => {
+      expect(mockListEntries).toHaveBeenCalledWith('test-uid')
+      expect(clickSpy).toHaveBeenCalled()
+    })
+
+    const blob = createObjectURLSpy.mock.calls[0][0] as Blob
+    const bundle = JSON.parse(await blob.text()) as {
+      app: string
+      user: { uid: string; email: string }
+      profile: Record<string, unknown>
+      entries: Array<{ date: string; searchText: string }>
+    }
+    expect(bundle.app).toBe('quiet-dwelling')
+    expect(bundle.user).toMatchObject({ uid: 'test-uid', email: 'test@example.com' })
+    expect(bundle.profile).toMatchObject({
+      reminderEnabled: true,
+      storageAccountEmail: 'drive@example.com',
+      scriptureTranslation: 'ESV',
+    })
+    expect(bundle.entries).toEqual([expect.objectContaining({ date: '2026-05-16' })])
+    expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:export')
+
+    createObjectURLSpy.mockRestore()
+    revokeObjectURLSpy.mockRestore()
+    clickSpy.mockRestore()
+  })
+
+  it('shows an export error when local entries cannot be read', async () => {
+    mockListEntries.mockRejectedValueOnce(new Error('IndexedDB unavailable'))
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false })
+
+    await userEvent.click(screen.getByRole('button', { name: /export my data/i }))
+
+    expect(await screen.findByText('IndexedDB unavailable')).toBeInTheDocument()
   })
 
   it('renders disconnected Google Drive storage state', () => {

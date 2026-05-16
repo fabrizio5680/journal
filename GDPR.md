@@ -309,6 +309,7 @@ in Settings: list what gets written and how to revoke.
 
 #### TASK-6: Data export (Art. 20)
 
+- Status: **Implemented 2026-05-16** in `src/pages/SettingsPage.tsx`.
 - "Export my data" in Settings.
 - Build JSON bundle client-side: user profile fields from Firestore + all entries from
   IndexedDB. Trigger browser download.
@@ -317,7 +318,9 @@ in Settings: list what gets written and how to revoke.
 
 #### TASK-7: Retention policy
 
-Document in Privacy Policy and a new `docs/retention.md`:
+- Status: **Implemented 2026-05-16** in `docs/retention.md` and reflected in
+  `src/pages/PrivacyPage.tsx`.
+- Document in Privacy Policy and a new `docs/retention.md`:
 
 - Entries (local + Drive): retained until user deletes; soft-delete 30-day TTL on per-entry
   `deletedAt`.

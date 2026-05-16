@@ -142,9 +142,16 @@ export default function PrivacyPage() {
               them or choose an in-app deletion option when available.
             </p>
             <p>
-              Account metadata, OAuth tokens, reminder tokens, entitlement metadata, support emails,
-              and deletion request records are kept only as long as needed for the service, legal
-              obligations, security, or accountability.
+              Deleted-entry tombstones are retained for about 30 days. Google Drive OAuth tokens are
+              kept only while Drive sync is connected. Reminder tokens are removed when reminders
+              are disabled, when a send failure shows the token is stale, or when the account is
+              deleted. Cloud Function logs are targeted for 30-day retention.
+            </p>
+            <p>
+              Inactive accounts are planned for deletion after 3 years with a warning email at 2
+              years and 10 months. Account metadata, entitlement metadata, support emails, deletion
+              requests, and rights-request records are kept only as long as needed for the service,
+              legal obligations, security, or accountability.
             </p>
             <p>
               Quiet Dwelling uses browser storage that is necessary for the app to work, including
@@ -158,7 +165,8 @@ export default function PrivacyPage() {
             <p>
               You can ask to access, correct, export, delete, restrict, or object to processing of
               your personal data. You can also withdraw consent where processing is based on
-              consent. Contact{' '}
+              consent. Signed-in users can export a JSON copy of profile metadata and local journal
+              entries from Settings. Contact{' '}
               <a className="text-primary hover:underline" href={`mailto:${CONTACT_EMAIL}`}>
                 {CONTACT_EMAIL}
               </a>

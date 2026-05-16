@@ -8,6 +8,7 @@ import { auth, db, messagingPromise } from '@/lib/firebase'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { EntryRepository } from '@/lib/storage/entryRepository'
 import {
   backfillGoogleDriveMetadata,
   connectGoogleDriveProvider,
@@ -148,6 +149,8 @@ export default function SettingsPage() {
   const [storageAction, setStorageAction] = useState<'connect' | 'disconnect' | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
   const [driveUsage, setDriveUsage] = useState<DriveUsage | null>(null)
+  const [exportStatus, setExportStatus] = useState<'idle' | 'exporting'>('idle')
+  const [exportError, setExportError] = useState<string | null>(null)
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
@@ -353,6 +356,47 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleExportData() {
+    if (!user) return
+    setExportStatus('exporting')
+    setExportError(null)
+    try {
+      const [profileSnap, entries] = await Promise.all([
+        getDoc(doc(db, 'users', user.uid)),
+        EntryRepository.listEntries(user.uid),
+      ])
+      const exportedAt = new Date().toISOString()
+      const bundle = {
+        schemaVersion: 1,
+        app: 'quiet-dwelling',
+        exportedAt,
+        user: {
+          uid: user.uid,
+          displayName: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL,
+        },
+        profile: profileSnap.data() ?? {},
+        entries,
+      }
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `quiet-dwelling-export-${exportedAt.slice(0, 10)}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Data export failed.')
+    } finally {
+      setExportStatus('idle')
+    }
+  }
+
   async function handleSignOut() {
     await signOut(auth)
     navigate('/login')
@@ -471,6 +515,32 @@ export default function SettingsPage() {
                   : 'Connect Google Drive'}
             </button>
           )}
+        </div>
+      </SettingsSection>
+
+      {/* Data */}
+      <SettingsSection>
+        <div className="mb-4 flex items-start gap-3">
+          <span className="material-symbols-outlined text-primary text-[20px]">download</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-on-surface text-sm font-medium">Your Data</p>
+            <p className="text-on-surface-variant/60 mt-1 text-xs leading-relaxed">
+              Export your profile metadata and all journal entries stored on this device.
+            </p>
+          </div>
+        </div>
+
+        {exportError && <p className="text-error mb-3 text-xs">{exportError}</p>}
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleExportData}
+            disabled={!user || exportStatus === 'exporting'}
+            className="bg-primary text-on-primary rounded-full px-4 py-2 text-xs font-semibold transition-opacity disabled:opacity-50"
+          >
+            {exportStatus === 'exporting' ? 'Exporting...' : 'Export my data'}
+          </button>
         </div>
       </SettingsSection>
 
