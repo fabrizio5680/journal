@@ -32,7 +32,8 @@ repeating them.
 - Tailwind CSS 4 with CSS-first tokens in `src/styles/globals.css` under
   `@theme`; there is no `tailwind.config.ts`
 - Firebase 12: Auth, Firestore, Hosting, Cloud Functions on Node 22
-- Tiptap 3: StarterKit, Placeholder, CharacterCount, BubbleMenu, Heading H2 only
+- Tiptap 3: StarterKit, Placeholder, CharacterCount, BubbleMenu, FloatingMenu,
+  Heading H2 only
 - date-fns 4, Recharts 3, clsx 2
 - ESLint 9, Vitest, Playwright
 - Material Symbols Outlined and Manrope from Google Fonts

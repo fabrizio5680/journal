@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
-import { BubbleMenu } from '@tiptap/react/menus'
+import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import CharacterCount from '@tiptap/extension-character-count'
 import Heading from '@tiptap/extension-heading'
 import type { Editor } from '@tiptap/core'
+import { format } from 'date-fns'
 
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 
@@ -122,6 +123,40 @@ export default function EntryEditor({
           />
         </div>
       </BubbleMenu>
+
+      <FloatingMenu
+        editor={editor}
+        shouldShow={({ editor, state }) => {
+          if (!editor.isEditable) return false
+          const { selection } = state
+          if (!selection.empty) return false
+          const { $from } = selection
+          const parent = $from.parent
+          return parent.type.name === 'paragraph' && parent.content.size === 0
+        }}
+      >
+        <div className="bg-surface-container-lowest border-outline-variant/15 flex gap-0.5 rounded-xl border p-1 shadow-xl">
+          <BubbleButton
+            onClick={() =>
+              editor
+                .chain()
+                .focus()
+                .insertContent([
+                  {
+                    type: 'heading',
+                    attrs: { level: 2 },
+                    content: [{ type: 'text', text: format(new Date(), 'p') }],
+                  },
+                  { type: 'paragraph' },
+                ])
+                .run()
+            }
+            active={false}
+            label="Insert time"
+            icon="schedule"
+          />
+        </div>
+      </FloatingMenu>
 
       <EditorContent editor={editor} />
     </div>

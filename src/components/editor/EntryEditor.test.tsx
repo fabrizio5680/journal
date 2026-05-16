@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, fireEvent } from '@testing-library/react'
+import { format } from 'date-fns'
 import React from 'react'
 
 import EntryEditor from './EntryEditor'
@@ -19,6 +20,9 @@ vi.mock('@tiptap/react', () => ({
 
 vi.mock('@tiptap/react/menus', () => ({
   BubbleMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  FloatingMenu: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="floating-menu">{children}</div>
+  ),
 }))
 
 vi.mock('@tiptap/starter-kit', () => ({
@@ -44,6 +48,8 @@ describe('EntryEditor', () => {
   const setTextSelection = vi.fn()
   const getJSON = vi.fn()
 
+  let insertedContent: unknown = null
+
   function makeEditor(selectionFrom = 5, docSize = 20) {
     return {
       commands: { setContent, setTextSelection },
@@ -55,19 +61,27 @@ describe('EntryEditor', () => {
       isEmpty: false,
       setOptions: vi.fn(),
       isActive: vi.fn(() => false),
-      chain: vi.fn(() => ({
-        focus: vi.fn().mockReturnThis(),
-        toggleBold: vi.fn().mockReturnThis(),
-        toggleItalic: vi.fn().mockReturnThis(),
-        toggleBulletList: vi.fn().mockReturnThis(),
-        toggleHeading: vi.fn().mockReturnThis(),
-        run: vi.fn(),
-      })),
+      chain: vi.fn(() => {
+        const chain: Record<string, unknown> = {
+          focus: vi.fn(() => chain),
+          toggleBold: vi.fn(() => chain),
+          toggleItalic: vi.fn(() => chain),
+          toggleBulletList: vi.fn(() => chain),
+          toggleHeading: vi.fn(() => chain),
+          insertContent: vi.fn((value: unknown) => {
+            insertedContent = value
+            return chain
+          }),
+          run: vi.fn(),
+        }
+        return chain
+      }),
     }
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
+    insertedContent = null
     mockUseEditor.mockReturnValue(makeEditor())
   })
 
@@ -221,5 +235,63 @@ describe('EntryEditor', () => {
       editorProps: { attributes: Record<string, string> }
     }
     expect(lastCall.editorProps.attributes.spellcheck).toBe('true')
+  })
+
+  describe('FloatingMenu insert-time button', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('renders an "Insert time" button with the schedule icon inside the FloatingMenu', () => {
+      getJSON.mockReturnValue({ type: 'doc', content: [] })
+      const { getByRole, getByTestId } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+
+      const floatingMenu = getByTestId('floating-menu')
+      expect(floatingMenu).toBeTruthy()
+
+      const insertTimeBtn = getByRole('button', { name: 'Insert time' })
+      expect(insertTimeBtn).toBeTruthy()
+      // Button lives inside the FloatingMenu (which allows the editor to keep focus
+      // via BubbleButton's onMouseDown preventDefault). A light containment assertion.
+      expect(floatingMenu.contains(insertTimeBtn)).toBe(true)
+
+      const icon = insertTimeBtn.querySelector('.material-symbols-outlined')
+      expect(icon?.textContent).toBe('schedule')
+    })
+
+    it('clicking the button inserts an H2 heading with the current locale time and a paragraph', () => {
+      const fakeNow = new Date('2026-05-16T09:14:00')
+      vi.useFakeTimers()
+      vi.setSystemTime(fakeNow)
+
+      getJSON.mockReturnValue({ type: 'doc', content: [] })
+      const { getByRole } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+
+      const insertTimeBtn = getByRole('button', { name: 'Insert time' })
+      // BubbleButton fires the action onMouseDown (not onClick) to preserve editor focus
+      fireEvent.mouseDown(insertTimeBtn)
+
+      expect(insertedContent).toEqual([
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: format(fakeNow, 'p') }],
+        },
+        { type: 'paragraph' },
+      ])
+    })
+
+    it('insert-time button is mounted within a focus-preserving wrapper (BubbleButton onMouseDown.preventDefault)', () => {
+      getJSON.mockReturnValue({ type: 'doc', content: [] })
+      const { getByRole } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+
+      const insertTimeBtn = getByRole('button', { name: 'Insert time' })
+      // Light assertion: the underlying BubbleButton calls preventDefault on mousedown
+      // to keep the editor focused. We confirm the event is cancellable and that
+      // preventDefault is honoured (defaultPrevented becomes true after dispatch).
+      const evt = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+      insertTimeBtn.dispatchEvent(evt)
+      expect(evt.defaultPrevented).toBe(true)
+    })
   })
 })
