@@ -8,6 +8,8 @@ import { FocusModeProvider } from '@/context/FocusModeContext'
 import { SearchProvider } from '@/context/SearchContext'
 import { UserPreferencesProvider } from '@/context/UserPreferencesContext'
 import { EditorControlsProvider } from '@/context/EditorControlsContext'
+import { ConsentProvider } from '@/hooks/useConsent'
+import ConsentModal from '@/components/auth/ConsentModal'
 import AppShell from '@/components/layout/AppShell'
 import UpdateBanner from '@/components/ui/UpdateBanner'
 
@@ -51,17 +53,20 @@ export default function App() {
           <Route
             element={
               <RequireAuth>
-                <UserPreferencesProvider>
-                  <SearchProvider>
-                    <FocusModeProvider>
-                      <SaveStatusProvider>
-                        <EditorControlsProvider>
-                          <AppShell />
-                        </EditorControlsProvider>
-                      </SaveStatusProvider>
-                    </FocusModeProvider>
-                  </SearchProvider>
-                </UserPreferencesProvider>
+                <ConsentProvider>
+                  <UserPreferencesProvider>
+                    <SearchProvider>
+                      <FocusModeProvider>
+                        <SaveStatusProvider>
+                          <EditorControlsProvider>
+                            <AppShell />
+                            <ConsentModal />
+                          </EditorControlsProvider>
+                        </SaveStatusProvider>
+                      </FocusModeProvider>
+                    </SearchProvider>
+                  </UserPreferencesProvider>
+                </ConsentProvider>
               </RequireAuth>
             }
           >

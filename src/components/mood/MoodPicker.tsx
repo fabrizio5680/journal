@@ -8,6 +8,7 @@ interface MoodPickerProps {
   label: string | null
   onChange: (mood: number | null, label: string | null) => void
   variant?: 'pills' | 'dropdown'
+  disabled?: boolean
 }
 
 // Group moods into pairs by numeric value: [[val1a, val1b], [val2a, val2b], ...]
@@ -33,10 +34,12 @@ function PillsMoodPicker({
   value,
   label,
   onChange,
+  disabled = false,
 }: {
   value: number | null
   label: string | null
   onChange: (mood: number | null, label: string | null) => void
+  disabled?: boolean
 }) {
   return (
     <div className="flex flex-nowrap gap-2 overflow-x-auto py-2 pb-1">
@@ -50,10 +53,11 @@ function PillsMoodPicker({
               onClick={() =>
                 onChange(isSelected ? null : mood.value, isSelected ? null : mood.label)
               }
+              disabled={disabled}
               className={
                 isSelected
-                  ? 'border-primary/20 bg-primary-container text-on-primary-container shrink-0 rounded-xl border px-4 py-2 text-sm font-semibold'
-                  : 'bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed shrink-0 rounded-xl px-4 py-2 text-sm transition-colors'
+                  ? 'border-primary/20 bg-primary-container text-on-primary-container shrink-0 rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-45'
+                  : 'bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed shrink-0 rounded-xl px-4 py-2 text-sm transition-colors disabled:opacity-45'
               }
             >
               {mood.emoji} {mood.label}
@@ -69,10 +73,12 @@ function DropdownMoodPicker({
   value,
   label,
   onChange,
+  disabled = false,
 }: {
   value: number | null
   label: string | null
   onChange: (mood: number | null, label: string | null) => void
+  disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -120,7 +126,8 @@ function DropdownMoodPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="border-outline-variant/15 bg-surface-container-lowest flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm transition-colors"
+        disabled={disabled}
+        className="border-outline-variant/15 bg-surface-container-lowest flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm transition-colors disabled:opacity-45"
       >
         {selectedMood ? (
           <span className="text-on-surface font-medium">
@@ -185,9 +192,17 @@ function DropdownMoodPicker({
   )
 }
 
-export default function MoodPicker({ value, label, onChange, variant = 'pills' }: MoodPickerProps) {
+export default function MoodPicker({
+  value,
+  label,
+  onChange,
+  variant = 'pills',
+  disabled = false,
+}: MoodPickerProps) {
   if (variant === 'dropdown') {
-    return <DropdownMoodPicker value={value} label={label} onChange={onChange} />
+    return (
+      <DropdownMoodPicker value={value} label={label} onChange={onChange} disabled={disabled} />
+    )
   }
-  return <PillsMoodPicker value={value} label={label} onChange={onChange} />
+  return <PillsMoodPicker value={value} label={label} onChange={onChange} disabled={disabled} />
 }

@@ -20,6 +20,8 @@ export interface MetadataControls {
   tagVocabulary: string[]
   scriptureRefs: ScriptureRef[]
   scriptureTranslation: 'NLT' | 'MSG' | 'ESV'
+  canProcessMood?: boolean
+  canProcessReligion?: boolean
   onMoodChange: (mood: number | null, label: string | null) => void
   onTagsChange: (tags: string[]) => void
   onNewTag: (tag: string) => void

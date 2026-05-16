@@ -11,6 +11,7 @@ import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
+import { useConsent } from '@/hooks/useConsent'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
 import MetadataBar from '@/components/editor/MetadataBar'
@@ -26,6 +27,7 @@ export default function TodayPage() {
   const { setDirty, setLastSaved, setEntrySyncStatus } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
   const { register, unregister } = useEditorControls()
+  const { canProcessMood, canProcessReligion } = useConsent()
   const { verse } = useDailyVerse(scriptureTranslation)
   const placeholder = verse ? `${verse.text} — ${verse.reference}` : undefined
 
@@ -84,9 +86,10 @@ export default function TodayPage() {
 
   const handleMoodChange = useCallback(
     async (mood: number | null, moodLabel: string | null) => {
+      if (!canProcessMood) return
       await save({ mood: mood as 1 | 2 | 3 | 4 | 5 | null, moodLabel })
     },
-    [save],
+    [canProcessMood, save],
   )
 
   const handleTagsChange = useCallback(
@@ -98,9 +101,10 @@ export default function TodayPage() {
 
   const handleScriptureRefsChange = useCallback(
     async (scriptureRefs: import('@/types').ScriptureRef[]) => {
+      if (!canProcessReligion) return
       await save({ scriptureRefs })
     },
-    [save],
+    [canProcessReligion, save],
   )
 
   // Register editor controls with BottomNav and RightPanel via context
@@ -124,6 +128,8 @@ export default function TodayPage() {
         tagVocabulary: vocabulary,
         scriptureRefs: entry?.scriptureRefs ?? [],
         scriptureTranslation,
+        canProcessMood,
+        canProcessReligion,
         onMoodChange: handleMoodChange,
         onTagsChange: handleTagsChange,
         onNewTag: addToVocabulary,
@@ -144,6 +150,8 @@ export default function TodayPage() {
     entry,
     vocabulary,
     scriptureTranslation,
+    canProcessMood,
+    canProcessReligion,
     handleMoodChange,
     handleTagsChange,
     addToVocabulary,
@@ -186,6 +194,8 @@ export default function TodayPage() {
         onNewTag={addToVocabulary}
         scriptureRefs={entry?.scriptureRefs ?? []}
         scriptureTranslation={scriptureTranslation}
+        canProcessMood={canProcessMood}
+        canProcessReligion={canProcessReligion}
         onScriptureRefsChange={handleScriptureRefsChange}
       />
 

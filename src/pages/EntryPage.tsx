@@ -11,6 +11,7 @@ import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useDictation } from '@/hooks/useDictation'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
+import { useConsent } from '@/hooks/useConsent'
 import { useDailyVerse } from '@/hooks/useDailyVerse'
 import EntryEditor from '@/components/editor/EntryEditor'
 import MetadataBar from '@/components/editor/MetadataBar'
@@ -39,6 +40,7 @@ function EntryEditorView({ date }: { date: string }) {
   const { setDirty, setLastSaved, setEntrySyncStatus } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
   const { register, unregister } = useEditorControls()
+  const { canProcessMood, canProcessReligion } = useConsent()
   const { verse } = useDailyVerse(scriptureTranslation, parseISO(date))
   const placeholder = verse ? `${verse.text} — ${verse.reference}` : undefined
 
@@ -107,9 +109,10 @@ function EntryEditorView({ date }: { date: string }) {
 
   const handleMoodChange = useCallback(
     async (mood: number | null, moodLabel: string | null) => {
+      if (!canProcessMood) return
       await save({ mood: mood as 1 | 2 | 3 | 4 | 5 | null, moodLabel })
     },
-    [save],
+    [canProcessMood, save],
   )
 
   const handleTagsChange = useCallback(
@@ -121,9 +124,10 @@ function EntryEditorView({ date }: { date: string }) {
 
   const handleScriptureRefsChange = useCallback(
     async (scriptureRefs: import('@/types').ScriptureRef[]) => {
+      if (!canProcessReligion) return
       await save({ scriptureRefs })
     },
-    [save],
+    [canProcessReligion, save],
   )
 
   const handleKeepMine = useCallback(async () => {
@@ -179,6 +183,8 @@ function EntryEditorView({ date }: { date: string }) {
         tagVocabulary: vocabulary,
         scriptureRefs: entry?.scriptureRefs ?? [],
         scriptureTranslation,
+        canProcessMood,
+        canProcessReligion,
         onMoodChange: handleMoodChange,
         onTagsChange: handleTagsChange,
         onNewTag: addToVocabulary,
@@ -199,6 +205,8 @@ function EntryEditorView({ date }: { date: string }) {
     entry,
     vocabulary,
     scriptureTranslation,
+    canProcessMood,
+    canProcessReligion,
     handleMoodChange,
     handleTagsChange,
     addToVocabulary,
@@ -251,6 +259,8 @@ function EntryEditorView({ date }: { date: string }) {
         onNewTag={addToVocabulary}
         scriptureRefs={entry?.scriptureRefs ?? []}
         scriptureTranslation={scriptureTranslation}
+        canProcessMood={canProcessMood}
+        canProcessReligion={canProcessReligion}
         onScriptureRefsChange={handleScriptureRefsChange}
       />
 

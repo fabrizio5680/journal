@@ -267,6 +267,10 @@ Priority order: H → M → L.
 
 #### TASK-3: Explicit consent for special category data (religion + mood)
 
+Status: **Implemented 2026-05-16** in `src/hooks/useConsent.tsx`,
+`src/components/auth/ConsentModal.tsx`, `src/pages/SettingsPage.tsx`, and the editor metadata
+controls.
+
 - One-time consent modal at first sign-in covering both scripture refs and mood (Art. 9(2)(a),
   Art. 7).
 - Store on `users/{uid}`:

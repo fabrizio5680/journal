@@ -68,10 +68,12 @@ function ScriptureExpandableCard({
   ref_,
   translation,
   onRemove,
+  canRemove = true,
 }: {
   ref_: ScriptureRef
   translation: 'NLT' | 'MSG' | 'ESV'
   onRemove: () => void
+  canRemove?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const { text, isLoading } = useScriptureRef(expanded ? ref_.passageId : null, translation)
@@ -99,8 +101,9 @@ function ScriptureExpandableCard({
         <button
           type="button"
           onClick={onRemove}
+          disabled={!canRemove}
           aria-label={`Remove ${ref_.reference}`}
-          className="text-on-surface-variant/30 hover:text-on-surface-variant flex p-1 transition-colors"
+          className="text-on-surface-variant/30 hover:text-on-surface-variant flex p-1 transition-colors disabled:opacity-45"
         >
           <span className="material-symbols-outlined text-[12px]">close</span>
         </button>
@@ -152,17 +155,18 @@ export default function RightPanel() {
   }, [])
 
   function handleMoodChange(newMood: number | null, label: string | null) {
+    if (metadata?.canProcessMood === false) return
     metadata?.onMoodChange(newMood, label)
   }
 
   function handleAddScriptureRef(ref: ScriptureRef) {
-    if (!metadata) return
+    if (!metadata || metadata.canProcessReligion === false) return
     metadata.onScriptureRefsChange([...metadata.scriptureRefs, ref])
     setShowScriptureInput(false)
   }
 
   function handleRemoveScriptureRef(passageId: string) {
-    if (!metadata) return
+    if (!metadata || metadata.canProcessReligion === false) return
     metadata.onScriptureRefsChange(metadata.scriptureRefs.filter((r) => r.passageId !== passageId))
   }
 
@@ -225,11 +229,17 @@ export default function RightPanel() {
         {isEditorActive && metadata && (
           <>
             <Section label="Mood">
+              {metadata.canProcessMood === false && (
+                <p className="text-on-surface-variant/50 mb-3 text-xs leading-relaxed">
+                  Mood fields are off until you give consent in Settings.
+                </p>
+              )}
               <MoodPicker
                 value={metadata.mood}
                 label={metadata.moodLabel}
                 onChange={handleMoodChange}
                 variant="dropdown"
+                disabled={metadata.canProcessMood === false}
               />
             </Section>
 
@@ -237,6 +247,11 @@ export default function RightPanel() {
               label={metadata.scriptureRefs.length === 1 ? 'Scripture' : 'Scriptures'}
               count={metadata.scriptureRefs.length}
             >
+              {metadata.canProcessReligion === false && (
+                <p className="text-on-surface-variant/50 mb-3 text-xs leading-relaxed">
+                  Scripture references are off until you give consent in Settings.
+                </p>
+              )}
               <div className="flex flex-col gap-2">
                 {metadata.scriptureRefs.map((ref) => (
                   <ScriptureExpandableCard
@@ -244,9 +259,10 @@ export default function RightPanel() {
                     ref_={ref}
                     translation={metadata.scriptureTranslation}
                     onRemove={() => handleRemoveScriptureRef(ref.passageId)}
+                    canRemove={metadata.canProcessReligion !== false}
                   />
                 ))}
-                {showScriptureInput ? (
+                {showScriptureInput && metadata.canProcessReligion !== false ? (
                   <div className="bg-surface-container-lowest border-outline-variant/15 rounded-xl border px-3 py-2">
                     <ScriptureRefInput
                       translation={metadata.scriptureTranslation}
@@ -257,8 +273,9 @@ export default function RightPanel() {
                   <button
                     type="button"
                     onClick={() => setShowScriptureInput(true)}
+                    disabled={metadata.canProcessReligion === false}
                     aria-label="Add scripture reference"
-                    className="border-outline-variant/30 text-on-surface-variant/40 hover:border-primary/40 hover:text-primary flex w-full items-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-xs font-medium transition-colors"
+                    className="border-outline-variant/30 text-on-surface-variant/40 hover:border-primary/40 hover:text-primary flex w-full items-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-xs font-medium transition-colors disabled:opacity-45"
                   >
                     <span className="material-symbols-outlined text-[13px]">add</span>
                     Add scripture

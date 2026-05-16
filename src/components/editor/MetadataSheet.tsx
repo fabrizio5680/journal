@@ -27,6 +27,8 @@ interface MetadataSheetProps {
   onNewTag: (tag: string) => void
   scriptureRefs: ScriptureRef[]
   scriptureTranslation: 'NLT' | 'MSG' | 'ESV'
+  canProcessMood?: boolean
+  canProcessReligion?: boolean
   onScriptureRefsChange: (refs: ScriptureRef[]) => void
 }
 
@@ -67,6 +69,8 @@ export default function MetadataSheet({
   onNewTag,
   scriptureRefs,
   scriptureTranslation,
+  canProcessMood = true,
+  canProcessReligion = true,
   onScriptureRefsChange,
 }: MetadataSheetProps) {
   const [showScriptureInput, setShowScriptureInput] = useState(false)
@@ -209,6 +213,11 @@ export default function MetadataSheet({
         <div className="overflow-y-auto" style={{ maxHeight: 'calc(85vh - 80px)' }}>
           <div ref={moodSectionRef}>
             <SheetSection label="Mood">
+              {!canProcessMood && (
+                <p className="text-on-surface-variant/60 mb-3 text-xs leading-relaxed">
+                  Mood fields are off until you give consent in Settings.
+                </p>
+              )}
               <div className="grid grid-cols-4 gap-2">
                 {MOODS.map((m) => {
                   const isSelected = moodLabel !== null ? m.label === moodLabel : mood === m.value
@@ -217,10 +226,11 @@ export default function MetadataSheet({
                       key={m.label}
                       type="button"
                       onClick={() => handleMoodClick(m.value, m.label)}
+                      disabled={!canProcessMood}
                       className={
                         isSelected
-                          ? 'border-primary/50 bg-surface flex flex-col items-center gap-1 rounded-xl border px-2 py-3'
-                          : 'bg-surface-container flex flex-col items-center gap-1 rounded-xl px-2 py-3'
+                          ? 'border-primary/50 bg-surface flex flex-col items-center gap-1 rounded-xl border px-2 py-3 disabled:opacity-45'
+                          : 'bg-surface-container flex flex-col items-center gap-1 rounded-xl px-2 py-3 disabled:opacity-45'
                       }
                     >
                       <span className="text-2xl">{m.emoji}</span>
@@ -238,6 +248,11 @@ export default function MetadataSheet({
 
           <div ref={scriptureSectionRef}>
             <SheetSection label="Scripture" count={scriptureRefs.length}>
+              {!canProcessReligion && (
+                <p className="text-on-surface-variant/60 mb-3 text-xs leading-relaxed">
+                  Scripture references are off until you give consent in Settings.
+                </p>
+              )}
               <div className="flex flex-col gap-2">
                 {scriptureRefs.map((ref) => (
                   <div
@@ -253,15 +268,16 @@ export default function MetadataSheet({
                     <button
                       type="button"
                       onClick={() => handleRemoveScripture(ref.passageId)}
+                      disabled={!canProcessReligion}
                       aria-label={`Remove ${ref.reference}`}
-                      className="text-on-surface-variant hover:text-on-surface transition-colors"
+                      className="text-on-surface-variant hover:text-on-surface transition-colors disabled:opacity-45"
                     >
                       <span className="material-symbols-outlined text-[16px]">close</span>
                     </button>
                   </div>
                 ))}
 
-                {showScriptureInput ? (
+                {showScriptureInput && canProcessReligion ? (
                   <div className="bg-surface-container rounded-xl px-3">
                     <ScriptureRefInput
                       translation={scriptureTranslation}
@@ -272,6 +288,7 @@ export default function MetadataSheet({
                   <button
                     type="button"
                     onClick={() => setShowScriptureInput(true)}
+                    disabled={!canProcessReligion}
                     className="border-outline-variant/40 text-on-surface-variant hover:bg-surface-container flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-3 text-xs font-medium transition-colors"
                   >
                     <span className="material-symbols-outlined text-[16px]">add</span>

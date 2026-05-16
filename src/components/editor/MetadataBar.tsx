@@ -16,6 +16,8 @@ interface MetadataBarProps {
   onNewTag: (tag: string) => void
   scriptureRefs: ScriptureRef[]
   scriptureTranslation: 'NLT' | 'MSG' | 'ESV'
+  canProcessMood?: boolean
+  canProcessReligion?: boolean
   onScriptureRefsChange: (refs: ScriptureRef[]) => void
 }
 
@@ -29,6 +31,8 @@ export default function MetadataBar({
   onNewTag,
   scriptureRefs,
   scriptureTranslation,
+  canProcessMood = true,
+  canProcessReligion = true,
   onScriptureRefsChange,
 }: MetadataBarProps) {
   const { isFocused } = useFocusMode()
@@ -121,6 +125,8 @@ export default function MetadataBar({
         onNewTag={onNewTag}
         scriptureRefs={scriptureRefs}
         scriptureTranslation={scriptureTranslation}
+        canProcessMood={canProcessMood}
+        canProcessReligion={canProcessReligion}
         onScriptureRefsChange={onScriptureRefsChange}
       />
     </div>

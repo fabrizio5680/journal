@@ -7,6 +7,7 @@ import { getToken } from 'firebase/messaging'
 import { auth, db, messagingPromise } from '@/lib/firebase'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
+import { useConsent } from '@/hooks/useConsent'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { EntryRepository } from '@/lib/storage/entryRepository'
 import {
@@ -135,6 +136,7 @@ export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null)
   const navigate = useNavigate()
   const { scriptureTranslation, editorFontSize, updateEditorFontSize } = useUserPreferences()
+  const { canProcessMood, canProcessReligion, saveConsent, withdrawConsent } = useConsent()
 
   const [reminderEnabled, setReminderEnabled] = useState(false)
   const [reminderTime, setReminderTime] = useState('20:00')
@@ -153,6 +155,8 @@ export default function SettingsPage() {
   const [conflictMessage, setConflictMessage] = useState<string | null>(null)
   const [exportStatus, setExportStatus] = useState<'idle' | 'exporting'>('idle')
   const [exportError, setExportError] = useState<string | null>(null)
+  const [consentStatus, setConsentStatus] = useState<'idle' | 'saving'>('idle')
+  const [consentError, setConsentError] = useState<string | null>(null)
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
@@ -428,6 +432,38 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleConsentChange(category: 'mood' | 'religion', enabled: boolean) {
+    setConsentStatus('saving')
+    setConsentError(null)
+    try {
+      await saveConsent({
+        mood: category === 'mood' ? enabled : canProcessMood,
+        religion: category === 'religion' ? enabled : canProcessReligion,
+      })
+    } catch (error) {
+      setConsentError(error instanceof Error ? error.message : 'Could not update consent.')
+    } finally {
+      setConsentStatus('idle')
+    }
+  }
+
+  async function handleWithdrawConsent() {
+    const confirmed = window.confirm(
+      'Withdraw consent for mood and scripture processing? Existing entry data will stay saved, but new mood and scripture writes will be blocked.',
+    )
+    if (!confirmed) return
+
+    setConsentStatus('saving')
+    setConsentError(null)
+    try {
+      await withdrawConsent()
+    } catch (error) {
+      setConsentError(error instanceof Error ? error.message : 'Could not withdraw consent.')
+    } finally {
+      setConsentStatus('idle')
+    }
+  }
+
   async function handleSignOut() {
     await signOut(auth)
     navigate('/login')
@@ -585,6 +621,51 @@ export default function SettingsPage() {
             className="bg-primary text-on-primary rounded-full px-4 py-2 text-xs font-semibold transition-opacity disabled:opacity-50"
           >
             {exportStatus === 'exporting' ? 'Exporting...' : 'Export my data'}
+          </button>
+        </div>
+      </SettingsSection>
+
+      {/* Sensitive data consent */}
+      <SettingsSection>
+        <div className="mb-4 flex items-start gap-3">
+          <span className="material-symbols-outlined text-primary text-[20px]">privacy_tip</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-on-surface text-sm font-medium">Sensitive Data Consent</p>
+            <p className="text-on-surface-variant/60 mt-1 text-xs leading-relaxed">
+              Mood and scripture fields are optional. You can change consent at any time.
+            </p>
+          </div>
+        </div>
+
+        <div className="border-outline-variant/20 space-y-4 border-t pt-4">
+          <SettingsRow icon="mood" label="Mood fields">
+            <Toggle
+              id="consent-mood-toggle"
+              label="Mood fields consent"
+              enabled={canProcessMood}
+              onChange={(enabled) => void handleConsentChange('mood', enabled)}
+            />
+          </SettingsRow>
+          <SettingsRow icon="menu_book" label="Scripture references">
+            <Toggle
+              id="consent-religion-toggle"
+              label="Scripture references consent"
+              enabled={canProcessReligion}
+              onChange={(enabled) => void handleConsentChange('religion', enabled)}
+            />
+          </SettingsRow>
+        </div>
+
+        {consentError && <p className="text-error mt-3 text-xs">{consentError}</p>}
+
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={handleWithdrawConsent}
+            disabled={consentStatus === 'saving' || (!canProcessMood && !canProcessReligion)}
+            className="text-on-surface-variant/60 hover:text-error rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
+          >
+            {consentStatus === 'saving' ? 'Saving...' : 'Withdraw consent'}
           </button>
         </div>
       </SettingsSection>
