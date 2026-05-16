@@ -291,6 +291,7 @@ export default function RightPanel() {
                 <button
                   onClick={isListening ? dictation.onStop : dictation.onStart}
                   aria-label={isListening ? 'Stop dictation' : 'Dictate'}
+                  title="Uses your browser speech recognition. Chrome may process audio with Google."
                   className={`bg-surface-container-lowest text-on-surface-variant border-outline-variant/20 flex h-10 w-10 items-center justify-center rounded-full border shadow-sm transition-all ${
                     isListening
                       ? 'ring-primary/50 text-primary animate-pulse ring-2 ring-offset-2'
@@ -322,6 +323,11 @@ export default function RightPanel() {
                 <span className="text-on-surface-variant/40 text-[11px] tabular-nums">
                   {wordCount} {wordCount === 1 ? 'word' : 'words'}
                 </span>
+                {dictation?.isSupported && (
+                  <span className="text-on-surface-variant/35 text-right text-[10px] leading-tight">
+                    Dictation uses browser speech recognition.
+                  </span>
+                )}
                 {syncStatus}
               </div>
             </div>

@@ -375,19 +375,30 @@ Cloud Functions; FCM, Auth, and Hosting region/transfer specifics need explicit 
 
 #### TASK-13: Storage & cookies section
 
+Status: **Implemented 2026-05-16** in `src/pages/PrivacyPage.tsx`.
+
 In Privacy Policy: list every IndexedDB store, every localStorage key, purpose, persistence.
 
 #### TASK-14: Dictation disclosure
+
+Status: **Implemented 2026-05-16** in `src/pages/PrivacyPage.tsx` and
+`src/components/layout/RightPanel.tsx`.
 
 Privacy Policy paragraph + tooltip near the dictation button: "Voice dictation uses your
 browser's built-in speech recognition. On Chrome, audio is processed by Google's servers."
 
 #### TASK-15: Device fingerprint disclosure
 
+Status: **Implemented 2026-05-16** in `src/pages/PrivacyPage.tsx`.
+
 Mention the per-user/per-browser ID in the policy: local-only, used to label devices in
 conflict-merge prompts, not transmitted as a standalone identifier.
 
 #### TASK-16: Conflict backup visibility
+
+Status: **Implemented 2026-05-16** in `src/pages/SettingsPage.tsx`,
+`src/lib/storage/providers/googleDriveAdapter.ts`, and
+`src/lib/storage/providers/fakeGoogleDriveBackend.ts`.
 
 Settings → Storage: "View Drive conflict backups" or at minimum a "Clear conflict backups"
 button. Calls Drive API to list and remove items under `Quiet Dwelling/conflicts/`.

@@ -125,6 +125,11 @@ The `of … Drive used` suffix is omitted when `driveLimit` is `null`. Fetch
 errors are swallowed with a `console.warn` and the row stays at `—` with no
 user-facing error state.
 
+The section also exposes **"Clear conflict backups"** when Drive is connected.
+It confirms with the user, deletes all files under `Quiet Dwelling/conflicts/`
+through `GoogleDriveAdapter.clearConflictBackups()`, and refreshes the Drive
+usage row after deletion.
+
 ## Conflicts and Remote Updates
 
 On Drive push conflict, `syncCoordinator` calls

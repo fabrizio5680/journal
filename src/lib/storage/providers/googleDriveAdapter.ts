@@ -343,6 +343,30 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
     return { folderBytes, driveUsage, driveLimit }
   }
 
+  async clearConflictBackups(): Promise<number> {
+    if (this.fake) {
+      return this.fake.clearConflictBackups()
+    }
+
+    const connection = this.getConnection()
+    const conflictsFolder = await this.findFile(
+      'conflicts',
+      connection.rootFolderId,
+      FOLDER_MIME_TYPE,
+    )
+    if (!conflictsFolder) return 0
+
+    const files = await this.listAllFilesRecursive(conflictsFolder.id)
+    await Promise.all(
+      files.map((file) =>
+        this.driveFetch<void>(`${DRIVE_API}/files/${file.id}`, {
+          method: 'DELETE',
+        }),
+      ),
+    )
+    return files.length
+  }
+
   private getConnection(): GoogleDriveStoredConnection {
     const connection = getStoredGoogleDriveConnection(this.userId)
     if (!connection?.rootFolderId) {

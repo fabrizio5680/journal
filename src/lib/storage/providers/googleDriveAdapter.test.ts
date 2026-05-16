@@ -603,4 +603,66 @@ describe('GoogleDriveAdapter', () => {
       })
     })
   })
+
+  describe('clearConflictBackups', () => {
+    type WinFake = typeof window & { __fakeDriveBackend?: FakeGoogleDriveBackend }
+
+    afterEach(() => {
+      delete (window as WinFake).__fakeDriveBackend
+    })
+
+    it('removes conflict backups from the fake backend and returns the count', async () => {
+      const fake = new FakeGoogleDriveBackend()
+      ;(window as WinFake).__fakeDriveBackend = fake
+      fake.saveConflictBackup(makeEntry(), '2026-04-13', 'rev-old')
+      fake.saveConflictBackup(makeEntry(), '2026-04-13', 'rev-new')
+
+      const result = await new GoogleDriveAdapter(USER_ID).clearConflictBackups()
+
+      expect(result).toBe(2)
+      expect(fake.getConflictBackups()).toHaveLength(0)
+    })
+
+    it('deletes all files under the Drive conflicts folder', async () => {
+      const fetchMock = mockFetchSequence([
+        jsonResponse({ files: [{ id: 'conflicts-folder', name: 'conflicts' }] }),
+        jsonResponse({
+          files: [
+            {
+              id: 'conflict-1',
+              name: '2026-04-13.rev-a.device.json',
+              mimeType: 'application/json',
+            },
+            {
+              id: 'conflict-2',
+              name: '2026-04-14.rev-b.device.json',
+              mimeType: 'application/json',
+            },
+          ],
+        }),
+        new Response(null, { status: 204 }),
+        new Response(null, { status: 204 }),
+      ])
+
+      const result = await new GoogleDriveAdapter(USER_ID).clearConflictBackups()
+
+      expect(result).toBe(2)
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://www.googleapis.com/drive/v3/files/conflict-1',
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://www.googleapis.com/drive/v3/files/conflict-2',
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+    })
+
+    it('returns zero when the Drive conflicts folder does not exist', async () => {
+      mockFetchSequence([jsonResponse({ files: [] })])
+
+      const result = await new GoogleDriveAdapter(USER_ID).clearConflictBackups()
+
+      expect(result).toBe(0)
+    })
+  })
 })

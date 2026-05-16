@@ -125,6 +125,12 @@ export class FakeGoogleDriveBackend {
     return [...this.conflictBackups]
   }
 
+  clearConflictBackups(): number {
+    const count = this.conflictBackups.length
+    this.conflictBackups = []
+    return count
+  }
+
   hasConflictBackupFor(date: string): boolean {
     return this.conflictBackups.some((b) => b.fileName.startsWith(date))
   }

@@ -159,6 +159,23 @@ export default function PrivacyPage() {
               scripture cache, and reminder tokens. We do not use non-essential cookie banners,
               analytics cookies, or ad tracking.
             </p>
+            <p>
+              IndexedDB stores your journal entries, local metadata, Drive sync state, and a device
+              identity record. localStorage stores editor preferences, spellcheck preference,
+              reminder tokens, cached scripture passages, Google Drive connection metadata, and this
+              device&apos;s Drive disconnect flag. These items persist until you clear browser data,
+              delete local app data, or the app removes them.
+            </p>
+            <p>
+              The device identity is generated from your account, browser characteristics, and a
+              random install salt. It stays on this device and is used to label devices during Drive
+              conflict handling, not as an analytics or advertising identifier.
+            </p>
+            <p>
+              If you use dictation, Quiet Dwelling uses your browser&apos;s built-in speech
+              recognition. On Chrome, speech recognition may send audio to Google&apos;s servers for
+              processing.
+            </p>
           </Section>
 
           <Section title="Your Rights">

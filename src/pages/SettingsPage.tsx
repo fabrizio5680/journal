@@ -149,6 +149,8 @@ export default function SettingsPage() {
   const [storageAction, setStorageAction] = useState<'connect' | 'disconnect' | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
   const [driveUsage, setDriveUsage] = useState<DriveUsage | null>(null)
+  const [conflictAction, setConflictAction] = useState<'clear' | null>(null)
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null)
   const [exportStatus, setExportStatus] = useState<'idle' | 'exporting'>('idle')
   const [exportError, setExportError] = useState<string | null>(null)
 
@@ -356,6 +358,35 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleClearConflictBackups() {
+    if (!user) return
+    const confirmed = window.confirm(
+      'Delete all Quiet Dwelling conflict backup files from your Google Drive? Your main journal entries will not be deleted.',
+    )
+    if (!confirmed) return
+
+    setStorageError(null)
+    setConflictMessage(null)
+    setConflictAction('clear')
+    try {
+      const adapter = new GoogleDriveAdapter(user.uid)
+      const deletedCount = await adapter.clearConflictBackups()
+      setConflictMessage(
+        deletedCount === 1
+          ? 'Deleted 1 conflict backup from Google Drive.'
+          : `Deleted ${deletedCount} conflict backups from Google Drive.`,
+      )
+      const usage = await adapter.getStorageUsage()
+      setDriveUsage(usage)
+    } catch (error) {
+      setStorageError(
+        error instanceof Error ? error.message : 'Could not clear Drive conflict backups.',
+      )
+    } finally {
+      setConflictAction(null)
+    }
+  }
+
   async function handleExportData() {
     if (!user) return
     setExportStatus('exporting')
@@ -478,9 +509,23 @@ export default function SettingsPage() {
           </p>
         )}
 
+        {conflictMessage && (
+          <p className="text-primary mt-3 text-xs font-medium">{conflictMessage}</p>
+        )}
+
         {storageError && <p className="text-error mt-3 text-xs">{storageError}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
+          {storageState.status === 'connected' && (
+            <button
+              type="button"
+              onClick={handleClearConflictBackups}
+              disabled={storageAction !== null || conflictAction !== null}
+              className="text-on-surface-variant/60 hover:text-error rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              {conflictAction === 'clear' ? 'Clearing...' : 'Clear conflict backups'}
+            </button>
+          )}
           {storageState.status === 'connected' && (
             <button
               type="button"

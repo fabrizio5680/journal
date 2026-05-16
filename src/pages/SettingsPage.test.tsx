@@ -21,12 +21,14 @@ const {
   mockConnectGoogleDriveProvider,
   mockDisconnectGoogleDriveProvider,
   mockBackfillGoogleDriveMetadata,
+  mockClearConflictBackups,
   mockGetStorageUsage,
   mockListEntries,
 } = vi.hoisted(() => ({
   mockConnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
   mockDisconnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
   mockBackfillGoogleDriveMetadata: vi.fn().mockResolvedValue(undefined),
+  mockClearConflictBackups: vi.fn(),
   mockGetStorageUsage: vi.fn(),
   mockListEntries: vi.fn(),
 }))
@@ -104,6 +106,9 @@ vi.mock('@/lib/storage/providers/googleDriveAdapter', () => ({
     getStorageUsage(...args: unknown[]) {
       return mockGetStorageUsage(...args)
     }
+    clearConflictBackups(...args: unknown[]) {
+      return mockClearConflictBackups(...args)
+    }
   },
 }))
 
@@ -174,6 +179,7 @@ describe('SettingsPage', () => {
     mockConnectGoogleDriveProvider.mockResolvedValue(undefined)
     mockDisconnectGoogleDriveProvider.mockResolvedValue(undefined)
     mockBackfillGoogleDriveMetadata.mockResolvedValue(undefined)
+    mockClearConflictBackups.mockResolvedValue(2)
     mockGetStorageUsage.mockResolvedValue({
       folderBytes: 1_258_291, // ≈ 1.2 MB
       driveUsage: 4_617_089_843, // ≈ 4.3 GB
@@ -676,6 +682,48 @@ describe('SettingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /sync from drive/i }))
 
     await screen.findByText('Drive sync failed')
+  })
+
+  it('clears Google Drive conflict backups after confirmation', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: false,
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'test@example.com',
+      storageRootFolderId: 'drive-root',
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: /clear conflict backups/i }))
+
+    await waitFor(() => {
+      expect(mockClearConflictBackups).toHaveBeenCalled()
+    })
+    expect(await screen.findByText(/Deleted 2 conflict backups/i)).toBeInTheDocument()
+    expect(mockGetStorageUsage).toHaveBeenCalled()
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/conflict backup files/i))
+
+    confirmSpy.mockRestore()
+  })
+
+  it('does not clear conflict backups when the confirmation is cancelled', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: false,
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'test@example.com',
+      storageRootFolderId: 'drive-root',
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: /clear conflict backups/i }))
+
+    expect(mockClearConflictBackups).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
   })
 
   describe('Drive usage row', () => {
