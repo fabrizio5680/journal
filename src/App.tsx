@@ -12,6 +12,9 @@ import AppShell from '@/components/layout/AppShell'
 import UpdateBanner from '@/components/ui/UpdateBanner'
 
 const LoginPage = lazy(() => import('@/components/auth/LoginPage'))
+const PrivacyPage = lazy(() => import('@/pages/PrivacyPage'))
+const TermsPage = lazy(() => import('@/pages/TermsPage'))
+const AccountDeletionPage = lazy(() => import('@/pages/AccountDeletionPage'))
 const TodayPage = lazy(() => import('@/pages/TodayPage'))
 const EntryPage = lazy(() => import('@/pages/EntryPage'))
 const HistoryPage = lazy(() => import('@/pages/HistoryPage'))
@@ -40,6 +43,9 @@ export default function App() {
       <Suspense fallback={null}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/account-deletion" element={<AccountDeletionPage />} />
 
           {/* All authenticated routes share the AppShell layout */}
           <Route

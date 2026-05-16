@@ -25,6 +25,14 @@ repeating them.
 - Firebase project: `journal-manna`
 - Hosting: `journal-manna.web.app`
 
+## Legal Routes
+
+- Public legal pages live outside auth and `AppShell`: `/privacy`, `/terms`,
+  and `/account-deletion`.
+- Keep compliance copy aligned with `GDPR.md`; avoid adding legal claims that
+  drift from the current local-first/Google Drive storage model.
+- Google Play listing/compliance flows use `/privacy` and `/account-deletion`.
+
 ## Stack
 
 - React 19, Vite 8, TypeScript 6
@@ -67,6 +75,7 @@ src/components/search/    local-first search UI
 src/context/              save status, focus mode, preferences, editor controls
 src/hooks/                entry, search, insights, dictation, sync hooks
 src/lib/storage/          repository, cache, Drive sync, merge, delta polling
+src/pages/                app pages, including public legal pages
 functions/src/index.ts    reminders and Google Drive token broker
 docs/                     durable architecture, data model, design, testing notes
 e2e/                      Playwright specs

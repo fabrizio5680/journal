@@ -412,6 +412,25 @@ describe('SettingsPage', () => {
     expect(screen.getByText('Editor Text Size (this device)')).toBeInTheDocument()
   })
 
+  it('renders public legal links', () => {
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false })
+
+    expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute(
+      'href',
+      '/privacy',
+    )
+    expect(screen.getByRole('link', { name: /terms of service/i })).toHaveAttribute(
+      'href',
+      '/terms',
+    )
+    expect(screen.getByRole('link', { name: /account deletion/i })).toHaveAttribute(
+      'href',
+      '/account-deletion',
+    )
+  })
+
   it('renders disconnected Google Drive storage state', () => {
     renderPage()
     fireAuth()

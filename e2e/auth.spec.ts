@@ -53,6 +53,30 @@ test.describe('Auth redirects', () => {
     await expect(page).toHaveURL(/\/login/)
   })
 
+  test('login page legal links navigate to public legal routes', async ({ page }) => {
+    await page.goto('/login')
+
+    await expect(
+      page.getByText(/Your entries stay on this device and your own Google Drive/i),
+    ).toBeVisible()
+
+    await page.getByRole('link', { name: 'Privacy' }).click()
+    await expect(page).toHaveURL(/\/privacy/)
+    await expect(page.getByRole('heading', { name: /Your journal is local-first/i })).toBeVisible()
+
+    await page.goto('/login')
+    await page.getByRole('link', { name: 'Terms' }).click()
+    await expect(page).toHaveURL(/\/terms/)
+    await expect(
+      page.getByRole('heading', { name: /Terms for using Quiet Dwelling/i }),
+    ).toBeVisible()
+
+    await page.goto('/login')
+    await page.getByRole('link', { name: 'Account deletion' }).click()
+    await expect(page).toHaveURL(/\/account-deletion/)
+    await expect(page.getByRole('heading', { name: /How to request deletion/i })).toBeVisible()
+  })
+
   test('authenticated users visiting /login are redirected to /', async ({ page }) => {
     const email = 'test@example.com'
     const password = 'password123'

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -140,9 +140,25 @@ export default function LoginPage() {
         </div>
 
         {/* Bottom: Privacy */}
-        <p className="text-on-surface-variant/40 text-[10px] tracking-[0.2em] uppercase">
-          Private &amp; encrypted — only you can read your entries
-        </p>
+        <div className="space-y-3">
+          <p className="text-on-surface-variant/45 text-[10px] tracking-[0.2em] uppercase">
+            Your entries stay on this device and your own Google Drive
+          </p>
+          <nav
+            aria-label="Legal links"
+            className="text-on-surface-variant/50 flex flex-wrap gap-x-4 gap-y-2 text-[11px]"
+          >
+            <Link to="/privacy" className="hover:text-primary transition-colors">
+              Privacy
+            </Link>
+            <Link to="/terms" className="hover:text-primary transition-colors">
+              Terms
+            </Link>
+            <Link to="/account-deletion" className="hover:text-primary transition-colors">
+              Account deletion
+            </Link>
+          </nav>
+        </div>
       </div>
 
       {/* Right panel — desktop only */}

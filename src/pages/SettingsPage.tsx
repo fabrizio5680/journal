@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { doc, updateDoc, getDoc, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { signOut, onAuthStateChanged, type User } from 'firebase/auth'
 import { getToken } from 'firebase/messaging'
@@ -556,6 +556,30 @@ export default function SettingsPage() {
             ))}
           </div>
         </SettingsRow>
+      </SettingsSection>
+
+      {/* Legal */}
+      <SettingsSection>
+        <div className="mb-4 flex items-center gap-3">
+          <span className="material-symbols-outlined text-primary text-[20px]">policy</span>
+          <span className="text-on-surface text-sm font-medium">Legal</span>
+        </div>
+        <div className="border-outline-variant/20 divide-outline-variant/20 divide-y border-t">
+          {[
+            ['Privacy Policy', '/privacy'],
+            ['Terms of Service', '/terms'],
+            ['Account deletion', '/account-deletion'],
+          ].map(([label, to]) => (
+            <Link
+              key={to}
+              to={to}
+              className="text-on-surface-variant/70 hover:text-primary flex items-center justify-between py-3 text-sm transition-colors"
+            >
+              <span>{label}</span>
+              <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+            </Link>
+          ))}
+        </div>
       </SettingsSection>
 
       {/* Sign out */}

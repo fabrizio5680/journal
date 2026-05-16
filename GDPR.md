@@ -620,5 +620,211 @@ Minimum sections, in this order:
 
 ---
 
+## 12. Gap Addendum - Google Play TWA + Worldwide Launch
+
+Reviewed against the planned paid Android TWA distribution and worldwide market scope on
+2026-05-15. The core GDPR plan is directionally strong, but the launch plan still needs these
+extra controls before Play Store submission.
+
+### 12.1 New launch-blocking gaps
+
+| #   | Severity | Article / Policy                      | Gap                                                                                                                                                                                                            | Required action                                                                                                                                                                                                                                                                                     |
+| --- | -------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1  | High     | Google Play User Data policy; Art. 13 | **No Play Data safety mapping exists.** The privacy policy outline is not enough; Play requires a clear, accurate Data safety section consistent with the policy and in-app disclosures.                       | Add `docs/google-play-data-safety.md` mapping each data type to: collected/shared, purpose, optional/required, ephemeral/transmitted, encrypted in transit, and deletion support. Include Firebase Auth profile, FCM token, Drive OAuth metadata, purchase tokens, and local/Drive journal content. |
+| G2  | High     | Google Play account deletion; Art. 17 | **Account deletion needs both in-app and public web request paths.** TASK-4 covers in-app deletion but not the Play Console web URL requirement.                                                               | Add `/account-deletion` public route explaining deletion steps, what is deleted, what remains in the user's Drive unless chosen, and a fallback request channel. Enter this URL in Play Console Data safety.                                                                                        |
+| G3  | High     | Google Play disclosure; Art. 7, 9, 13 | **Special-category consent modal must also satisfy Play prominent disclosure rules.** It must be shown before sensitive data access, describe data and use plainly, and require affirmative action.            | Amend TASK-3: consent copy must say the app stores/syncs mood and scripture/religious journal data to IndexedDB and, if enabled, the user's Google Drive to provide journaling and sync. Reject back/home/tap-away as consent.                                                                      |
+| G4  | High     | Google Play target audience; Art. 8   | **Play target-age declaration is not documented.** The app is 16+, but Play Console requires target audience selections, and store assets must not imply child-directed use.                                   | Add `docs/play-store-submission.md`: target audience 16+/older age bands only, not designed for children, no ads, privacy policy present, reviewer app-access instructions. Keep screenshots/copy mature and not child-directed.                                                                    |
+| G5  | Medium   | Art. 30, 44-49; worldwide privacy     | **Worldwide launch is broader than GDPR + California.** Brazil, Canada, UK, Australia, Japan, India, South Korea, and other markets may require local notices, contacts, transfer language, or consumer terms. | Add a global market matrix before launch. Treat GDPR as baseline, then add short local supplements for high-priority markets. Do not claim global compliance without market-by-market legal review.                                                                                                 |
+| G6  | Medium   | Art. 5(1)(c), 13; Play payments       | **Purchase-token retention is underspecified.** TASK-17 adds purchase data but no retention/minimisation rule.                                                                                                 | Store only the minimum entitlement proof needed: product ID, purchase token, source, status, relevant order/obfuscated account ID if required, timestamps. Define retention after refund/revocation/account deletion.                                                                               |
+| G7  | Medium   | Art. 12, 15-22                        | **DSR operational SLA is missing.** Rights are listed, but the team needs an internal response procedure.                                                                                                      | Add `docs/dsr-procedure.md`: intake channel, identity verification, one-month GDPR response clock, extension criteria, export/deletion steps, refusal/escalation template, and log of completed requests.                                                                                           |
+| G8  | Medium   | Art. 32; mobile/TWA transparency      | **Android/TWA wrapper data surface is not inventoried.** The doc covers the web app, but Play reviewers will evaluate the Android package too.                                                                 | Record whether the TWA uses native permissions, package identifiers, Digital Asset Links, Play Integrity, billing library, push notifications, crash reporting, or Android IDs. Keep native permissions to the minimum.                                                                             |
+
+### 12.2 Amend existing tasks
+
+- **TASK-1 Privacy notice**: include the Play Store app name and developer name exactly as shown
+  in the listing. Add a plain "Data deletion" section matching `/account-deletion`.
+- **TASK-3 Special-category consent**: split the UX into explicit checkboxes for religion
+  (`scriptureRefs`) and mood/emotional state, with separate withdrawal toggles. Keep the consent
+  record granular enough to prove what the user accepted (Art. 7(1)).
+- **TASK-4 Account deletion**: after deletion, return a server-generated deletion receipt ID or
+  timestamp. This helps support Play review, user support, and accountability (Art. 5(2)).
+- **TASK-7 Retention**: add purchase entitlement retention, deletion request logs, support emails,
+  Play RTDN/Pub/Sub logs, and transactional email logs.
+- **TASK-9 RoPA**: add rows for Play Billing entitlement verification, RTDN handling, support
+  requests, deletion web requests, policy/ToS acceptance, and age attestation.
+- **TASK-11 DPIA**: explicitly assess whether the app could be used by vulnerable users for
+  mental-health journaling. The app is not a medical device, but mood tracking plus religious
+  reflection is sensitive enough to document safeguards.
+- **TASK-17 Billing**: do not add alternate payment links inside the Android app unless enrolled
+  in a Google-supported regional alternative billing program. Google Play Billing remains the
+  default for in-app digital goods.
+- **TASK-18 Email**: choose a provider before drafting the policy. If none is chosen, inactive
+  account deletion cannot safely launch because warning emails and breach notices lack a channel.
+
+### 12.3 New documents to add
+
+| Document                          | Purpose                                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `docs/google-play-data-safety.md` | Source of truth for Play Console Data safety answers and privacy-policy consistency checks.       |
+| `docs/play-store-submission.md`   | Target audience, ads declaration, app-access reviewer notes, TWA/native permissions, screenshots. |
+| `docs/dsr-procedure.md`           | Internal procedure for access, deletion, portability, rectification, objection, and restriction.  |
+| `docs/global-market-matrix.md`    | Market-by-market privacy/consumer-law deltas and launch status.                                   |
+
+### 12.4 Recommended launch gate
+
+Do not submit the paid Android TWA to Google Play until these are complete:
+
+1. `/privacy`, `/terms`, and `/account-deletion` are live on public, non-geofenced HTML URLs.
+2. In-app privacy, terms, sensitive-data consent, age attestation, and account deletion are implemented.
+3. Play Data safety answers are drafted from `docs/google-play-data-safety.md` and checked against
+   the live privacy policy.
+4. Android/TWA package inventory confirms no unexpected native permissions, SDKs, analytics, or
+   identifiers.
+5. DPIA, RoPA, retention policy, breach response, and DSR procedure are present and internally consistent.
+6. Google DPA/transfer position, email provider DPA, and Google Play Billing data flow are recorded.
+
+---
+
+## 13. First Release Market Plan - IE, US, UK
+
+Goal: launch quickly in English-speaking markets without claiming global availability before the
+market-by-market matrix is complete. Recommended first wave is:
+
+1. **Ireland** - home/controller jurisdiction; GDPR/DPC baseline.
+2. **United States** - practical English-speaking market with a short US/California notice.
+3. **United Kingdom** - add after UK-specific fee/representative checks are resolved.
+
+Do not use "available worldwide" in the listing or marketing copy for the first release. Use
+"available in selected countries" until `docs/global-market-matrix.md` is complete and reviewed.
+
+### 13.1 Cross-market implementation checklist
+
+These items must be complete before enabling any of Ireland, US, or UK in Google Play:
+
+- Public, non-login-gated routes:
+  - `/privacy`
+  - `/terms`
+  - `/account-deletion`
+  - `/support` or a clearly listed support email
+- App flows:
+  - Age gate: "I am 16 or older" before account use.
+  - Privacy Policy + Terms acceptance with version and timestamp.
+  - Explicit Art. 9 consent for scripture/religious refs and mood/emotional-state data, with
+    granular record and withdrawal controls.
+  - Account deletion in Settings, plus public web deletion instructions.
+  - Data export in Settings.
+  - Consent withdrawal in Settings.
+  - Login claim changed from "Private & encrypted" to an accurate local-first statement.
+- Operational docs:
+  - `docs/google-play-data-safety.md`
+  - `docs/play-store-submission.md`
+  - `docs/retention.md`
+  - `docs/ropa.md`
+  - `docs/dpia.md`
+  - `docs/breach-response.md`
+  - `docs/dsr-procedure.md`
+- Google Play Console:
+  - Privacy policy URL entered.
+  - Account deletion URL entered.
+  - Data safety answers match the live privacy policy and `docs/google-play-data-safety.md`.
+  - Target audience set to 16+ / older age bands only; app marked not child-directed.
+  - No ads declared.
+  - Paid app / Google Play Billing configured; no alternate payment links in the Android app
+    unless enrolled in an approved regional alternative-billing program.
+  - Reviewer notes explain Google Sign-In, TWA behavior, and any test account/reviewer path.
+  - Android/TWA inventory confirms no unexpected native permissions, SDKs, analytics, crash
+    reporting, advertising IDs, or Android identifiers.
+
+### 13.2 Ireland release requirements
+
+Status: **best first launch market**, because the controller is in Ireland and the existing plan
+already uses the Irish DPC as lead supervisory authority.
+
+Implementation requirements:
+
+- Privacy notice names:
+  - Fabrizio Bottaro, sole trader, Republic of Ireland.
+  - `privacy@thequietdwelling.com`.
+  - Irish Data Protection Commission as lead supervisory authority.
+- Privacy Policy covers all Art. 13/14 information: purposes, lawful bases, recipients, transfers,
+  retention, rights, complaint route, consent withdrawal, and account deletion.
+- RoPA covers all processing activities, including local-first journaling, Firebase metadata,
+  Google Drive sync, Play Billing entitlement verification, FCM reminders, support/deletion
+  requests, age attestation, and policy/ToS acceptance.
+- DPIA is completed because scripture refs and mood may involve Art. 9 special-category data.
+- Breach procedure includes 72-hour supervisory-authority assessment path under Art. 33 and user
+  notification threshold under Art. 34.
+- Cookie/storage position is documented: no banner if storage is strictly necessary, but the
+  Privacy Policy and RoPA must list IndexedDB/localStorage/FCM token purposes.
+
+### 13.3 United States release requirements
+
+Status: **good early market** if the app stays 16+, no ads, no analytics, and no health/therapy
+claims.
+
+Implementation requirements:
+
+- Add a short US privacy section to `/privacy`:
+  - "We do not sell or share personal information."
+  - "We do not use targeted advertising."
+  - "We do not run analytics."
+  - California residents can use the same access, deletion, correction, and portability contact
+    path as GDPR users.
+- Avoid marketing claims that imply:
+  - medical, therapy, diagnostic, or mental-health treatment use;
+  - guaranteed confidentiality beyond the actual local/Google Drive storage design;
+  - end-to-end encryption.
+- COPPA posture:
+  - 16+ only.
+  - App listing, screenshots, copy, and visual style must not be child-directed.
+  - Do not select children/family target categories in Play Console.
+- Payment terms:
+  - Android purchases/refunds handled by Google Play.
+  - Quiet Dwelling stores only minimum entitlement metadata and deletes it on account deletion
+    unless retention is required for fraud/accounting records.
+- California/US laws:
+  - Record in `docs/global-market-matrix.md` that CCPA/CPRA is monitored but likely not fully
+    triggered at small scale unless revenue/user/data-sale thresholds are met.
+  - Still treat religion, mood, account credentials, and precise identifiers as sensitive data
+    in policy language.
+
+### 13.4 United Kingdom release requirements
+
+Status: **second step after IE/US**, because UK GDPR is close to EU GDPR but has separate
+registration and representative questions after Brexit.
+
+Implementation requirements:
+
+- Privacy notice adds UK-specific language:
+  - UK users can complain to the Information Commissioner's Office (ICO).
+  - UK GDPR and Data Protection Act 2018 references are included where needed.
+- Before enabling UK distribution, resolve and record in `docs/global-market-matrix.md`:
+  - Whether the operator must pay/register for the ICO data protection fee.
+  - Whether an Article 27 UK representative is required because the Ireland-based controller is
+    offering a paid service to UK users and processing potentially special-category data.
+- If counsel/DPO says a UK representative is required:
+  - appoint provider;
+  - add representative name/contact to `/privacy`;
+  - add representative contract/details to RoPA.
+- Terms:
+  - Ireland governing law can remain, but must preserve mandatory UK consumer rights for UK users.
+  - Refunds for Android purchases remain via Google Play policy unless mandatory law requires more.
+
+### 13.5 First-release sequencing
+
+Implementation sequence:
+
+1. Build core legal/product flows: `/privacy`, `/terms`, `/account-deletion`, age gate, policy/ToS
+   acceptance, sensitive-data consent, account deletion, export, withdrawal.
+2. Complete Play Console support docs: Play Data safety, Play Store submission inventory, TWA
+   permissions/SDK inventory.
+3. Complete accountability docs: RoPA, DPIA, retention, breach response, DSR procedure.
+4. Launch **Ireland**.
+5. Launch **United States** after US/California notice and Play Console target-audience checks.
+6. Launch **United Kingdom** after ICO fee and Article 27 representative questions are answered.
+7. Expand to Canada/New Zealand/Australia only after `docs/global-market-matrix.md` is reviewed.
+
+---
+
 _Last reviewed: 2026-05-15_
 _Reviewer: Claude (technical audit) — legal review pending_
