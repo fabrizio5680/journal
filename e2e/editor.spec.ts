@@ -253,6 +253,35 @@ test.describe('Editor', () => {
     await expect(page.getByRole('button', { name: /dictate/i })).toBeVisible({ timeout: 3000 })
   })
 
+  test('FloatingMenu: "Insert time" inserts H2 with locale time and keeps editor focus for follow-up typing', async ({
+    page,
+  }) => {
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 5000 })
+
+    // Focus the editor on an empty paragraph — the FloatingMenu only shows for
+    // empty paragraphs (shouldShow guard in EntryEditor).
+    await editor.click()
+
+    // Click the "Insert time" button surfaced by the FloatingMenu
+    const insertTimeBtn = page.getByRole('button', { name: 'Insert time' })
+    await expect(insertTimeBtn).toBeVisible({ timeout: 5000 })
+    await insertTimeBtn.click()
+
+    // An H2 with a locale time string must now exist inside the editor.
+    // Use a regex tolerant of 24h ("09:14") and 12h ("9:14 AM") formats so
+    // the assertion survives locale shifts across CI environments.
+    const insertedHeading = editor
+      .locator('h2')
+      .filter({ hasText: /^\d{1,2}:\d{2}(\s?(AM|PM))?$/i })
+    await expect(insertedHeading).toBeVisible({ timeout: 3000 })
+
+    // Editor should retain focus — typing more text lands in the paragraph
+    // below the heading.
+    await page.keyboard.type('continued writing')
+    await expect(editor).toContainText('continued writing', { timeout: 3000 })
+  })
+
   test('Scenario 6: ProseMirror scrollMargin keeps cursor above BottomNav when typing', async ({
     page,
   }) => {

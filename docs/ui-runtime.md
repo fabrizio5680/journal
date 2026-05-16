@@ -47,6 +47,11 @@ why charts are empty.
 - Tags are stored without `#` and displayed with `#`. Use `normalizeTag` before
   storing and add the prefix only at render time.
 - `TagInput` dropdown opens upward in the right panel.
+- `EntryEditor` renders a Tiptap `BubbleMenu` for bold/italic on selection and a
+  `FloatingMenu` on empty paragraphs offering an `Insert time` action that
+  inserts a level-2 heading containing the current locale time
+  (`format(new Date(), 'p')`) followed by an empty paragraph, for marking
+  timestamped sections within an entry.
 
 ## Dictation
 
