@@ -336,25 +336,36 @@ in Settings: list what gets written and how to revoke.
 
 #### TASK-8: Breach response procedure (`docs/breach-response.md`)
 
+Status: **Implemented 2026-05-16** in `docs/breach-response.md`.
+
 Detection sources (Firebase Security Rules logs, abnormal Cloud Functions error rates, Google
 Account compromise reports). 72-hour ICO timer. User notification threshold per Art. 34.
 
 #### TASK-9: RoPA (`docs/ropa.md`)
 
+Status: **Implemented 2026-05-16** in `docs/ropa.md`.
+
 One row per processing activity from §3, with Art. 30(1) fields.
 
 #### TASK-10: Sanitize Cloud Function logs
+
+Status: **Implemented 2026-05-16** in `functions/src/index.ts`.
 
 `functions/src/index.ts` — replace `${userDoc.id}` in `console.warn` (lines 396, 401) with
 e.g. `userDoc.id.slice(0, 8) + '…'` or hashed value. Set Cloud Logging retention to 30 days.
 
 #### TASK-11: DPIA (`docs/dpia.md`)
 
+Status: **Implemented 2026-05-16** in `docs/dpia.md`.
+
 Triggered by: large-scale processing of likely special category data (religion + mood);
 emotional-state profiling; minors' use possible (login currently does not gate by age — confirm
 whether a minimum age applies per Art. 8 Member State rule).
 
 #### TASK-12: Confirm Google DPA in project docs
+
+Status: **Partially implemented 2026-05-16** in `docs/ropa.md`; still requires console-level
+verification for `journal-manna`.
 
 Record in `docs/ropa.md` the Firebase services in use and that they are covered under Google
 Cloud's Data Processing Addendum for `journal-manna`. Verify `europe-west2` for Firestore and

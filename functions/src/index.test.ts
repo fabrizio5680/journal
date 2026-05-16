@@ -93,6 +93,7 @@ import {
   handleExchangeGoogleDriveCode,
   handleGetGoogleDriveAccessToken,
   isWithinReminderWindow,
+  logSafeUserId,
 } from './index'
 
 function jsonResponse(body: unknown, status = 200) {
@@ -157,6 +158,17 @@ describe('buildReminderMessage', () => {
     const msg = buildReminderMessage('tok-123', BASE)
     expect(msg.data.icon).toContain(BASE)
     expect(msg.data.link).toContain(BASE)
+  })
+})
+
+describe('logSafeUserId', () => {
+  it('returns a stable short hash instead of the raw Firebase UID', () => {
+    const uid = 'firebase-user-123'
+    const safeId = logSafeUserId(uid)
+
+    expect(safeId).toHaveLength(12)
+    expect(safeId).not.toContain(uid)
+    expect(logSafeUserId(uid)).toBe(safeId)
   })
 })
 

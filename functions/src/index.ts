@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { defineSecret, defineString } from 'firebase-functions/params'
@@ -263,6 +265,10 @@ export function buildReminderMessage(token: string, baseUrl: string) {
   }
 }
 
+export function logSafeUserId(uid: string) {
+  return createHash('sha256').update(uid).digest('hex').slice(0, 12)
+}
+
 export async function handleExchangeGoogleDriveCode(request: {
   auth?: { uid?: string }
   data?: { code?: unknown }
@@ -353,6 +359,7 @@ export const sendDailyReminders = onSchedule(
     const usersSnap = await db.collection('users').where('reminderEnabled', '==', true).get()
 
     const jobs = usersSnap.docs.map(async (userDoc) => {
+      const safeUserId = logSafeUserId(userDoc.id)
       const user = userDoc.data() as {
         reminderTime?: string
         reminderTimezone?: string
@@ -393,12 +400,12 @@ export const sendDailyReminders = onSchedule(
           .doc(userDoc.id)
           .update({ fcmTokens: FieldValue.arrayRemove(...staleTokens) })
         console.warn(
-          `sendDailyReminders: removed ${staleTokens.length} stale token(s) for ${userDoc.id}`,
+          `sendDailyReminders: removed ${staleTokens.length} stale token(s) for user ${safeUserId}`,
         )
       }
 
       console.warn(
-        `sendDailyReminders: sent to ${userDoc.id} (${batchResponse.successCount}/${tokens.length} ok)`,
+        `sendDailyReminders: sent to user ${safeUserId} (${batchResponse.successCount}/${tokens.length} ok)`,
       )
     })
 
