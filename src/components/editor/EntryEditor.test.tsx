@@ -293,5 +293,26 @@ describe('EntryEditor', () => {
       insertTimeBtn.dispatchEvent(evt)
       expect(evt.defaultPrevented).toBe(true)
     })
+
+    it('renders the insert-time button as a standalone circular control without the old toolbar chrome', () => {
+      getJSON.mockReturnValue({ type: 'doc', content: [] })
+      const { getByRole } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+
+      const insertTimeBtn = getByRole('button', { name: 'Insert time' })
+      // Structural contract for the repositioned (left-of-cursor) FloatingMenu button:
+      // it must be a small circular control (h-7 w-7 rounded-full) with no chrome
+      // wrapper. Guards against the old `rounded-xl border ... shadow-xl` toolbar
+      // chrome creeping back into the floating menu.
+      expect(insertTimeBtn.className).toContain('rounded-full')
+      expect(insertTimeBtn.className).toContain('h-7')
+      expect(insertTimeBtn.className).toContain('w-7')
+
+      const parent = insertTimeBtn.parentElement as HTMLElement | null
+      expect(parent).not.toBeNull()
+      const parentClass = parent?.className ?? ''
+      expect(parentClass).not.toContain('rounded-xl')
+      expect(parentClass).not.toContain('border')
+      expect(parentClass).not.toContain('shadow-xl')
+    })
   })
 })

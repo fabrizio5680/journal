@@ -52,6 +52,12 @@ why charts are empty.
   inserts a level-2 heading containing the current locale time
   (`format(new Date(), 'p')`) followed by an empty paragraph, for marking
   timestamped sections within an entry.
+- The `FloatingMenu` is configured with floating-ui `placement: 'left'`,
+  `offset: 12`, and `flip: { fallbackPlacements: ['right'] }`, so the
+  `Insert time` button sits in the desktop left gutter outside the writing zone
+  and flips to the right of the cursor on narrow viewports. The button is a
+  standalone 28px round icon button (`schedule` material symbol) with no
+  surrounding container chrome.
 
 ## Dictation
 

@@ -126,6 +126,11 @@ export default function EntryEditor({
 
       <FloatingMenu
         editor={editor}
+        options={{
+          placement: 'left',
+          offset: 12,
+          flip: { fallbackPlacements: ['right'] },
+        }}
         shouldShow={({ editor, state }) => {
           if (!editor.isEditable) return false
           const { selection } = state
@@ -135,27 +140,28 @@ export default function EntryEditor({
           return parent.type.name === 'paragraph' && parent.content.size === 0
         }}
       >
-        <div className="bg-surface-container-lowest border-outline-variant/15 flex gap-0.5 rounded-xl border p-1 shadow-xl">
-          <BubbleButton
-            onClick={() =>
-              editor
-                .chain()
-                .focus()
-                .insertContent([
-                  {
-                    type: 'heading',
-                    attrs: { level: 2 },
-                    content: [{ type: 'text', text: format(new Date(), 'p') }],
-                  },
-                  { type: 'paragraph' },
-                ])
-                .run()
-            }
-            active={false}
-            label="Insert time"
-            icon="schedule"
-          />
-        </div>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            editor
+              .chain()
+              .focus()
+              .insertContent([
+                {
+                  type: 'heading',
+                  attrs: { level: 2 },
+                  content: [{ type: 'text', text: format(new Date(), 'p') }],
+                },
+                { type: 'paragraph' },
+              ])
+              .run()
+          }}
+          aria-label="Insert time"
+          className="text-on-surface-variant hover:bg-surface-container flex h-7 w-7 items-center justify-center rounded-full transition-colors"
+        >
+          <span className="material-symbols-outlined text-[16px]">schedule</span>
+        </button>
       </FloatingMenu>
 
       <EditorContent editor={editor} />

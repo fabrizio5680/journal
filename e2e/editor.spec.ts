@@ -255,7 +255,7 @@ test.describe('Editor', () => {
 
   test('FloatingMenu: "Insert time" inserts H2 with locale time and keeps editor focus for follow-up typing', async ({
     page,
-  }) => {
+  }, testInfo) => {
     const editor = await getEditorOrSkip(page)
     await expect(editor).toBeVisible({ timeout: 5000 })
 
@@ -266,6 +266,22 @@ test.describe('Editor', () => {
     // Click the "Insert time" button surfaced by the FloatingMenu
     const insertTimeBtn = page.getByRole('button', { name: 'Insert time' })
     await expect(insertTimeBtn).toBeVisible({ timeout: 5000 })
+
+    // Viewport-aware geometry check for the repositioned FloatingMenu.
+    // On the desktop (chromium) project there is room to the left of the
+    // writing column, so the button must sit fully to the LEFT of the editor.
+    // On the mobile-safari project (iPhone 14, 390px wide) there is no left
+    // room, so floating-ui flips it to the RIGHT of the editor.
+    const buttonBox = await insertTimeBtn.boundingBox()
+    const editorBox = await editor.boundingBox()
+    if (buttonBox && editorBox) {
+      if (testInfo.project.name === 'chromium') {
+        expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(editorBox.x + 1)
+      } else if (testInfo.project.name === 'mobile-safari') {
+        expect(buttonBox.x + 1).toBeGreaterThanOrEqual(editorBox.x)
+      }
+    }
+
     await insertTimeBtn.click()
 
     // An H2 with a locale time string must now exist inside the editor.
