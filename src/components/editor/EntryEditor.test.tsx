@@ -18,11 +18,30 @@ vi.mock('@tiptap/react', () => ({
   EditorContent: () => <div data-testid="editor-content" />,
 }))
 
+// Capture the FloatingMenu options so tests can invoke the onUpdate callback
+// against the real wrapper div (forwarded ref) and assert on style mutations.
+const capturedFloatingMenu = vi.hoisted(() => ({
+  onUpdate: undefined as undefined | (() => void),
+}))
+
 vi.mock('@tiptap/react/menus', () => ({
   BubbleMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  FloatingMenu: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="floating-menu">{children}</div>
-  ),
+  FloatingMenu: React.forwardRef<
+    HTMLDivElement,
+    {
+      children: React.ReactNode
+      options?: { onUpdate?: () => void }
+    }
+  >(({ children, options }, ref) => {
+    React.useEffect(() => {
+      capturedFloatingMenu.onUpdate = options?.onUpdate
+    }, [options])
+    return (
+      <div ref={ref} data-testid="floating-menu">
+        {children}
+      </div>
+    )
+  }),
 }))
 
 vi.mock('@tiptap/starter-kit', () => ({
@@ -292,6 +311,99 @@ describe('EntryEditor', () => {
       const evt = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
       insertTimeBtn.dispatchEvent(evt)
       expect(evt.defaultPrevented).toBe(true)
+    })
+
+    describe('mobile right-align (alignFloatingMenuForMobile)', () => {
+      const ORIGINAL_INNER_WIDTH = window.innerWidth
+
+      // Helper to drive window.innerWidth deterministically in JSDOM
+      function setInnerWidth(px: number) {
+        Object.defineProperty(window, 'innerWidth', {
+          configurable: true,
+          writable: true,
+          value: px,
+        })
+      }
+
+      // Helper to stub the floating menu wrapper's offsetWidth — JSDOM reports 0
+      // for everything, so we install a getter for the duration of the test.
+      function stubOffsetWidth(el: HTMLElement, width: number) {
+        Object.defineProperty(el, 'offsetWidth', {
+          configurable: true,
+          get: () => width,
+        })
+      }
+
+      beforeEach(() => {
+        capturedFloatingMenu.onUpdate = undefined
+      })
+
+      afterEach(() => {
+        setInnerWidth(ORIGINAL_INNER_WIDTH)
+      })
+
+      it('right-aligns the FloatingMenu to viewport with 16px gap on narrow screens (<768px)', () => {
+        getJSON.mockReturnValue({ type: 'doc', content: [] })
+        setInnerWidth(375) // iPhone-ish
+
+        const { getByTestId } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+        const wrapper = getByTestId('floating-menu') as HTMLDivElement
+        stubOffsetWidth(wrapper, 40) // approximate width of the schedule button
+
+        expect(capturedFloatingMenu.onUpdate).toBeDefined()
+        capturedFloatingMenu.onUpdate?.()
+
+        // 375 (viewport) - 40 (menu width) - 16 (gap) = 319
+        expect(wrapper.style.left).toBe('319px')
+      })
+
+      it('does not set left when viewport is >=768px (desktop placement preserved)', () => {
+        getJSON.mockReturnValue({ type: 'doc', content: [] })
+        setInnerWidth(1280)
+
+        const { getByTestId } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+        const wrapper = getByTestId('floating-menu') as HTMLDivElement
+        stubOffsetWidth(wrapper, 40)
+
+        expect(capturedFloatingMenu.onUpdate).toBeDefined()
+        capturedFloatingMenu.onUpdate?.()
+
+        // On desktop we must NOT clobber Floating UI's caret-anchored placement.
+        expect(wrapper.style.left).toBe('')
+      })
+
+      it('does not set left exactly at the 768px breakpoint (boundary stays desktop)', () => {
+        getJSON.mockReturnValue({ type: 'doc', content: [] })
+        setInnerWidth(768)
+
+        const { getByTestId } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+        const wrapper = getByTestId('floating-menu') as HTMLDivElement
+        stubOffsetWidth(wrapper, 40)
+
+        capturedFloatingMenu.onUpdate?.()
+
+        expect(wrapper.style.left).toBe('')
+      })
+
+      it('recomputes left when invoked again after viewport resize into mobile range', () => {
+        getJSON.mockReturnValue({ type: 'doc', content: [] })
+        setInnerWidth(1280)
+
+        const { getByTestId } = render(<EntryEditor content={null} onUpdate={vi.fn()} />)
+        const wrapper = getByTestId('floating-menu') as HTMLDivElement
+        stubOffsetWidth(wrapper, 40)
+
+        capturedFloatingMenu.onUpdate?.()
+        expect(wrapper.style.left).toBe('')
+
+        // Simulate a resize down to a phone-width viewport — Floating UI calls
+        // onUpdate again after such layout changes.
+        setInnerWidth(390)
+        capturedFloatingMenu.onUpdate?.()
+
+        // 390 - 40 - 16 = 334
+        expect(wrapper.style.left).toBe('334px')
+      })
     })
 
     it('renders the insert-time button as a standalone circular control without the old toolbar chrome', () => {

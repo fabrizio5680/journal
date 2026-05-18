@@ -298,6 +298,84 @@ test.describe('Editor', () => {
     await expect(editor).toContainText('continued writing', { timeout: 3000 })
   })
 
+  test('FloatingMenu mobile right-align: button right edge sits ~16px from viewport right on narrow viewport', async ({
+    page,
+  }) => {
+    // Force a mobile-width viewport regardless of the playwright project. This
+    // guards the alignFloatingMenuForMobile() helper, which only kicks in when
+    // window.innerWidth < 768.
+    await page.setViewportSize({ width: 375, height: 812 })
+
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 5000 })
+
+    // FloatingMenu only shows for an empty paragraph — click into the editor
+    // to focus a fresh empty paragraph.
+    await editor.click()
+
+    const insertTimeBtn = page.getByRole('button', { name: 'Insert time' })
+    await expect(insertTimeBtn).toBeVisible({ timeout: 5000 })
+
+    // The button's parent is the floating menu wrapper that
+    // alignFloatingMenuForMobile() mutates (style.left). We measure the wrapper,
+    // not the inner button, so any future padding/chrome additions don't break
+    // the assertion. Allow ~2px tolerance for sub-pixel rounding.
+    const wrapperBox = await page.evaluate(() => {
+      const btn = document.querySelector('button[aria-label="Insert time"]')
+      const wrapper = btn?.parentElement
+      if (!wrapper) return null
+      const r = wrapper.getBoundingClientRect()
+      return { x: r.x, width: r.width }
+    })
+
+    expect(wrapperBox).not.toBeNull()
+    const viewport = page.viewportSize()!
+    const rightEdge = (wrapperBox!.x ?? 0) + (wrapperBox!.width ?? 0)
+    const gap = viewport.width - rightEdge
+    expect(gap).toBeGreaterThanOrEqual(14)
+    expect(gap).toBeLessThanOrEqual(18)
+  })
+
+  test('FloatingMenu desktop placement: not right-aligned on >=768px viewport', async ({
+    page,
+  }) => {
+    // Use a comfortably wide desktop viewport so Floating UI keeps its
+    // caret-anchored placement (left of caret, or flipped right if no room).
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    const editor = await getEditorOrSkip(page)
+    await expect(editor).toBeVisible({ timeout: 5000 })
+
+    await editor.click()
+
+    const insertTimeBtn = page.getByRole('button', { name: 'Insert time' })
+    await expect(insertTimeBtn).toBeVisible({ timeout: 5000 })
+
+    // alignFloatingMenuForMobile() must NOT have set inline style.left. We
+    // confirm two complementary signals:
+    //   1. No inline left:<px>px style on the wrapper (Floating UI uses transform).
+    //   2. The wrapper's right edge is NOT pinned to viewport - 16. We require
+    //      a much larger gap (>= 64px) because the editor column is centered
+    //      and the menu sits to its left.
+    const probe = await page.evaluate(() => {
+      const btn = document.querySelector('button[aria-label="Insert time"]')
+      const wrapper = btn?.parentElement as HTMLElement | null
+      if (!wrapper) return null
+      const r = wrapper.getBoundingClientRect()
+      return {
+        inlineLeft: wrapper.style.left,
+        rightEdge: r.x + r.width,
+      }
+    })
+
+    expect(probe).not.toBeNull()
+    expect(probe!.inlineLeft).toBe('')
+
+    const viewport = page.viewportSize()!
+    const gap = viewport.width - probe!.rightEdge
+    expect(gap).toBeGreaterThan(64)
+  })
+
   test('Scenario 6: ProseMirror scrollMargin keeps cursor above BottomNav when typing', async ({
     page,
   }) => {

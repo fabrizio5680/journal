@@ -54,10 +54,12 @@ why charts are empty.
   timestamped sections within an entry.
 - The `FloatingMenu` is configured with floating-ui `placement: 'left'`,
   `offset: 12`, and `flip: { fallbackPlacements: ['right'] }`, so the
-  `Insert time` button sits in the desktop left gutter outside the writing zone
-  and flips to the right of the cursor on narrow viewports. The button is a
-  standalone 28px round icon button (`schedule` material symbol) with no
-  surrounding container chrome.
+  `Insert time` button sits in the desktop left gutter outside the writing zone.
+  On viewports under 768px the menu is repositioned in an `onUpdate` callback
+  to right-align against the viewport edge with a 16px gap while keeping the
+  caret-tracked vertical position, so the button never overlaps the writing
+  zone on mobile. The button is a standalone 28px round icon button
+  (`schedule` material symbol) with no surrounding container chrome.
 
 ## Dictation
 

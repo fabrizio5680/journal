@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
@@ -44,6 +44,19 @@ export default function EntryEditor({
 }: EntryEditorProps) {
   const { editorFontSize } = useUserPreferences()
   const fontSizeClass = FONT_SIZE_CLASS[editorFontSize] ?? FONT_SIZE_CLASS.medium
+  const floatingMenuRef = useRef<HTMLDivElement | null>(null)
+
+  // Mobile (<768px): right-align the FloatingMenu to viewport (16px gap).
+  // Desktop placement/offset/flip stays untouched. Re-runs whenever Floating UI
+  // updates the menu position (caret moves, resize, etc.).
+  const alignFloatingMenuForMobile = () => {
+    const el = floatingMenuRef.current
+    if (!el) return
+    if (typeof window === 'undefined') return
+    if (window.innerWidth >= 768) return
+    const floatingWidth = el.offsetWidth
+    el.style.left = `${window.innerWidth - floatingWidth - 16}px`
+  }
 
   const editor = useEditor({
     extensions: buildExtensions(placeholder ?? DEFAULT_PLACEHOLDER),
@@ -125,11 +138,13 @@ export default function EntryEditor({
       </BubbleMenu>
 
       <FloatingMenu
+        ref={floatingMenuRef}
         editor={editor}
         options={{
           placement: 'left',
           offset: 12,
           flip: { fallbackPlacements: ['right'] },
+          onUpdate: alignFloatingMenuForMobile,
         }}
         shouldShow={({ editor, state }) => {
           if (!editor.isEditable) return false
