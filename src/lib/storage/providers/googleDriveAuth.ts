@@ -542,6 +542,13 @@ export async function getValidGoogleDriveAccessToken(userId: string): Promise<st
 
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>
 
+const DRIVE_DEFAULT_TIMEOUT_MS = 30_000
+const DRIVE_UPLOAD_TIMEOUT_MS = 60_000
+
+function driveTimeoutFor(url: string): number {
+  return url.includes('upload/drive/v3') ? DRIVE_UPLOAD_TIMEOUT_MS : DRIVE_DEFAULT_TIMEOUT_MS
+}
+
 export async function driveApiFetch<T>(
   userId: string,
   url: string,
@@ -549,6 +556,7 @@ export async function driveApiFetch<T>(
 ): Promise<T> {
   const session = openDriveTokenSession(userId)
   const { GoogleDriveError } = await import('./googleDriveTypes')
+  const timeoutMs = driveTimeoutFor(url)
 
   async function runFetch(retry401: boolean): Promise<Response> {
     let accessToken: AccessToken
@@ -559,13 +567,31 @@ export async function driveApiFetch<T>(
       throw new GoogleDriveError('reconnect', 'Google Drive needs to be reconnected.')
     }
 
-    const response = await fetch(url, {
-      ...init,
-      headers: {
-        ...init.headers,
-        Authorization: `Bearer ${accessToken.token}`,
-      },
-    })
+    // Per-attempt timeout: a hanging Drive request would otherwise stall the
+    // sync coordinator's processingUsers flag and block all further sync work.
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    let response: Response
+    try {
+      response = await fetch(url, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          ...init.headers,
+          Authorization: `Bearer ${accessToken.token}`,
+        },
+      })
+    } catch (error) {
+      if (
+        (error instanceof DOMException && error.name === 'AbortError') ||
+        (error instanceof Error && error.name === 'AbortError')
+      ) {
+        throw new GoogleDriveError('retryable', 'Google Drive request timed out.')
+      }
+      throw error
+    } finally {
+      clearTimeout(timer)
+    }
 
     if (response.status === 401 && retry401) {
       session.invalidate('expired-401')

@@ -9,6 +9,8 @@ import { useUserPreferences } from '@/context/UserPreferencesContext'
 import { useEditorControls } from '@/context/EditorControlsContext'
 import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useScriptureRef } from '@/hooks/useScriptureRef'
+import { auth } from '@/lib/firebase'
+import { syncCoordinator } from '@/lib/storage/syncCoordinator'
 import { syncStatusIcon, syncStatusLabel } from '@/lib/storage/syncStatusLabel'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import type { ScriptureRef } from '@/types'
@@ -126,6 +128,7 @@ export default function RightPanel() {
   const { scriptureTranslation } = useUserPreferences()
   const {
     syncStatus: currentSyncStatus,
+    syncError,
     storageProvider,
     storageAccountEmail,
     appAccountEmail,
@@ -191,26 +194,53 @@ export default function RightPanel() {
       </div>
     )
   ) : (
-    <div className="text-on-surface-variant/40 flex items-center gap-1.5 text-[10px]">
-      <span
-        className={clsx(
-          'material-symbols-outlined text-[13px]',
-          isOnline && currentSyncStatus === 'synced' && 'text-primary',
-        )}
-      >
-        {syncStatusIcon(currentSyncStatus, isOnline)}
-      </span>
-      <span>
-        {isOnline
-          ? syncStatusLabel({
-              syncStatus: currentSyncStatus,
-              storageProvider,
-              storageAccountEmail,
-              appAccountEmail,
-            })
-          : 'Offline — changes will sync'}
-      </span>
-    </div>
+    (() => {
+      const statusBody = (
+        <>
+          <span
+            className={clsx(
+              'material-symbols-outlined text-[13px]',
+              isOnline && currentSyncStatus === 'synced' && 'text-primary',
+            )}
+          >
+            {syncStatusIcon(currentSyncStatus, isOnline)}
+          </span>
+          <span>
+            {isOnline
+              ? syncStatusLabel({
+                  syncStatus: currentSyncStatus,
+                  storageProvider,
+                  storageAccountEmail,
+                  appAccountEmail,
+                })
+              : 'Offline — changes will sync'}
+          </span>
+        </>
+      )
+
+      const canRetry = isOnline && currentSyncStatus === 'sync-pending' && !!syncError
+      if (canRetry) {
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              const uid = auth.currentUser?.uid
+              if (uid) syncCoordinator.retryStuck(uid)
+            }}
+            title={syncError}
+            className="text-on-surface-variant/40 hover:text-on-surface-variant flex cursor-pointer items-center gap-1.5 text-[10px] transition-colors hover:opacity-80"
+          >
+            {statusBody}
+          </button>
+        )
+      }
+
+      return (
+        <div className="text-on-surface-variant/40 flex items-center gap-1.5 text-[10px]">
+          {statusBody}
+        </div>
+      )
+    })()
   )
 
   return (

@@ -36,7 +36,7 @@ function EntryEditorView({ date }: { date: string }) {
   const navigate = useNavigate()
   const { entry, isLoading, isDirty, markDirty, save, metadata: entryMetadata } = useEntry(date)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
-  const { setDirty, setLastSaved, setEntrySyncStatus } = useSaveStatus()
+  const { setDirty, setLastSaved, setEntrySyncStatus, setEntrySyncError } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
   const { register, unregister } = useEditorControls()
   const { verse } = useDailyVerse(scriptureTranslation, parseISO(date))
@@ -210,6 +210,10 @@ function EntryEditorView({ date }: { date: string }) {
   useEffect(() => {
     setEntrySyncStatus(entryMetadata?.syncStatus ?? 'saved-local')
   }, [entryMetadata?.syncStatus, setEntrySyncStatus])
+
+  useEffect(() => {
+    setEntrySyncError(entryMetadata?.syncError)
+  }, [entryMetadata?.syncError, setEntrySyncError])
 
   useEffect(() => {
     return () => {

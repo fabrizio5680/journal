@@ -78,7 +78,7 @@ e2e/                      Playwright specs
 - `docs/architecture.md`: durable architecture decisions around entries, auth,
   contexts, notifications, preferences, and scripture.
 - `docs/storage-sync.md`: local-first storage, Google Drive sync, manifests,
-  sync APIs, conflicts, and repository save guards.
+  sync APIs, retry/abort policy, conflicts, and repository save guards.
 - `docs/ui-runtime.md`: UI behavior worth preserving, navigation details, search
   empty states, dictation, and device-local state.
 - `docs/data-model.md`: Firestore metadata, entry file contract, mood mapping,

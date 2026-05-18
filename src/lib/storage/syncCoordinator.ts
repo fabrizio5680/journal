@@ -12,6 +12,8 @@ import type { ManifestEntry } from './types'
 
 type Listener = (userId: string) => void
 
+const MAX_RETRY_ATTEMPTS = 6
+
 const processingUsers = new Set<string>()
 const newEnqueuesWhileProcessing = new Set<string>()
 const scheduledRetries = new Map<string, ReturnType<typeof setTimeout>>()
@@ -20,6 +22,19 @@ const listeners = new Set<Listener>()
 
 function retryKey(userId: string, date: string) {
   return `${userId}:${date}`
+}
+
+function clearRetryStateForUser(userId: string) {
+  const prefix = `${userId}:`
+  for (const key of Array.from(retryCounts.keys())) {
+    if (key.startsWith(prefix)) retryCounts.delete(key)
+  }
+  for (const [key, timeout] of Array.from(scheduledRetries.entries())) {
+    if (key.startsWith(prefix)) {
+      clearTimeout(timeout)
+      scheduledRetries.delete(key)
+    }
+  }
 }
 
 function pushManifest(userId: string, adapter: GoogleDriveAdapter): void {
@@ -206,9 +221,17 @@ async function syncOne(userId: string, date: string, isRetry = false): Promise<v
 }
 
 function scheduleRetry(userId: string, date: string) {
+  // Don't churn retries while offline; the `online` listener triggers a
+  // fresh sync in providerConnection.initDriveSyncListeners.
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return
+
   const key = retryKey(userId, date)
   if (scheduledRetries.has(key)) return
   const attempt = retryCounts.get(key) ?? 0
+  // Cap retries so a permanently failing entry doesn't loop forever. The
+  // metadata stays `sync-pending` with the last syncError so UI can offer
+  // a manual retry via syncCoordinator.retryStuck.
+  if (attempt >= MAX_RETRY_ATTEMPTS) return
   retryCounts.set(key, attempt + 1)
   const timeout = setTimeout(() => {
     scheduledRetries.delete(key)
@@ -273,6 +296,15 @@ export const syncCoordinator = {
     void this.enqueue(userId, date)
   },
 
+  resetRetries(userId: string) {
+    clearRetryStateForUser(userId)
+  },
+
+  retryStuck(userId: string) {
+    clearRetryStateForUser(userId)
+    void this.syncPending(userId)
+  },
+
   async syncPending(userId: string) {
     if (processingUsers.has(userId)) return
     processingUsers.add(userId)
@@ -305,6 +337,11 @@ export const syncCoordinator = {
               continue
             }
             if (error.code === 'retryable') {
+              await markStatus(userId, item.date, {
+                provider: GOOGLE_DRIVE_PROVIDER,
+                syncStatus: 'sync-pending',
+                syncError: error.message,
+              })
               scheduleRetry(userId, item.date)
               continue
             }

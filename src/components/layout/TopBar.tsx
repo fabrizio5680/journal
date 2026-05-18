@@ -8,6 +8,7 @@ import { useSaveStatus } from '@/context/SaveStatusContext'
 import { useFocusMode } from '@/context/FocusModeContext'
 import { useSearch } from '@/context/SearchContext'
 import ProfileSheet from '@/components/ui/ProfileSheet'
+import { syncCoordinator } from '@/lib/storage/syncCoordinator'
 import { syncStatusLabel } from '@/lib/storage/syncStatusLabel'
 
 export default function TopBar() {
@@ -18,6 +19,7 @@ export default function TopBar() {
     isDirty,
     lastSaved,
     syncStatus,
+    syncError,
     storageProvider,
     storageAccountEmail,
     appAccountEmail,
@@ -69,11 +71,24 @@ export default function TopBar() {
         </div>
 
         {/* Centre: save status */}
-        {saveLabel && (
-          <span className="text-on-surface-variant/60 absolute left-1/2 -translate-x-1/2 text-[10px] tracking-wide">
-            {saveLabel}
-          </span>
-        )}
+        {saveLabel &&
+          (syncStatus === 'sync-pending' && syncError ? (
+            <button
+              type="button"
+              onClick={() => {
+                const uid = auth.currentUser?.uid
+                if (uid) syncCoordinator.retryStuck(uid)
+              }}
+              title={syncError}
+              className="text-on-surface-variant/60 hover:text-on-surface-variant absolute left-1/2 -translate-x-1/2 cursor-pointer text-[10px] tracking-wide transition-colors hover:opacity-80"
+            >
+              {saveLabel}
+            </button>
+          ) : (
+            <span className="text-on-surface-variant/60 absolute left-1/2 -translate-x-1/2 text-[10px] tracking-wide">
+              {saveLabel}
+            </span>
+          ))}
 
         {/* Right: search + avatar */}
         <div className="flex items-center gap-2">

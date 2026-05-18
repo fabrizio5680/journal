@@ -75,6 +75,29 @@ export class FakeGoogleDriveBackend {
   }
 
   saveEntry(entry: EntryFile, expectedRevisionId?: string): SaveResult {
+    // E2E failure simulation hook: when window.__fakeDriveSimulate is set with
+    // a positive failNextSaves counter, throw the requested GoogleDriveError code
+    // and decrement the counter. Lets E2E specs drive the retry/stuck-sync paths
+    // without monkey-patching the adapter. Narrowly scoped to fake backend only.
+    if (typeof window !== 'undefined') {
+      type WinExt = typeof window & {
+        __fakeDriveSimulate?: {
+          failNextSaves?: number
+          errorCode?: 'retryable' | 'reconnect' | 'storage-full' | 'conflict' | 'unknown'
+          errorMessage?: string
+        }
+      }
+      const sim = (window as WinExt).__fakeDriveSimulate
+      if (sim && typeof sim.failNextSaves === 'number' && sim.failNextSaves > 0) {
+        sim.failNextSaves -= 1
+        throw new GoogleDriveError(
+          sim.errorCode ?? 'retryable',
+          sim.errorMessage ?? 'Simulated fake Drive failure.',
+          503,
+        )
+      }
+    }
+
     const existing = this.entries.get(entry.date)
 
     // Conflict check: if file exists, expectedRevisionId must match headRevisionId

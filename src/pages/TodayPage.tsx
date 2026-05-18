@@ -23,7 +23,7 @@ export default function TodayPage() {
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [locationKey, reactiveToday])
   const { entry, isLoading, markDirty, save, metadata: entryMetadata } = useEntry(today)
   const { vocabulary, addToVocabulary } = useTagVocabulary()
-  const { setDirty, setLastSaved, setEntrySyncStatus } = useSaveStatus()
+  const { setDirty, setLastSaved, setEntrySyncStatus, setEntrySyncError } = useSaveStatus()
   const { editorFontSize, updateEditorFontSize, scriptureTranslation } = useUserPreferences()
   const { register, unregister } = useEditorControls()
   const { verse } = useDailyVerse(scriptureTranslation)
@@ -155,6 +155,10 @@ export default function TodayPage() {
   useEffect(() => {
     setEntrySyncStatus(entryMetadata?.syncStatus ?? 'saved-local')
   }, [entryMetadata?.syncStatus, setEntrySyncStatus])
+
+  useEffect(() => {
+    setEntrySyncError(entryMetadata?.syncError)
+  }, [entryMetadata?.syncError, setEntrySyncError])
 
   useEffect(() => {
     return () => {

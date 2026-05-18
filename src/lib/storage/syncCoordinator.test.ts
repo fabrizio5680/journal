@@ -434,4 +434,162 @@ describe('syncCoordinator', () => {
       expect.objectContaining({ syncStatus: 'saved-local', syncError: undefined }),
     )
   })
+
+  // ── Retry cap / offline gate / manual retry tests ───────────────────────────
+
+  it('caps retries at MAX_RETRY_ATTEMPTS and leaves entry sync-pending with syncError', async () => {
+    vi.useFakeTimers()
+    // Always-failing retryable error simulates persistent 503
+    mockSaveEntry.mockRejectedValue(new GoogleDriveError('retryable', 'boom', 503))
+
+    const initialTimerCount = vi.getTimerCount()
+    await syncCoordinator.syncPending('test-uid')
+    // First scheduleRetry should have added one timer
+    const afterFirstFailTimers = vi.getTimerCount()
+    expect(afterFirstFailTimers).toBeGreaterThan(initialTimerCount)
+
+    // Run through each retry: advance through the largest backoff (capped at 30s)
+    // 6 retries total. Each timer fires, re-enqueues, syncOne fails, scheduleRetry runs.
+    for (let i = 0; i < 7; i++) {
+      await vi.advanceTimersByTimeAsync(31_000)
+    }
+
+    // After cap, no further timers should be scheduled
+    expect(vi.getTimerCount()).toBe(0)
+
+    // syncOne attempted MAX_RETRY_ATTEMPTS + 1 times (initial + 6 retries)
+    expect(mockSaveEntry).toHaveBeenCalledTimes(7)
+
+    // Final metadata state: sync-pending with syncError, NOT synced
+    const lastUpdate = mockUpdateMetadata.mock.calls.at(-1)
+    expect(lastUpdate?.[2]).toMatchObject({
+      syncStatus: 'sync-pending',
+      syncError: 'boom',
+    })
+
+    // No call should have set syncStatus to 'synced'
+    const syncedCalls = mockUpdateMetadata.mock.calls.filter(
+      (call) => (call[2] as { syncStatus?: string }).syncStatus === 'synced',
+    )
+    expect(syncedCalls.length).toBe(0)
+
+    vi.useRealTimers()
+  })
+
+  it('offline gate: scheduleRetry registers no timeout while navigator.onLine is false', async () => {
+    vi.useFakeTimers()
+    Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true })
+
+    mockSaveEntry.mockRejectedValueOnce(new GoogleDriveError('retryable', 'offline', 503))
+
+    const before = vi.getTimerCount()
+    await syncCoordinator.syncPending('test-uid')
+    const after = vi.getTimerCount()
+
+    // No new timer scheduled while offline
+    expect(after).toBe(before)
+    expect(mockSaveEntry).toHaveBeenCalledTimes(1)
+
+    // Going online + resetRetries + syncPending should retry successfully
+    Object.defineProperty(window.navigator, 'onLine', { value: true, configurable: true })
+    mockSaveEntry.mockResolvedValueOnce({
+      metadata: { providerFileId: 'entry-file' },
+      revisionId: 'revision-1',
+    })
+    syncCoordinator.resetRetries('test-uid')
+    await syncCoordinator.syncPending('test-uid')
+
+    expect(mockSaveEntry).toHaveBeenCalledTimes(2)
+    expect(mockUpdateMetadata).toHaveBeenCalledWith(
+      'test-uid',
+      '2026-04-13',
+      expect.objectContaining({ syncStatus: 'synced' }),
+    )
+
+    vi.useRealTimers()
+  })
+
+  it('retryStuck clears retry state for one user and triggers syncPending for that user only', async () => {
+    vi.useFakeTimers()
+    // Both users will see a retryable failure to populate retry state
+    mockSaveEntry.mockRejectedValue(new GoogleDriveError('retryable', 'boom', 503))
+    mockListMetadata.mockResolvedValue([makeMetadata('2026-04-13', { provider: 'googleDrive' })])
+
+    // Prime userA + userB retry state via direct sync attempts
+    await syncCoordinator.syncPending('userA')
+    await syncCoordinator.syncPending('userB')
+
+    // Confirm both have timers scheduled (one per user)
+    expect(vi.getTimerCount()).toBe(2)
+
+    // After retryStuck(userA): A's retry succeeds (no new timer), B's timer stays
+    mockSaveEntry.mockReset()
+    mockSaveEntry.mockResolvedValue({
+      metadata: { providerFileId: 'entry-file' },
+      revisionId: 'revision-1',
+    })
+    mockUpdateMetadata.mockClear()
+
+    syncCoordinator.retryStuck('userA')
+    // Allow syncPending to run and resolve
+    await vi.advanceTimersByTimeAsync(0)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    // A's timer is cleared and not re-added (save succeeded); B's timer remains
+    expect(vi.getTimerCount()).toBe(1)
+
+    // Only userA's metadata was updated to synced
+    const syncedUpdates = mockUpdateMetadata.mock.calls.filter(
+      (call) => (call[2] as { syncStatus?: string }).syncStatus === 'synced',
+    )
+    expect(syncedUpdates.length).toBe(1)
+    expect(syncedUpdates[0][0]).toBe('userA')
+
+    vi.useRealTimers()
+  })
+
+  it('resetRetries clears retry state without triggering syncPending side effects', async () => {
+    vi.useFakeTimers()
+    mockSaveEntry.mockRejectedValueOnce(new GoogleDriveError('retryable', 'boom', 503))
+
+    await syncCoordinator.syncPending('test-uid')
+    expect(vi.getTimerCount()).toBe(1)
+
+    const saveCallsBefore = mockSaveEntry.mock.calls.length
+
+    syncCoordinator.resetRetries('test-uid')
+
+    // Scheduled timer cleared
+    expect(vi.getTimerCount()).toBe(0)
+
+    // Flush any microtasks
+    await Promise.resolve()
+    await Promise.resolve()
+
+    // No additional saveEntry call should be triggered as a side effect
+    expect(mockSaveEntry).toHaveBeenCalledTimes(saveCallsBefore)
+
+    vi.useRealTimers()
+  })
+
+  it('aborted attempts (timeout retryable) count toward the retry cap', async () => {
+    vi.useFakeTimers()
+    // Same retryable shape that driveApiFetch throws on AbortError
+    mockSaveEntry.mockRejectedValue(
+      new GoogleDriveError('retryable', 'Google Drive request timed out.'),
+    )
+
+    await syncCoordinator.syncPending('test-uid')
+
+    // 6 retry timers should fire over time, then no more
+    for (let i = 0; i < 7; i++) {
+      await vi.advanceTimersByTimeAsync(31_000)
+    }
+
+    expect(mockSaveEntry).toHaveBeenCalledTimes(7)
+    expect(vi.getTimerCount()).toBe(0)
+
+    vi.useRealTimers()
+  })
 })

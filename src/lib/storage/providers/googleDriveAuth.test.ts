@@ -545,6 +545,137 @@ describe('googleDriveAuth', () => {
     sessionB.destroy()
   })
 
+  // ── driveApiFetch timeout tests ─────────────────────────────────────────────
+
+  it('driveApiFetch rejects with retryable after 30s timeout on non-upload URLs', async () => {
+    vi.useFakeTimers()
+    const { driveApiFetch } = await import('./googleDriveAuth')
+
+    mockHttpsCallable.mockReturnValue(
+      vi.fn().mockResolvedValue({
+        data: {
+          accessToken: 'token',
+          expiresAt: Date.now() + 120_000,
+          scope: GOOGLE_DRIVE_SCOPE,
+        },
+      }),
+    )
+
+    // First fetch (scope validation /about) succeeds; second fetch (target) hangs
+    // until aborted.
+    const fetchMock = vi.fn().mockImplementation((_url, init?: { signal?: AbortSignal }) => {
+      // The /about scope validation call passes a Bearer header but no signal
+      if (!init?.signal) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ user: {} }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      // The second call carries an AbortSignal — never resolve, reject when aborted
+      return new Promise((_resolve, reject) => {
+        init.signal!.addEventListener('abort', () => {
+          const err = new Error('aborted')
+          err.name = 'AbortError'
+          reject(err)
+        })
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const pending = driveApiFetch(USER_ID, 'https://www.googleapis.com/drive/v3/files')
+    // Attach a no-op catch immediately to avoid unhandled rejection warnings
+    // while the timer is still pending.
+    pending.catch(() => {})
+
+    await vi.advanceTimersByTimeAsync(30_001)
+
+    await expect(pending).rejects.toMatchObject({
+      code: 'retryable',
+      message: 'Google Drive request timed out.',
+    })
+
+    vi.useRealTimers()
+  })
+
+  it('driveApiFetch uses a 60s timeout for upload URLs', async () => {
+    vi.useFakeTimers()
+    const { driveApiFetch } = await import('./googleDriveAuth')
+
+    mockHttpsCallable.mockReturnValue(
+      vi.fn().mockResolvedValue({
+        data: {
+          accessToken: 'token',
+          expiresAt: Date.now() + 120_000,
+          scope: GOOGLE_DRIVE_SCOPE,
+        },
+      }),
+    )
+
+    let abortFired = false
+    const fetchMock = vi.fn().mockImplementation((_url, init?: { signal?: AbortSignal }) => {
+      if (!init?.signal) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ user: {} }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return new Promise((_resolve, reject) => {
+        init.signal!.addEventListener('abort', () => {
+          abortFired = true
+          const err = new Error('aborted')
+          err.name = 'AbortError'
+          reject(err)
+        })
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const pending = driveApiFetch(USER_ID, 'https://www.googleapis.com/upload/drive/v3/files')
+    pending.catch(() => {})
+
+    // At 30s the upload-timeout (60s) has NOT yet fired
+    await vi.advanceTimersByTimeAsync(30_001)
+    expect(abortFired).toBe(false)
+
+    // After 60s total, the abort should fire and the promise rejects
+    await vi.advanceTimersByTimeAsync(30_000)
+    await expect(pending).rejects.toMatchObject({
+      code: 'retryable',
+      message: 'Google Drive request timed out.',
+    })
+
+    vi.useRealTimers()
+  })
+
+  it('driveApiFetch returns parsed JSON when fetch resolves before timeout', async () => {
+    const { driveApiFetch } = await import('./googleDriveAuth')
+
+    mockHttpsCallable.mockReturnValue(
+      vi.fn().mockResolvedValue({
+        data: {
+          accessToken: 'token',
+          expiresAt: Date.now() + 120_000,
+          scope: GOOGLE_DRIVE_SCOPE,
+        },
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({ user: {} })) // scope validation
+        .mockResolvedValueOnce(jsonResponse({ ok: true })),
+    )
+
+    await expect(
+      driveApiFetch<{ ok: boolean }>(USER_ID, 'https://www.googleapis.com/drive/v3/files'),
+    ).resolves.toEqual({ ok: true })
+  })
+
   it('moves to reconnect when boot scope validation gets a 403', async () => {
     setStoredGoogleDriveConnection(USER_ID, {
       accountEmail: 'drive@example.com',

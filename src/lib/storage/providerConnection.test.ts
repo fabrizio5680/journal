@@ -121,6 +121,7 @@ vi.mock('./providers/googleDriveAuth', () => ({
 vi.mock('./syncCoordinator', () => ({
   syncCoordinator: {
     syncPending: (...args: unknown[]) => mockSyncPending(...args),
+    resetRetries: vi.fn(),
   },
 }))
 

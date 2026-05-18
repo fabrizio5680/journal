@@ -51,7 +51,12 @@ vi.mock('@/hooks/usePageTitle', () => ({ usePageTitle: vi.fn() }))
 
 // --- useSaveStatus ---
 vi.mock('@/context/SaveStatusContext', () => ({
-  useSaveStatus: () => ({ setDirty: vi.fn(), setLastSaved: vi.fn(), setEntrySyncStatus: vi.fn() }),
+  useSaveStatus: () => ({
+    setDirty: vi.fn(),
+    setLastSaved: vi.fn(),
+    setEntrySyncStatus: vi.fn(),
+    setEntrySyncError: vi.fn(),
+  }),
 }))
 
 // --- useDictation ---

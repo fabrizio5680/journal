@@ -81,7 +81,11 @@ The Drive manifest lives at `Quiet Dwelling/metadata.json`.
 ## Key Sync APIs
 
 - `getValidGoogleDriveAccessToken` is single-flight protected.
-- `driveApiFetch` is the standard Drive REST wrapper.
+- `driveApiFetch` is the standard Drive REST wrapper. Each attempt has its own
+  `AbortController`: 30s default, 60s for URLs containing `upload/drive/v3`.
+  Timeouts raise `GoogleDriveError('retryable', 'Google Drive request timed
+out.')`, so they count toward the retry cap like any other retryable error.
+  The 401-refresh retry path runs with a fresh timeout per attempt.
 - `backfillFromManifest(userId)` populates the local metadata index from the
   Drive manifest without downloading entry content.
 - `backfillGoogleDriveMetadata` runs manifest first, then full content backfill;
@@ -90,13 +94,36 @@ The Drive manifest lives at `Quiet Dwelling/metadata.json`.
   post-push delta polling triggers. At boot it also calls
   `backfillFromManifest(userId)` once, not on later online/visibility/pageshow
   events, so already-connected devices repopulate metadata on every app open.
-  Call it on Drive connect/connection changes.
+  The `online` and `pageshow` listeners call `syncCoordinator.resetRetries(userId)`
+  before `runSync()` so entries that exhausted retries while offline get a fresh
+  chance once connectivity returns. Call it on Drive connect/connection changes.
 - `pollDriveDeltas(userId)` uses Drive Changes API state persisted in the
   IndexedDB `syncState` store.
 - `GoogleDriveAdapter.getStorageUsage()` returns `{ folderBytes, driveUsage,
 driveLimit }` by recursing the app root folder (`metadata.json`, `entries/`,
   and `conflicts/`) and calling Drive `about.get?fields=storageQuota`.
   `driveLimit` may be `null` for unlimited Drive accounts.
+
+## Retry Policy
+
+`syncCoordinator` caps retryable failures at `MAX_RETRY_ATTEMPTS = 6` per entry.
+Retry counts and scheduled-retry timers are keyed by `${userId}:${entryDate}`.
+
+- When a retryable error fires in `syncPending`, the entry status is set to
+  `sync-pending` with `syncError` populated from the error message before
+  `scheduleRetry` runs.
+- `scheduleRetry` returns without scheduling when `navigator.onLine === false`
+  or when the per-key attempt count has hit the cap. Exhausted entries park at
+  `sync-pending` with `syncError` set and wait for user action.
+- `resetRetries(userId)` and `retryStuck(userId)` are user-scoped: they only
+  clear `retryCounts` and `scheduledRetries` keys prefixed with `${userId}:`.
+  `retryStuck` additionally calls `syncPending(userId)`.
+- Users surface a stuck entry via the status row in `RightPanel` and `TopBar`.
+  When `isOnline && syncStatus === 'sync-pending' && syncError`, the row
+  renders as a button with `title={syncError}` and `onClick` calls
+  `syncCoordinator.retryStuck(auth.currentUser.uid)`. `SaveStatusContext`
+  carries `syncError` alongside `syncStatus`; `EntryPage` and `TodayPage`
+  populate it via `setEntrySyncError(entryMetadata?.syncError)`.
 
 `syncCoordinator.enqueue` guards against missing a new entry when a sync run is
 already in flight. If `processingUsers` holds the lock, it sets a

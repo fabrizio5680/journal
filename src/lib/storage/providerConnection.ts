@@ -201,6 +201,8 @@ export function initDriveSyncListeners(userId: string): () => void {
   void backfillFromManifest(userId)
 
   function handleOnline() {
+    // Re-enable retries that were skipped while offline.
+    syncCoordinator.resetRetries(userId)
     runSync()
   }
 
@@ -209,6 +211,8 @@ export function initDriveSyncListeners(userId: string): () => void {
   }
 
   function handlePageShow() {
+    // Treat returning from bfcache as a fresh start for retries.
+    syncCoordinator.resetRetries(userId)
     runSync()
   }
 

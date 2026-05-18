@@ -20,6 +20,7 @@ interface SaveStatusContextValue {
   isDirty: boolean
   lastSaved: Date | null
   syncStatus: SyncStatus
+  syncError?: string
   storageProvider?: StorageProvider
   storageAccountEmail?: string
   appAccountEmail?: string | null
@@ -27,6 +28,7 @@ interface SaveStatusContextValue {
   setDirty: (v: boolean) => void
   setLastSaved: (d: Date) => void
   setEntrySyncStatus: (status: SyncStatus) => void
+  setEntrySyncError: (error: string | undefined) => void
 }
 
 const SaveStatusContext = createContext<SaveStatusContextValue | null>(null)
@@ -35,6 +37,7 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
   const [isDirty, setDirty] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [entrySyncStatus, setEntrySyncStatus] = useState<SyncStatus>('saved-local')
+  const [entrySyncError, setEntrySyncError] = useState<string | undefined>(undefined)
   const [user, setUser] = useState<User | null>(null)
   const [connection, setConnection] = useState<ProviderConnectionState>(DISCONNECTED_PROVIDER_STATE)
   const [driveLoadProgress, setDriveLoadProgress] = useState<DriveLoadProgress | null>(null)
@@ -68,6 +71,8 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
       : activeConnection.status === 'connected'
         ? entrySyncStatus
         : 'saved-local'
+  // Only surface syncError when actively connected — matches syncStatus gating.
+  const syncError = activeConnection.status === 'connected' ? entrySyncError : undefined
 
   return (
     <SaveStatusContext.Provider
@@ -75,6 +80,7 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
         isDirty,
         lastSaved,
         syncStatus,
+        syncError,
         storageProvider: activeConnection.activeStorageProvider,
         storageAccountEmail: activeConnection.storageAccountEmail,
         appAccountEmail: user?.email,
@@ -82,6 +88,7 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
         setDirty,
         setLastSaved,
         setEntrySyncStatus,
+        setEntrySyncError,
       }}
     >
       {children}

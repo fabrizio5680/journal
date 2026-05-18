@@ -5,3 +5,4 @@
 - All specs that share emulator state across tests include `test.describe.configure({ mode: 'serial' })` to prevent within-file parallelism.
 - Firestore REST seeding calls (`request.patch`) **must** include `Authorization: Bearer {idToken}` — the emulator enforces security rules on the `/v1/` REST path.
 - `LoginPage` has an `onAuthStateChanged` listener that navigates to `/` on sign-in; this is what makes `__signInForTest` redirect E2E tests out of the login page.
+- The fake Drive backend honours `window.__fakeDriveSimulate = { failNextSaves, errorCode, errorMessage }` (consumed only by `saveEntry`) to force the next N save attempts to throw a `GoogleDriveError`. Use it to exercise retry, timeout, and stuck-`sync-pending` flows from E2E.
