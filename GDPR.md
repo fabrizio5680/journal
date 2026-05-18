@@ -599,12 +599,19 @@ Status: **Implemented 2026-05-18** in `src/hooks/useLegalAcceptance.tsx`,
 
 #### TASK-21: Multi-device deletion enforcement
 
+Status: **Implemented 2026-05-18** in `src/hooks/useAccountDeletionEnforcement.ts`,
+`src/lib/accountCleanup.ts`, `src/App.tsx`, and `src/pages/SettingsPage.tsx`.
+
 - After `deleteAccount` succeeds, every other signed-in device detects the deleted Firebase
   Auth user on next request (token refresh fails / Firestore read returns missing doc) →
   triggers sign-out + IndexedDB/localStorage wipe for that uid.
 - Implement in the root auth listener (e.g. `src/lib/firebase.ts` onAuthStateChanged or a
   dedicated hook). On `user-not-found` / `user-disabled`: call `signOut()` then clear stores
   for that uid.
+- The root guard now watches ID-token changes, focus/visibility checks, and the `users/{uid}`
+  account document. It only treats a missing Firestore account document as deletion after the
+  device has previously observed that document, so first sign-in before legal acceptance is not
+  wiped prematurely.
 
 ### 11.2 Updated processor inventory (additions)
 

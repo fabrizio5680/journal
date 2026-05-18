@@ -10,6 +10,7 @@ import { UserPreferencesProvider } from '@/context/UserPreferencesContext'
 import { EditorControlsProvider } from '@/context/EditorControlsContext'
 import { ConsentProvider } from '@/hooks/useConsent'
 import { LegalAcceptanceProvider, useLegalAcceptance } from '@/hooks/useLegalAcceptance'
+import { useAccountDeletionEnforcement } from '@/hooks/useAccountDeletionEnforcement'
 import ConsentModal from '@/components/auth/ConsentModal'
 import LegalAcceptanceModal from '@/components/auth/LegalAcceptanceModal'
 import AppShell from '@/components/layout/AppShell'
@@ -46,6 +47,11 @@ function GuardedConsentModal() {
   return requiresLegalAcceptance ? null : <ConsentModal />
 }
 
+function AccountDeletionEnforcer() {
+  useAccountDeletionEnforcement()
+  return null
+}
+
 export default function App() {
   return (
     <>
@@ -61,6 +67,7 @@ export default function App() {
             element={
               <RequireAuth>
                 <LegalAcceptanceProvider>
+                  <AccountDeletionEnforcer />
                   <ConsentProvider>
                     <UserPreferencesProvider>
                       <SearchProvider>

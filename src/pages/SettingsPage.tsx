@@ -6,12 +6,12 @@ import { getToken } from 'firebase/messaging'
 import { httpsCallable } from 'firebase/functions'
 
 import { auth, db, functions, messagingPromise } from '@/lib/firebase'
+import { clearDeviceDataForUser } from '@/lib/accountCleanup'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import { useConsent } from '@/hooks/useConsent'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { EntryRepository } from '@/lib/storage/entryRepository'
-import { localEntryCache } from '@/lib/storage/localEntryCache'
 import {
   backfillGoogleDriveMetadata,
   connectGoogleDriveProvider,
@@ -54,20 +54,6 @@ function formatDriveUsage(usage: DriveUsage): string {
     return folder
   }
   return `${folder} · ${formatBytes(usage.driveUsage)} of ${formatBytes(usage.driveLimit)} Drive used`
-}
-
-function clearLocalStorageForUser(userId: string) {
-  const exactKeys = [
-    `fcm_device_token_${userId}`,
-    `google_drive_connection_${userId}`,
-    `google_drive_disconnected_${userId}`,
-    `drive_token_refresh_lock_${userId}`,
-  ]
-  exactKeys.forEach((key) => localStorage.removeItem(key))
-  for (let i = localStorage.length - 1; i >= 0; i -= 1) {
-    const key = localStorage.key(i)
-    if (key?.includes(userId)) localStorage.removeItem(key)
-  }
 }
 
 function Toggle({
@@ -522,8 +508,7 @@ export default function SettingsPage() {
         'deleteAccount',
       )
       await deleteAccount({})
-      await localEntryCache.clearUserData(user.uid)
-      clearLocalStorageForUser(user.uid)
+      await clearDeviceDataForUser(user.uid)
       await signOut(auth).catch(() => undefined)
       navigate('/login', { replace: true })
     } catch (error) {
