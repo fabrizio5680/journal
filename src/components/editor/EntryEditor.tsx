@@ -48,14 +48,18 @@ export default function EntryEditor({
 
   // Mobile (<768px): right-align the FloatingMenu to viewport (16px gap).
   // Desktop placement/offset/flip stays untouched. Re-runs whenever Floating UI
-  // updates the menu position (caret moves, resize, etc.).
+  // updates the menu position (caret moves, resize, etc.). `style.left` is
+  // relative to the nearest positioned ancestor, so we compensate for that
+  // ancestor's viewport offset to land the right edge 16px from the viewport.
   const alignFloatingMenuForMobile = () => {
     const el = floatingMenuRef.current
     if (!el) return
     if (typeof window === 'undefined') return
     if (window.innerWidth >= 768) return
-    const floatingWidth = el.offsetWidth
-    el.style.left = `${window.innerWidth - floatingWidth - 16}px`
+    const offsetParent = el.offsetParent as HTMLElement | null
+    const parentLeft = offsetParent?.getBoundingClientRect().left ?? 0
+    const desiredViewportLeft = window.innerWidth - el.offsetWidth - 16
+    el.style.left = `${desiredViewportLeft - parentLeft}px`
   }
 
   const editor = useEditor({
