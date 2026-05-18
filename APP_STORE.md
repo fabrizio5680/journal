@@ -63,7 +63,7 @@ First run will prompt to install Android SDK and JDK if paths are not set. Follo
 Create a new directory outside the journal repo:
 
 ```bash
-mkdir ~/twa-reflect && cd ~/twa-reflect
+mkdir ~/twa-quiet-dwelling && cd ~/twa-quiet-dwelling
 bubblewrap init --manifest=https://journal-manna.web.app/manifest.webmanifest
 ```
 
@@ -71,9 +71,9 @@ Bubblewrap reads the live manifest and prompts for confirmation of each value. U
 
 | Prompt            | Value                                                              |
 | ----------------- | ------------------------------------------------------------------ |
-| Application name  | `The Quiet Sanctuary`                                              |
-| Short name        | `Reflect`                                                          |
-| Package ID        | `com.quietsanctuary.reflect`                                       |
+| Application name  | `Quiet Dwelling`                                                   |
+| Short name        | `Quiet Dwelling`                                                   |
+| Package ID        | `com.thequietdwelling.twa`                                         |
 | Start URL         | `/`                                                                |
 | Display mode      | `standalone`                                                       |
 | Theme color       | `#e3dfd1`                                                          |
@@ -84,7 +84,7 @@ Bubblewrap reads the live manifest and prompts for confirmation of each value. U
 | Signing key path  | `./release.keystore` (Bubblewrap creates it)                       |
 | Signing key alias | `release`                                                          |
 
-This generates `twa-manifest.json` and an Android project in `~/twa-reflect/`.
+This generates `twa-manifest.json` and an Android project in `~/twa-quiet-dwelling/`.
 
 ---
 
@@ -128,7 +128,7 @@ This is the critical verification step. Without it the app shows as a browser ta
 #### 6a — Get your keystore SHA-256 fingerprint
 
 ```bash
-keytool -list -v -keystore ~/twa-reflect/release.keystore -alias release
+keytool -list -v -keystore ~/twa-quiet-dwelling/release.keystore -alias release
 ```
 
 Copy the `SHA256:` fingerprint (format: `AA:BB:CC:...`).
@@ -143,7 +143,7 @@ In the journal repo, create `public/.well-known/assetlinks.json`:
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.quietsanctuary.reflect",
+      "package_name": "com.thequietdwelling.twa",
       "sha256_cert_fingerprints": ["YOUR_KEYSTORE_SHA256_HERE"]
     }
   }
@@ -220,7 +220,7 @@ Should return your package name and fingerprint.
 After deploying `assetlinks.json`, rebuild so the app contains the correct fingerprint reference:
 
 ```bash
-cd ~/twa-reflect
+cd ~/twa-quiet-dwelling
 bubblewrap build
 ```
 
@@ -233,7 +233,7 @@ Reinstall on device — the app should now launch **without** browser chrome (fu
 #### 8a — Create the app
 
 1. Go to [play.google.com/console](https://play.google.com/console)
-2. Create app → App name: **Reflect** (the brand mark, not full name)
+2. Create app → App name: **Quiet Dwelling**
 3. Default language: English
 4. App / game: App
 5. Free / paid: Free
@@ -245,8 +245,8 @@ Navigate to: Store presence → Main store listing
 
 | Field                          | Value                                                                 |
 | ------------------------------ | --------------------------------------------------------------------- |
-| App name                       | `Reflect`                                                             |
-| Short description (≤80 chars)  | `Your personal journalling sanctuary`                                 |
+| App name                       | `Quiet Dwelling`                                                      |
+| Short description (≤80 chars)  | `A quiet place to reflect, pray, and journal`                         |
 | Full description (≤4000 chars) | See below                                                             |
 | App icon (512×512 PNG)         | Use `web-app-manifest-512x512.png` — may need no-transparency version |
 | Feature graphic (1024×500 PNG) | Create a simple branded banner                                        |
@@ -255,11 +255,11 @@ Navigate to: Store presence → Main store listing
 Full description draft:
 
 ```
-Reflect is a private journalling app designed for quiet, intentional writing.
+Quiet Dwelling is a local-first journalling app designed for quiet, intentional writing.
 
 Write daily entries with a distraction-free rich text editor. Track your mood over time with visual insights. Add scripture references directly to your entries. Set daily reminders to build a consistent journalling habit.
 
-Your journal is private, encrypted, and synced securely across your devices.
+Your entries stay on your device and, if you enable sync, in your own Google Drive.
 
 Features:
 • Distraction-free editor with bold and italic formatting
@@ -346,7 +346,7 @@ journal repo:
       assetlinks.json          ← create in Step 6b, update in Step 6b after Play Console
   firebase.json                ← update headers in Step 6c
 
-twa-reflect/ (outside repo):
+twa-quiet-dwelling/ (outside repo):
   twa-manifest.json
   release.keystore             ← BACK THIS UP
   app-release-signed.apk

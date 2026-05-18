@@ -43,7 +43,8 @@ export default function ConsentModal() {
             </h2>
             <p className="text-on-surface-variant mt-2 text-sm leading-relaxed">
               Mood and scripture details can reveal health, emotional state, or religious beliefs.
-              Quiet Dwelling needs your explicit consent before processing those optional fields.
+              Quiet Dwelling needs your explicit consent before saving those optional fields on this
+              device and syncing them to your Google Drive if Drive sync is enabled.
             </p>
           </div>
         </div>
@@ -59,7 +60,8 @@ export default function ConsentModal() {
             <span>
               <span className="block text-sm font-semibold">Mood and emotional-state fields</span>
               <span className="text-on-surface-variant/70 mt-1 block text-xs leading-relaxed">
-                Lets you save mood labels, mood scores, and mood conflict metadata.
+                Lets you save mood labels, mood scores, and mood conflict metadata in your journal
+                data.
               </span>
             </span>
           </label>
@@ -74,7 +76,8 @@ export default function ConsentModal() {
             <span>
               <span className="block text-sm font-semibold">Scripture references</span>
               <span className="text-on-surface-variant/70 mt-1 block text-xs leading-relaxed">
-                Lets you attach Bible references to entries and sync them with your journal data.
+                Lets you attach Bible references to entries and sync them with your journal data if
+                Drive sync is enabled.
               </span>
             </span>
           </label>
