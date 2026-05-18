@@ -5,7 +5,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 const mockOnAuthStateChanged = vi.fn((_auth: unknown, _callback: unknown) => vi.fn())
 
 vi.mock('firebase/auth', () => ({
+  deleteUser: vi.fn(),
   onAuthStateChanged: (auth: unknown, callback: unknown) => mockOnAuthStateChanged(auth, callback),
+  signOut: vi.fn(),
 }))
 
 vi.mock('@/hooks/usePWAUpdate', () => ({

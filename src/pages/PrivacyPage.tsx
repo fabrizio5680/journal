@@ -76,8 +76,8 @@ export default function PrivacyPage() {
             </p>
             <p>
               Your journal entries, mood labels, and scripture references are sensitive personal
-              content. They stay on your device unless you enable Google Drive sync. A separate
-              consent flow for sensitive journal data is planned before launch.
+              content. They stay on your device unless you enable Google Drive sync. Quiet Dwelling
+              asks for explicit consent before processing optional mood and scripture fields.
             </p>
             <p>
               If the Android app uses Google Play Billing, Google handles purchases and refunds.
@@ -217,7 +217,7 @@ export default function PrivacyPage() {
               <Link className="text-primary hover:underline" to="/account-deletion">
                 /account-deletion
               </Link>
-              . The in-app deletion flow is planned for a later phase. Until then, contact{' '}
+              . Signed-in users can delete their account from Settings. You can also contact{' '}
               <a className="text-primary hover:underline" href={`mailto:${CONTACT_EMAIL}`}>
                 {CONTACT_EMAIL}
               </a>{' '}

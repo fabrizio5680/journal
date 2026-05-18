@@ -9,7 +9,9 @@ import { SearchProvider } from '@/context/SearchContext'
 import { UserPreferencesProvider } from '@/context/UserPreferencesContext'
 import { EditorControlsProvider } from '@/context/EditorControlsContext'
 import { ConsentProvider } from '@/hooks/useConsent'
+import { LegalAcceptanceProvider, useLegalAcceptance } from '@/hooks/useLegalAcceptance'
 import ConsentModal from '@/components/auth/ConsentModal'
+import LegalAcceptanceModal from '@/components/auth/LegalAcceptanceModal'
 import AppShell from '@/components/layout/AppShell'
 import UpdateBanner from '@/components/ui/UpdateBanner'
 
@@ -39,6 +41,11 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+function GuardedConsentModal() {
+  const { requiresLegalAcceptance } = useLegalAcceptance()
+  return requiresLegalAcceptance ? null : <ConsentModal />
+}
+
 export default function App() {
   return (
     <>
@@ -53,20 +60,23 @@ export default function App() {
           <Route
             element={
               <RequireAuth>
-                <ConsentProvider>
-                  <UserPreferencesProvider>
-                    <SearchProvider>
-                      <FocusModeProvider>
-                        <SaveStatusProvider>
-                          <EditorControlsProvider>
-                            <AppShell />
-                            <ConsentModal />
-                          </EditorControlsProvider>
-                        </SaveStatusProvider>
-                      </FocusModeProvider>
-                    </SearchProvider>
-                  </UserPreferencesProvider>
-                </ConsentProvider>
+                <LegalAcceptanceProvider>
+                  <ConsentProvider>
+                    <UserPreferencesProvider>
+                      <SearchProvider>
+                        <FocusModeProvider>
+                          <SaveStatusProvider>
+                            <EditorControlsProvider>
+                              <AppShell />
+                              <LegalAcceptanceModal />
+                              <GuardedConsentModal />
+                            </EditorControlsProvider>
+                          </SaveStatusProvider>
+                        </FocusModeProvider>
+                      </SearchProvider>
+                    </UserPreferencesProvider>
+                  </ConsentProvider>
+                </LegalAcceptanceProvider>
               </RequireAuth>
             }
           >

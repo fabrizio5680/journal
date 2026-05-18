@@ -62,23 +62,26 @@ correspondingly (see H1).
 
 ### 2.1 Firestore — `users/{uid}` (public sub-tree, client-readable)
 
-| Field                                             | Source                | Classification                       |
-| ------------------------------------------------- | --------------------- | ------------------------------------ |
-| `displayName`                                     | Google OAuth          | Direct identifier (Art. 4(1))        |
-| `email`                                           | Google OAuth          | Direct identifier (Art. 4(1))        |
-| `photoURL`                                        | Google OAuth          | Indirect identifier                  |
-| Firebase UID (doc ID)                             | Firebase Auth         | Pseudonymous identifier (Recital 26) |
-| `reminderTime` (HH:MM)                            | User input            | Behavioural                          |
-| `reminderTimezone` (IANA)                         | Browser-derived       | Inferred location                    |
-| `reminderEnabled`                                 | User input            | Preference                           |
-| `fcmTokens[]`                                     | FCM                   | Device identifiers (Recital 30)      |
-| `activeStorageProvider`                           | App                   | Provider connection state            |
-| `storageAccountEmail`                             | Google Drive          | Direct identifier (Drive account)    |
-| `storageRootFolderId`                             | Google Drive          | Reference to user's Drive folder     |
-| `storageConnectedAt` / `storageTokenStatus`       | App                   | Operational metadata                 |
-| `storageTokenRefreshedAt` / `storageTokenErrorAt` | App                   | Operational metadata                 |
-| `lastEntryDate`, `lastEntrySavedAt`               | App                   | Behavioural / temporal               |
-| `consent*` fields                                 | _not yet implemented_ | (see TASK-3)                         |
+| Field                                             | Source          | Classification                       |
+| ------------------------------------------------- | --------------- | ------------------------------------ |
+| `displayName`                                     | Google OAuth    | Direct identifier (Art. 4(1))        |
+| `email`                                           | Google OAuth    | Direct identifier (Art. 4(1))        |
+| `photoURL`                                        | Google OAuth    | Indirect identifier                  |
+| Firebase UID (doc ID)                             | Firebase Auth   | Pseudonymous identifier (Recital 26) |
+| `reminderTime` (HH:MM)                            | User input      | Behavioural                          |
+| `reminderTimezone` (IANA)                         | Browser-derived | Inferred location                    |
+| `reminderEnabled`                                 | User input      | Preference                           |
+| `fcmTokens[]`                                     | FCM             | Device identifiers (Recital 30)      |
+| `activeStorageProvider`                           | App             | Provider connection state            |
+| `storageAccountEmail`                             | Google Drive    | Direct identifier (Drive account)    |
+| `storageRootFolderId`                             | Google Drive    | Reference to user's Drive folder     |
+| `storageConnectedAt` / `storageTokenStatus`       | App             | Operational metadata                 |
+| `storageTokenRefreshedAt` / `storageTokenErrorAt` | App             | Operational metadata                 |
+| `lastEntryDate`, `lastEntrySavedAt`               | App             | Behavioural / temporal               |
+| `consent*` fields                                 | App             | Consent record (Art. 7(1))           |
+| `ageAttested`, `ageAttestedAt`                    | App             | Age-gate accountability record       |
+| `acceptedPolicyVersion`, `policyAcceptedAt`       | App             | Policy acceptance record             |
+| `acceptedTosVersion`, `tosAcceptedAt`             | App             | Terms acceptance record              |
 
 ### 2.2 Firestore — `users/{uid}/private/googleDriveOAuth` (locked, server-only)
 
@@ -575,12 +578,18 @@ These answers gate Phase 1–4 work. Quote them in the Privacy Policy + ToS draf
 
 #### TASK-19: Age gate at sign-up
 
+Status: **Implemented 2026-05-18** in `src/hooks/useLegalAcceptance.tsx`,
+`src/components/auth/LegalAcceptanceModal.tsx`, and `src/App.tsx`.
+
 - One-time modal on first sign-in: "Are you 16 or older?" with checkbox.
 - Store on `users/{uid}`: `ageAttested: true`, `ageAttestedAt: Timestamp`.
 - Refuse account creation if unchecked; sign out and delete the just-created Firebase Auth
   user.
 
 #### TASK-20: Re-acceptance flow for policy/ToS major bumps
+
+Status: **Implemented 2026-05-18** in `src/hooks/useLegalAcceptance.tsx`,
+`src/components/auth/LegalAcceptanceModal.tsx`, and `src/App.tsx`.
 
 - App constants `POLICY_VERSION = '1.0'`, `TOS_VERSION = '1.0'`.
 - Store on `users/{uid}`: `acceptedPolicyVersion`, `acceptedTosVersion`,
