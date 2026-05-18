@@ -22,14 +22,22 @@ const {
   mockDisconnectGoogleDriveProvider,
   mockBackfillGoogleDriveMetadata,
   mockClearConflictBackups,
+  mockDeleteAppFolder,
   mockGetStorageUsage,
+  mockHttpsCallable,
+  mockDeleteAccountCallable,
+  mockClearUserData,
   mockListEntries,
 } = vi.hoisted(() => ({
   mockConnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
   mockDisconnectGoogleDriveProvider: vi.fn().mockResolvedValue(undefined),
   mockBackfillGoogleDriveMetadata: vi.fn().mockResolvedValue(undefined),
   mockClearConflictBackups: vi.fn(),
+  mockDeleteAppFolder: vi.fn(),
   mockGetStorageUsage: vi.fn(),
+  mockHttpsCallable: vi.fn(),
+  mockDeleteAccountCallable: vi.fn(),
+  mockClearUserData: vi.fn(),
   mockListEntries: vi.fn(),
 }))
 
@@ -70,6 +78,10 @@ vi.mock('firebase/messaging', () => ({
   getToken: (...args: unknown[]) => mockGetToken(...args),
 }))
 
+vi.mock('firebase/functions', () => ({
+  httpsCallable: (...args: unknown[]) => mockHttpsCallable(...args),
+}))
+
 // --- firebase.ts mock (overrides setup.ts) ---
 let mockMessagingPromise: Promise<{ name: string } | null> = Promise.resolve({
   name: 'mock-messaging',
@@ -78,6 +90,7 @@ let mockMessagingPromise: Promise<{ name: string } | null> = Promise.resolve({
 vi.mock('@/lib/firebase', () => ({
   auth: {},
   db: {},
+  functions: {},
   get messagingPromise() {
     return mockMessagingPromise
   },
@@ -109,12 +122,21 @@ vi.mock('@/lib/storage/providers/googleDriveAdapter', () => ({
     clearConflictBackups(...args: unknown[]) {
       return mockClearConflictBackups(...args)
     }
+    deleteAppFolder(...args: unknown[]) {
+      return mockDeleteAppFolder(...args)
+    }
   },
 }))
 
 vi.mock('@/lib/storage/entryRepository', () => ({
   EntryRepository: {
     listEntries: (...args: unknown[]) => mockListEntries(...args),
+  },
+}))
+
+vi.mock('@/lib/storage/localEntryCache', () => ({
+  localEntryCache: {
+    clearUserData: (...args: unknown[]) => mockClearUserData(...args),
   },
 }))
 
@@ -180,12 +202,16 @@ describe('SettingsPage', () => {
     mockDisconnectGoogleDriveProvider.mockResolvedValue(undefined)
     mockBackfillGoogleDriveMetadata.mockResolvedValue(undefined)
     mockClearConflictBackups.mockResolvedValue(2)
+    mockDeleteAppFolder.mockResolvedValue(undefined)
     mockGetStorageUsage.mockResolvedValue({
       folderBytes: 1_258_291, // ≈ 1.2 MB
       driveUsage: 4_617_089_843, // ≈ 4.3 GB
       driveLimit: 16_106_127_360, // 15 GB
     })
     mockListEntries.mockResolvedValue([])
+    mockDeleteAccountCallable.mockResolvedValue({ data: { success: true } })
+    mockHttpsCallable.mockReturnValue(mockDeleteAccountCallable)
+    mockClearUserData.mockResolvedValue(undefined)
     mockPrefs.scriptureTranslation = 'NLT'
     mockPrefs.editorFontSize = 'medium'
   })
@@ -724,6 +750,58 @@ describe('SettingsPage', () => {
 
     expect(mockClearConflictBackups).not.toHaveBeenCalled()
     confirmSpy.mockRestore()
+  })
+
+  it('deletes the account, clears this device, and redirects to login', async () => {
+    localStorage.setItem('fcm_device_token_test-uid', 'mock-fcm-token')
+    localStorage.setItem('google_drive_connection_test-uid', '{"rootFolderId":"drive-root"}')
+    const confirmSpy = vi
+      .spyOn(window, 'confirm')
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(true)
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('DELETE')
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({
+      reminderEnabled: false,
+      activeStorageProvider: 'googleDrive',
+      storageAccountEmail: 'test@example.com',
+      storageRootFolderId: 'drive-root',
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: /^delete account$/i }))
+
+    await waitFor(() => {
+      expect(mockDeleteAppFolder).toHaveBeenCalled()
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'deleteAccount')
+      expect(mockDeleteAccountCallable).toHaveBeenCalledWith({})
+      expect(mockClearUserData).toHaveBeenCalledWith('test-uid')
+      expect(mockSignOut).toHaveBeenCalled()
+      expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true })
+    })
+    expect(localStorage.getItem('fcm_device_token_test-uid')).toBeNull()
+    expect(localStorage.getItem('google_drive_connection_test-uid')).toBeNull()
+
+    confirmSpy.mockRestore()
+    promptSpy.mockRestore()
+  })
+
+  it('does not delete the account when typed confirmation is missing', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('delete')
+
+    renderPage()
+    fireAuth()
+    fireSnapshot({ reminderEnabled: false })
+
+    await userEvent.click(screen.getByRole('button', { name: /^delete account$/i }))
+
+    expect(mockDeleteAccountCallable).not.toHaveBeenCalled()
+    expect(mockClearUserData).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+    promptSpy.mockRestore()
   })
 
   describe('Drive usage row', () => {

@@ -3,13 +3,15 @@ import { Link, useNavigate } from 'react-router-dom'
 import { doc, updateDoc, getDoc, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { signOut, onAuthStateChanged, type User } from 'firebase/auth'
 import { getToken } from 'firebase/messaging'
+import { httpsCallable } from 'firebase/functions'
 
-import { auth, db, messagingPromise } from '@/lib/firebase'
+import { auth, db, functions, messagingPromise } from '@/lib/firebase'
 import { useUserPreferences } from '@/context/UserPreferencesContext'
 import type { EditorFontSize } from '@/context/UserPreferencesContext'
 import { useConsent } from '@/hooks/useConsent'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { EntryRepository } from '@/lib/storage/entryRepository'
+import { localEntryCache } from '@/lib/storage/localEntryCache'
 import {
   backfillGoogleDriveMetadata,
   connectGoogleDriveProvider,
@@ -25,6 +27,11 @@ interface DriveUsage {
   folderBytes: number
   driveUsage: number | null
   driveLimit: number | null
+}
+
+interface DeleteAccountResult {
+  success: boolean
+  refreshTokenRevoked?: boolean
 }
 
 function formatBytes(bytes: number): string {
@@ -47,6 +54,20 @@ function formatDriveUsage(usage: DriveUsage): string {
     return folder
   }
   return `${folder} · ${formatBytes(usage.driveUsage)} of ${formatBytes(usage.driveLimit)} Drive used`
+}
+
+function clearLocalStorageForUser(userId: string) {
+  const exactKeys = [
+    `fcm_device_token_${userId}`,
+    `google_drive_connection_${userId}`,
+    `google_drive_disconnected_${userId}`,
+    `drive_token_refresh_lock_${userId}`,
+  ]
+  exactKeys.forEach((key) => localStorage.removeItem(key))
+  for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+    const key = localStorage.key(i)
+    if (key?.includes(userId)) localStorage.removeItem(key)
+  }
 }
 
 function Toggle({
@@ -157,6 +178,8 @@ export default function SettingsPage() {
   const [exportError, setExportError] = useState<string | null>(null)
   const [consentStatus, setConsentStatus] = useState<'idle' | 'saving'>('idle')
   const [consentError, setConsentError] = useState<string | null>(null)
+  const [deleteStatus, setDeleteStatus] = useState<'idle' | 'deleting'>('idle')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
@@ -461,6 +484,52 @@ export default function SettingsPage() {
       setConsentError(error instanceof Error ? error.message : 'Could not withdraw consent.')
     } finally {
       setConsentStatus('idle')
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!user || deleteStatus === 'deleting') return
+
+    const confirmed = window.confirm(
+      'Delete your Quiet Dwelling account? This permanently removes your account, profile metadata, reminder tokens, and server-side Google Drive token.',
+    )
+    if (!confirmed) return
+
+    const typed = window.prompt('Type DELETE to confirm account deletion.')
+    if (typed !== 'DELETE') return
+
+    const shouldDeleteDrive =
+      storageState.status === 'connected' &&
+      window.confirm(
+        'Also permanently delete the Quiet Dwelling folder from your Google Drive? If you choose no, those files stay in your Drive.',
+      )
+
+    setDeleteStatus('deleting')
+    setDeleteError(null)
+    try {
+      if (shouldDeleteDrive) {
+        try {
+          await new GoogleDriveAdapter(user.uid).deleteAppFolder()
+        } catch {
+          window.alert(
+            'Quiet Dwelling could not delete the Drive folder automatically. Your account will still be deleted; you can delete the Quiet Dwelling folder manually in Google Drive.',
+          )
+        }
+      }
+
+      const deleteAccount = httpsCallable<Record<string, never>, DeleteAccountResult>(
+        functions,
+        'deleteAccount',
+      )
+      await deleteAccount({})
+      await localEntryCache.clearUserData(user.uid)
+      clearLocalStorageForUser(user.uid)
+      await signOut(auth).catch(() => undefined)
+      navigate('/login', { replace: true })
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Account deletion failed.')
+    } finally {
+      setDeleteStatus('idle')
     }
   }
 
@@ -775,6 +844,33 @@ export default function SettingsPage() {
               <span className="material-symbols-outlined text-[18px]">chevron_right</span>
             </Link>
           ))}
+        </div>
+      </SettingsSection>
+
+      {/* Delete account */}
+      <SettingsSection>
+        <div className="mb-4 flex items-start gap-3">
+          <span className="material-symbols-outlined text-error text-[20px]">delete_forever</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-on-surface text-sm font-medium">Delete Account</p>
+            <p className="text-on-surface-variant/60 mt-1 text-xs leading-relaxed">
+              Permanently remove your account and clear this device. You can also delete the Quiet
+              Dwelling folder from your Google Drive during the flow.
+            </p>
+          </div>
+        </div>
+
+        {deleteError && <p className="text-error mb-3 text-xs">{deleteError}</p>}
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleDeleteAccount}
+            disabled={!user || deleteStatus === 'deleting'}
+            className="text-error hover:bg-error/10 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
+          >
+            {deleteStatus === 'deleting' ? 'Deleting...' : 'Delete account'}
+          </button>
         </div>
       </SettingsSection>
 

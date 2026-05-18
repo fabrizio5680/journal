@@ -36,19 +36,21 @@ export default function AccountDeletionPage() {
             How to request deletion of your Quiet Dwelling account.
           </h1>
           <p className="text-on-surface-variant max-w-2xl text-sm leading-7">
-            This public page supports Google Play and privacy-rights requests while the in-app
-            deletion flow is being implemented.
+            This public page supports Google Play and privacy-rights requests, and explains the
+            in-app deletion flow available from Settings.
           </p>
         </header>
 
         <div className="space-y-10">
           <Section title="In-App Deletion">
             <p>
-              An in-app deletion path is planned for Settings. When available, it will let you
-              delete your Quiet Dwelling account and choose whether the app should also try to
-              delete the Quiet Dwelling folder from your Google Drive while it still has access.
+              Open Settings and use Delete account. The in-app flow removes your Quiet Dwelling
+              account and lets you choose whether the app should also try to delete the Quiet
+              Dwelling folder from your Google Drive while it still has access.
             </p>
-            <p>Until that flow is live, use the public request path below.</p>
+            <p>
+              If you cannot sign in or the in-app flow fails, use the public request path below.
+            </p>
           </Section>
 
           <Section title="Request Deletion By Email">
@@ -74,10 +76,10 @@ export default function AccountDeletionPage() {
               and any legacy server-side entry records if present.
             </p>
             <p>
-              Local browser data on your devices is cleared by the in-app flow when it is available.
-              For an email-only deletion request, you may also need to clear site data from each
-              browser or uninstall the app to remove local IndexedDB and localStorage copies from
-              devices we cannot reach.
+              Local browser data on the current device is cleared by the in-app flow. For an
+              email-only deletion request, you may also need to clear site data from each browser or
+              uninstall the app to remove local IndexedDB and localStorage copies from devices we
+              cannot reach.
             </p>
           </Section>
 

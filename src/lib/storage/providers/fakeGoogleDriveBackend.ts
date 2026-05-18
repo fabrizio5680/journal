@@ -131,6 +131,10 @@ export class FakeGoogleDriveBackend {
     return count
   }
 
+  deleteAppFolder(): void {
+    this.clear()
+  }
+
   hasConflictBackupFor(date: string): boolean {
     return this.conflictBackups.some((b) => b.fileName.startsWith(date))
   }

@@ -367,6 +367,18 @@ export class GoogleDriveAdapter implements StorageProviderAdapter {
     return files.length
   }
 
+  async deleteAppFolder(): Promise<void> {
+    if (this.fake) {
+      this.fake.deleteAppFolder()
+      return
+    }
+
+    const connection = this.getConnection()
+    await this.driveFetch<void>(`${DRIVE_API}/files/${connection.rootFolderId}`, {
+      method: 'DELETE',
+    })
+  }
+
   private getConnection(): GoogleDriveStoredConnection {
     const connection = getStoredGoogleDriveConnection(this.userId)
     if (!connection?.rootFolderId) {

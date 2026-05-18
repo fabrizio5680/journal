@@ -179,13 +179,13 @@ because the controller's client code processes and structures the data.
 
 ### 4.1 High Severity 🔴
 
-| #   | Article      | Issue                                                 | Detail                                                                                                                                                                                                                                                                                                                                                                                              |
-| --- | ------------ | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| H1  | Art. 13      | **No privacy notice**                                 | No privacy policy exists. Login page has no link. Users not informed of: identity of controller, purposes, lawful basis, recipients (Google Firebase, user's own Google Drive), retention, rights, withdrawal of consent, right to lodge complaint with ICO.                                                                                                                                        |
-| H2  | Art. 9(1)    | **Religious data processed without explicit consent** | `scriptureRefs` (Bible references) indicates religious beliefs. Even though stored on user's own Drive, the controller's app code structures and processes this special-category data and writes it to a user-account Drive folder it controls via OAuth scope. Requires Art. 9(2)(a) explicit consent.                                                                                             |
-| H3  | Art. 9(1)    | **Mood data may constitute health data**              | Mood scale (Sorrowful, Anxious, Weary, …) plausibly classed as mental-state/health data. Same lack of Art. 9(2) basis as H2. Mood also written to the Drive manifest (a separate file) — broader exposure than entry bodies in conflict-backup scenarios.                                                                                                                                           |
-| H4  | Art. 17      | **No account deletion mechanism**                     | No UI button, no Cloud Function, no documented procedure. Soft delete is 30-day TTL on per-entry `deletedAt`, but full-account erasure (Firebase Auth user, Firestore docs, private OAuth token, Drive content on user's Drive, IndexedDB) is missing. Note the Drive content is the user's; the spec should clarify whether the app deletes the `Quiet Dwelling/` folder or leaves it to the user. |
-| H5  | Art. 5(1)(a) | **Login page claim still misleading**                 | `LoginPage.tsx:144` reads "Private & encrypted — only you can read your entries." Now mostly accurate (no third-party search index, no journal content on Quiet Dwelling servers), but Google can read content on the user's Drive — it is not end-to-end encrypted. Either reword to be precise or remove.                                                                                         |
+| #   | Article      | Issue                                                 | Detail                                                                                                                                                                                                                                                                                                      |
+| --- | ------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| H1  | Art. 13      | **No privacy notice**                                 | No privacy policy exists. Login page has no link. Users not informed of: identity of controller, purposes, lawful basis, recipients (Google Firebase, user's own Google Drive), retention, rights, withdrawal of consent, right to lodge complaint with ICO.                                                |
+| H2  | Art. 9(1)    | **Religious data processed without explicit consent** | `scriptureRefs` (Bible references) indicates religious beliefs. Even though stored on user's own Drive, the controller's app code structures and processes this special-category data and writes it to a user-account Drive folder it controls via OAuth scope. Requires Art. 9(2)(a) explicit consent.     |
+| H3  | Art. 9(1)    | **Mood data may constitute health data**              | Mood scale (Sorrowful, Anxious, Weary, …) plausibly classed as mental-state/health data. Same lack of Art. 9(2) basis as H2. Mood also written to the Drive manifest (a separate file) — broader exposure than entry bodies in conflict-backup scenarios.                                                   |
+| H4  | Art. 17      | **Account deletion mechanism implemented**            | Implemented 2026-05-17: Settings provides two-step deletion, optional `Quiet Dwelling/` Drive folder deletion, server-side deletion of Firebase Auth/Firestore/OAuth token, and current-device IndexedDB/localStorage cleanup. Residual follow-up: TASK-21 multi-device cleanup enforcement.                |
+| H5  | Art. 5(1)(a) | **Login page claim still misleading**                 | `LoginPage.tsx:144` reads "Private & encrypted — only you can read your entries." Now mostly accurate (no third-party search index, no journal content on Quiet Dwelling servers), but Google can read content on the user's Drive — it is not end-to-end encrypted. Either reword to be precise or remove. |
 
 **Resolved since previous audit**: previous H5 (Algolia DPA missing) and previous H6
 (misleading claim about Algolia) are obsolete because Algolia has been removed entirely from
@@ -290,6 +290,10 @@ controls.
 
 #### TASK-4: Account deletion (Art. 17)
 
+Status: **Implemented 2026-05-17** in `functions/src/index.ts`,
+`src/pages/SettingsPage.tsx`, `src/lib/storage/localEntryCache.ts`,
+`src/lib/storage/providers/googleDriveAdapter.ts`, and `src/pages/AccountDeletionPage.tsx`.
+
 New `deleteAccount` Cloud Function in `functions/src/index.ts` (region `europe-west2`):
 
 1. Delete `users/{uid}/private/googleDriveOAuth` (revokes refresh token via Google's revoke endpoint first).
@@ -297,8 +301,8 @@ New `deleteAccount` Cloud Function in `functions/src/index.ts` (region `europe-w
 3. Delete `users/{uid}` document.
 4. Delete the Firebase Auth user (`getAuth().deleteUser(uid)`).
 5. **Drive folder**: prompt user during deletion flow — "Also delete `Quiet Dwelling/` from your
-   Google Drive?" If yes and a valid access token can still be obtained, recursively delete the
-   root folder; otherwise instruct user how to delete manually post-revocation.
+   Google Drive?" If yes and a valid access token can still be obtained, delete the root folder;
+   otherwise instruct user how to delete manually post-revocation.
 6. Client-side after success: clear all `quiet-dwelling` IndexedDB stores for the UID and all
    `*_{uid}` localStorage keys; sign out; redirect to login.
 

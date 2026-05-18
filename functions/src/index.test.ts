@@ -4,25 +4,40 @@ const {
   mockFetch,
   mockGet,
   mockGetFirestore,
+  mockDeleteUser,
+  mockEntriesGet,
   mockPrivateDoc,
+  mockPrivateDelete,
+  mockPrivateGet,
   mockRunTransaction,
   mockTransactionSet,
   mockUserDoc,
+  mockUserDocDelete,
   mockUserDocSet,
 } = vi.hoisted(() => {
   const mockGet = vi.fn()
-  const mockPrivateDoc = { get: mockGet }
+  const mockPrivateGet = vi.fn()
+  const mockPrivateDelete = vi.fn()
+  const mockPrivateDoc = { get: mockGet, delete: mockPrivateDelete }
+  const mockEntriesGet = vi.fn()
   const mockUserDocSet = vi.fn()
+  const mockUserDocDelete = vi.fn()
   const mockUserDoc = {
     set: mockUserDocSet,
-    collection: vi.fn(() => ({
-      doc: vi.fn(() => mockPrivateDoc),
-    })),
+    delete: mockUserDocDelete,
+    collection: vi.fn((name: string) => {
+      if (name === 'entries') return { get: mockEntriesGet }
+      return {
+        doc: vi.fn(() => mockPrivateDoc),
+        get: mockPrivateGet,
+      }
+    }),
   }
   const mockTransactionSet = vi.fn()
   const mockRunTransaction = vi.fn(async (fn: (tx: { set: typeof mockTransactionSet }) => void) =>
     fn({ set: mockTransactionSet }),
   )
+  const mockDeleteUser = vi.fn()
   const mockDb = {
     collection: vi.fn(() => ({
       doc: vi.fn(() => mockUserDoc),
@@ -35,10 +50,15 @@ const {
     mockFetch: vi.fn(),
     mockGet,
     mockGetFirestore: vi.fn(() => mockDb),
+    mockDeleteUser,
+    mockEntriesGet,
     mockPrivateDoc,
+    mockPrivateDelete,
+    mockPrivateGet,
     mockRunTransaction,
     mockTransactionSet,
     mockUserDoc,
+    mockUserDocDelete,
     mockUserDocSet,
   }
 })
@@ -54,6 +74,10 @@ vi.mock('firebase-admin/firestore', () => ({
     arrayRemove: (...values: unknown[]) => ({ arrayRemove: values }),
     serverTimestamp: () => ({ serverTimestamp: true }),
   },
+}))
+
+vi.mock('firebase-admin/auth', () => ({
+  getAuth: () => ({ deleteUser: mockDeleteUser }),
 }))
 
 vi.mock('firebase-admin/messaging', () => ({
@@ -90,6 +114,7 @@ vi.stubGlobal('fetch', mockFetch)
 
 import {
   buildReminderMessage,
+  handleDeleteAccount,
   handleExchangeGoogleDriveCode,
   handleGetGoogleDriveAccessToken,
   isWithinReminderWindow,
@@ -178,6 +203,11 @@ describe('Google Drive token broker callables', () => {
     process.env.GOOGLE_CLIENT_ID = 'client-id'
     process.env.GOOGLE_CLIENT_SECRET = 'client-secret'
     mockGet.mockResolvedValue({ get: vi.fn() })
+    mockPrivateGet.mockResolvedValue({ docs: [] })
+    mockEntriesGet.mockResolvedValue({ docs: [] })
+    mockPrivateDelete.mockResolvedValue(undefined)
+    mockUserDocDelete.mockResolvedValue(undefined)
+    mockDeleteUser.mockResolvedValue(undefined)
     mockUserDocSet.mockResolvedValue(undefined)
     mockFetch.mockReset()
   })
@@ -319,5 +349,29 @@ describe('Google Drive token broker callables', () => {
       expect.objectContaining({ storageTokenStatus: 'reconnect' }),
       { merge: true },
     )
+  })
+
+  it('deletes account data, revokes the Drive refresh token, and removes the auth user', async () => {
+    const legacyDocDelete = vi.fn()
+    const privateDocDelete = vi.fn()
+    mockGet.mockResolvedValue({
+      get: (field: string) => (field === 'refreshToken' ? 'refresh-token' : null),
+    })
+    mockEntriesGet.mockResolvedValue({ docs: [{ ref: { delete: legacyDocDelete } }] })
+    mockPrivateGet.mockResolvedValue({ docs: [{ ref: { delete: privateDocDelete } }] })
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }))
+
+    const result = await handleDeleteAccount({ auth: { uid: 'uid-1' } })
+
+    expect(result).toMatchObject({ success: true, refreshTokenRevoked: true })
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://oauth2.googleapis.com/revoke',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(legacyDocDelete).toHaveBeenCalled()
+    expect(privateDocDelete).toHaveBeenCalled()
+    expect(mockPrivateDelete).toHaveBeenCalled()
+    expect(mockUserDocDelete).toHaveBeenCalled()
+    expect(mockDeleteUser).toHaveBeenCalledWith('uid-1')
   })
 })

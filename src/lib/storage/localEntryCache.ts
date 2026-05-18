@@ -261,6 +261,19 @@ class MemoryEntryCache {
       .filter((r) => r.userId === userId)
       .sort((a, b) => a.date.localeCompare(b.date))
   }
+
+  async clearUserData(userId: string): Promise<void> {
+    for (const [key, record] of this.entries) {
+      if (record.userId === userId) this.entries.delete(key)
+    }
+    for (const [key, record] of this.metadata) {
+      if (record.userId === userId) this.metadata.delete(key)
+    }
+    for (const [key, record] of this.conflicts) {
+      if (record.userId === userId) this.conflicts.delete(key)
+    }
+    this.syncStates.delete(userId)
+  }
 }
 
 class IndexedDbEntryCache {
@@ -497,6 +510,32 @@ class IndexedDbEntryCache {
     db.close()
     return records.filter((r) => r.userId === userId).sort((a, b) => a.date.localeCompare(b.date))
   }
+
+  async clearUserData(userId: string): Promise<void> {
+    const db = await openDb()
+    const tx = db.transaction(
+      [ENTRY_STORE, METADATA_STORE, SYNC_STATE_STORE, DEVICE_IDENTITY_STORE, CONFLICTS_STORE],
+      'readwrite',
+    )
+    await Promise.all([
+      deleteByUserId(tx.objectStore(ENTRY_STORE), userId),
+      deleteByUserId(tx.objectStore(METADATA_STORE), userId),
+      deleteByUserId(tx.objectStore(DEVICE_IDENTITY_STORE), userId),
+      deleteByUserId(tx.objectStore(CONFLICTS_STORE), userId),
+      requestToPromise(tx.objectStore(SYNC_STATE_STORE).delete(userId)),
+    ])
+    await txDone(tx)
+    db.close()
+  }
 }
 
 export const localEntryCache = hasIndexedDB() ? new IndexedDbEntryCache() : new MemoryEntryCache()
+
+async function deleteByUserId(store: IDBObjectStore, userId: string): Promise<void> {
+  const records = await requestToPromise<Array<{ key: string; userId: string }>>(store.getAll())
+  await Promise.all(
+    records
+      .filter((record) => record.userId === userId)
+      .map((record) => requestToPromise(store.delete(record.key))),
+  )
+}

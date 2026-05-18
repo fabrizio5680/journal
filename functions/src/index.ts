@@ -4,7 +4,8 @@ import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { defineSecret, defineString } from 'firebase-functions/params'
 import { initializeApp, getApps } from 'firebase-admin/app'
-import { getFirestore, FieldValue } from 'firebase-admin/firestore'
+import { getAuth } from 'firebase-admin/auth'
+import { getFirestore, FieldValue, type CollectionReference } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 import { format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
@@ -20,6 +21,7 @@ const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
 const GOOGLE_DRIVE_ROOT_FOLDER_NAME = 'Quiet Dwelling'
 const GOOGLE_OAUTH_REDIRECT_URI = 'postmessage'
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke'
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3'
 const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder'
 
@@ -239,6 +241,24 @@ function requireAuth(request: { auth?: { uid?: string } }) {
   return uid
 }
 
+async function revokeGoogleRefreshToken(refreshToken: string): Promise<void> {
+  const body = new URLSearchParams({ token: refreshToken })
+  const response = await fetch(GOOGLE_REVOKE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  })
+  if (!response.ok && response.status !== 400) {
+    throw new Error(`Google token revocation failed with ${response.status}`)
+  }
+}
+
+async function deleteCollectionDocs(collectionRef: CollectionReference) {
+  const snap = await collectionRef.get()
+  await Promise.all(snap.docs.map((doc) => doc.ref.delete()))
+  return snap.size
+}
+
 /** Returns true if currentHHMM falls within the 60-minute window starting at reminderHHMM. */
 export function isWithinReminderWindow(currentHHMM: string, reminderHHMM: string): boolean {
   const [rHH, rMM] = reminderHHMM.split(':').map(Number)
@@ -347,6 +367,43 @@ export function handleGetGoogleDriveAccessToken(request: { auth?: { uid?: string
 export const getGoogleDriveAccessToken = onCall(
   { region: FUNCTIONS_REGION, secrets: [GOOGLE_CLIENT_SECRET] },
   handleGetGoogleDriveAccessToken,
+)
+
+export async function handleDeleteAccount(request: { auth?: { uid?: string } }) {
+  const uid = requireAuth(request)
+  const db = getFirestore()
+  const userRef = db.collection('users').doc(uid)
+  const oauthRef = googleDriveOAuthRef(uid)
+  const oauthSnap = await oauthRef.get()
+  const refreshToken = oauthSnap.get('refreshToken') as string | undefined
+  let refreshTokenRevoked = false
+
+  if (refreshToken) {
+    try {
+      await revokeGoogleRefreshToken(refreshToken)
+      refreshTokenRevoked = true
+    } catch {
+      console.warn(`deleteAccount: refresh-token revoke failed for user ${logSafeUserId(uid)}`)
+    }
+  }
+
+  await Promise.all([
+    oauthRef.delete(),
+    deleteCollectionDocs(userRef.collection('entries')),
+    deleteCollectionDocs(userRef.collection('private')),
+  ])
+  await userRef.delete()
+  await getAuth().deleteUser(uid)
+
+  return {
+    success: true,
+    refreshTokenRevoked,
+  }
+}
+
+export const deleteAccount = onCall(
+  { region: FUNCTIONS_REGION, secrets: [GOOGLE_CLIENT_SECRET] },
+  handleDeleteAccount,
 )
 
 export const sendDailyReminders = onSchedule(

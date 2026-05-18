@@ -665,4 +665,35 @@ describe('GoogleDriveAdapter', () => {
       expect(result).toBe(0)
     })
   })
+
+  describe('deleteAppFolder', () => {
+    type WinFake = typeof window & { __fakeDriveBackend?: FakeGoogleDriveBackend }
+
+    afterEach(() => {
+      delete (window as WinFake).__fakeDriveBackend
+    })
+
+    it('clears entries and conflict backups from the fake backend', async () => {
+      const fake = new FakeGoogleDriveBackend()
+      ;(window as WinFake).__fakeDriveBackend = fake
+      fake.seed([{ date: '2026-04-13', searchText: 'to delete' }])
+      fake.saveConflictBackup(makeEntry(), '2026-04-13', 'rev-old')
+
+      await new GoogleDriveAdapter(USER_ID).deleteAppFolder()
+
+      expect(fake.listEntryMetadata()).toHaveLength(0)
+      expect(fake.getConflictBackups()).toHaveLength(0)
+    })
+
+    it('deletes the stored Quiet Dwelling root folder from Drive', async () => {
+      const fetchMock = mockFetchSequence([new Response(null, { status: 204 })])
+
+      await new GoogleDriveAdapter(USER_ID).deleteAppFolder()
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://www.googleapis.com/drive/v3/files/root-folder',
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+    })
+  })
 })
