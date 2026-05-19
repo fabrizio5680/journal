@@ -1,9 +1,9 @@
-const DB_NAME = 'quiet-dwelling'
-const DB_VERSION = 3
-const DEVICE_IDENTITY_STORE = 'deviceIdentity'
-const ENTRY_STORE = 'entries'
-const METADATA_STORE = 'metadata'
-const SYNC_STATE_STORE = 'syncState'
+import {
+  DEVICE_IDENTITY_STORE,
+  openQuietDwellingDb,
+  requestToPromise,
+  txDone,
+} from './quietDwellingDb'
 
 interface DeviceFingerprintRecord {
   key: string
@@ -26,49 +26,6 @@ const inFlight = new Map<string, Promise<DeviceFingerprint>>()
 
 function hasIndexedDB(): boolean {
   return typeof indexedDB !== 'undefined'
-}
-
-function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
-function txDone(tx: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
-    tx.onabort = () => reject(tx.error)
-  })
-}
-
-function ensureObjectStores(db: IDBDatabase, oldVersion: number) {
-  if (!db.objectStoreNames.contains(ENTRY_STORE)) {
-    const entries = db.createObjectStore(ENTRY_STORE, { keyPath: 'key' })
-    entries.createIndex('userId', 'userId')
-    entries.createIndex('date', 'date')
-  }
-  if (!db.objectStoreNames.contains(METADATA_STORE)) {
-    const metadata = db.createObjectStore(METADATA_STORE, { keyPath: 'key' })
-    metadata.createIndex('userId', 'userId')
-    metadata.createIndex('date', 'date')
-  }
-  if (oldVersion < 2 && !db.objectStoreNames.contains(SYNC_STATE_STORE)) {
-    db.createObjectStore(SYNC_STATE_STORE, { keyPath: 'userId' })
-  }
-  if (!db.objectStoreNames.contains(DEVICE_IDENTITY_STORE)) {
-    const deviceIdentity = db.createObjectStore(DEVICE_IDENTITY_STORE, { keyPath: 'key' })
-    deviceIdentity.createIndex('userId', 'userId')
-  }
-}
-
-async function openDb(): Promise<IDBDatabase> {
-  const request = indexedDB.open(DB_NAME, DB_VERSION)
-  request.onupgradeneeded = (event) => {
-    ensureObjectStores(request.result, event.oldVersion)
-  }
-  return requestToPromise(request)
 }
 
 function bytesToHex(bytes: Uint8Array): string {
@@ -156,7 +113,7 @@ async function buildRecord(
 }
 
 async function readIndexedRecord(key: string): Promise<DeviceFingerprintRecord | null> {
-  const db = await openDb()
+  const db = await openQuietDwellingDb()
   const tx = db.transaction(DEVICE_IDENTITY_STORE, 'readonly')
   const record = await requestToPromise<DeviceFingerprintRecord | undefined>(
     tx.objectStore(DEVICE_IDENTITY_STORE).get(key),
@@ -168,7 +125,7 @@ async function readIndexedRecord(key: string): Promise<DeviceFingerprintRecord |
 async function saveNewIndexedRecord(
   record: DeviceFingerprintRecord,
 ): Promise<DeviceFingerprintRecord> {
-  const db = await openDb()
+  const db = await openQuietDwellingDb()
   const tx = db.transaction(DEVICE_IDENTITY_STORE, 'readwrite')
   try {
     tx.objectStore(DEVICE_IDENTITY_STORE).add(record)
@@ -187,7 +144,7 @@ async function saveNewIndexedRecord(
 async function updateIndexedRecord(
   record: DeviceFingerprintRecord,
 ): Promise<DeviceFingerprintRecord> {
-  const db = await openDb()
+  const db = await openQuietDwellingDb()
   const tx = db.transaction(DEVICE_IDENTITY_STORE, 'readwrite')
   tx.objectStore(DEVICE_IDENTITY_STORE).put(record)
   await txDone(tx)

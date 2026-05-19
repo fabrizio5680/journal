@@ -68,6 +68,8 @@ src/components/search/    local-first search UI
 src/context/              save status, focus mode, preferences, editor controls
 src/hooks/                entry, search, insights, dictation, sync hooks
 src/lib/storage/          repository, cache, Drive sync, merge, delta polling
+                          (all IndexedDB access goes through
+                          `quietDwellingDb.ts`)
 functions/src/index.ts    reminders and Google Drive token broker
 docs/                     durable architecture, data model, design, testing notes
 e2e/                      Playwright specs

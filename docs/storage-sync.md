@@ -25,6 +25,21 @@ Current files use `schemaVersion: 1` and `app: "quiet-dwelling"`.
 moodLabel, tags, wordCount, providerFileId }`. This compact subset of full entry
 metadata is stored in the Drive manifest.
 
+## IndexedDB Module
+
+`src/lib/storage/quietDwellingDb.ts` is the single source of truth for the
+browser IndexedDB database. It owns `DB_NAME` (`quiet-dwelling`), `DB_VERSION`,
+the store-name constants (`ENTRY_STORE`, `METADATA_STORE`, `SYNC_STATE_STORE`,
+`DEVICE_IDENTITY_STORE`, `CONFLICTS_STORE`), the `onupgradeneeded` migration
+chain, and the `requestToPromise` / `txDone` helpers.
+
+- Any new IDB consumer in `src/lib/storage/` must import
+  `openQuietDwellingDb` from this module rather than calling
+  `indexedDB.open` directly. Multiple openers with different versions raise
+  `VersionError`.
+- Bumping `DB_VERSION` requires adding a guarded migration block in the same
+  module, alongside the existing version steps.
+
 ## Repository Guards
 
 - Empty entries, meaning no mood, tags, scripture, or words, stay local and are
